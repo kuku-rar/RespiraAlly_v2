@@ -1,0 +1,71 @@
+[tool.poetry]
+name = "respira-ally"
+version = "2.0.0"
+description = "RespiraAlly V2.0 - COPD Patient Healthcare Platform Backend"
+authors = ["RespiraAlly Team <team@respirally.com>"]
+license = "MIT"
+readme = "README.md"
+packages = [{include = "respira_ally", from = "src"}]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+fastapi = "^0.109.0"
+uvicorn = {extras = ["standard"], version = "^0.27.0"}
+sqlalchemy = "^2.0.25"
+alembic = "^1.13.1"
+pydantic = {extras = ["email"], version = "^2.5.3"}
+pydantic-settings = "^2.1.0"
+python-jose = {extras = ["cryptography"], version = "^3.3.0"}
+passlib = {extras = ["bcrypt"], version = "^1.7.4"}
+python-multipart = "^0.0.6"
+asyncpg = "^0.29.0"
+redis = {extras = ["hiredis"], version = "^5.0.1"}
+aio-pika = "^9.3.1"
+httpx = "^0.26.0"
+pymongo = {extras = ["srv"], version = "^4.6.1"}
+pgvector = "^0.2.4"
+openai = "^1.10.0"
+langchain = "^0.1.4"
+websockets = "^12.0"
+python-dotenv = "^1.0.0"
+structlog = "^24.1.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.4.4"
+pytest-asyncio = "^0.23.3"
+pytest-cov = "^4.1.0"
+httpx-mock = "^0.12.1"
+black = "^23.12.1"
+ruff = "^0.1.11"
+mypy = "^1.8.0"
+pre-commit = "^3.6.0"
+
+[tool.black]
+line-length = 100
+target-version = ['py311']
+include = '\.pyi?$'
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+select = ["E", "F", "I", "N", "W", "B", "C4", "UP"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --cov=src --cov-report=term-missing --cov-report=html"
+asyncio_mode = "auto"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

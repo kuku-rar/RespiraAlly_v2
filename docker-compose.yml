@@ -1,0 +1,163 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database with pgvector extension
+  postgres:
+    image: pgvector/pgvector:pg15
+    container_name: respirally-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-respirally}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-respirally_dev}
+      POSTGRES_DB: ${POSTGRES_DB:-respirally_db}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-respirally}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - respirally-network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: respirally-redis
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - respirally-network
+
+  # RabbitMQ Message Broker
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: respirally-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-guest}
+    ports:
+      - "${RABBITMQ_PORT:-5672}:5672"
+      - "15672:15672"  # Management UI
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - respirally-network
+
+  # MongoDB (for event logs)
+  mongodb:
+    image: mongo:7
+    container_name: respirally-mongodb
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGODB_USER:-respirally}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGODB_PASSWORD:-respirally_dev}
+    ports:
+      - "${MONGODB_PORT:-27017}:27017"
+    volumes:
+      - mongodb_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - respirally-network
+
+  # Backend API (FastAPI)
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: respirally-backend
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-respirally}:${POSTGRES_PASSWORD:-respirally_dev}@postgres:5432/${POSTGRES_DB:-respirally_db}
+      - REDIS_HOST=redis
+      - RABBITMQ_HOST=rabbitmq
+      - MONGODB_URL=mongodb://${MONGODB_USER:-respirally}:${MONGODB_PASSWORD:-respirally_dev}@mongodb:27017
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+    command: uvicorn respira_ally.main:app --host 0.0.0.0 --port 8000 --reload
+    networks:
+      - respirally-network
+    profiles:
+      - full  # Only start with --profile full
+
+  # Dashboard (Next.js)
+  dashboard:
+    build:
+      context: ./frontend/dashboard
+      dockerfile: Dockerfile
+    container_name: respirally-dashboard
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend/dashboard:/app
+      - /app/node_modules
+      - /app/.next
+    depends_on:
+      - backend
+    command: npm run dev
+    networks:
+      - respirally-network
+    profiles:
+      - full  # Only start with --profile full
+
+  # LIFF App (Vite + React)
+  liff:
+    build:
+      context: ./frontend/liff
+      dockerfile: Dockerfile
+    container_name: respirally-liff
+    environment:
+      - VITE_API_BASE_URL=http://localhost:8000
+      - VITE_LIFF_ID=${LINE_LIFF_ID}
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend/liff:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+    command: npm run dev
+    networks:
+      - respirally-network
+    profiles:
+      - full  # Only start with --profile full
+
+volumes:
+  postgres_data:
+  redis_data:
+  rabbitmq_data:
+  mongodb_data:
+
+networks:
+  respirally-network:
+    driver: bridge

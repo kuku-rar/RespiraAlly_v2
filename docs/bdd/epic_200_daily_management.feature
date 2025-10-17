@@ -1,6 +1,6 @@
 # Feature: EP-200 日常健康管理
 # 目的: 讓病患可以方便地記錄每日健康狀況，並獲得回饋。
-# 對應 PRD: [Link to ../product_requirements_document.md#史詩-ep-200-日常健康管理]
+# 對應 PRD: [Link to ../02_product_requirements_document.md#ep-200-日常健康管理]
 
 @patient @daily-log @sprint-2
 Feature: Daily Health Management

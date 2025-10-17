@@ -3,7 +3,7 @@
 ---
 
 **文件版本 (Document Version):** `v1.0`
-**最後更新 (Last Updated):** `2025-10-16`
+**最後更新 (Last Updated):** `2025-10-17`
 **主要作者 (Lead Author):** `Claude Code AI`
 **狀態 (Status):** `活躍 (Active)`
 
@@ -47,11 +47,11 @@ Gherkin 是編寫 BDD 情境的語言。一個 `.feature` 檔案通常包含以�
 
 ## Ⅲ. RespiraAlly BDD 檔案
 
-以下是本專案目前已定義的 BDD Feature 檔案列表：
+以下是本專案目前已定義的 BDD Feature 檔案列表，這些情境直接對應到 [產品需求文件](../02_product_requirements_document.md) 中的使用者故事。
 
-*   **[史詩 EP-100: 病患註冊與認證](./epic_100_authentication.feature)**
-*   **[史詩 EP-200: 日常健康管理](./epic_200_daily_management.feature)**
-*   **[史詩 EP-300: AI 語音互動](./epic_300_ai_interaction.feature)**
+*   **[EP-100: 病患註冊與認證](./epic_100_authentication.feature)**
+*   **[EP-200: 日常健康管理](./epic_200_daily_management.feature)**
+*   **[EP-300: AI 語音互動](./epic_300_ai_interaction.feature)**
 
 ---
 

@@ -1,6 +1,6 @@
 # Feature: EP-100 病患註冊與認證
 # 目的: 為病患與治療師提供安全可靠的身份驗證機制。
-# 對應 PRD: [Link to ../product_requirements_document.md#史詩-ep-100-病患註冊與認證]
+# 對應 PRD: [Link to ../02_product_requirements_document.md#ep-100-病患註冊與認證]
 
 @patient @auth
 Feature: Patient Registration and Authentication

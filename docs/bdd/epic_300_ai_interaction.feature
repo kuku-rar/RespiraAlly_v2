@@ -1,6 +1,6 @@
 # Feature: EP-300 AI 語音互動
 # 目的: 讓病患可以透過語音方便地詢問健康問題，並獲得基於知識庫的 AI 回覆。
-# 對應 PRD: [Link to ../product_requirements_document.md#史詩-ep-300-ai-語音互動]
+# 對應 PRD: [Link to ../02_product_requirements_document.md#ep-300-ai-語音互動]
 
 @patient @ai @voice @sprint-6
 Feature: AI Voice Interaction
