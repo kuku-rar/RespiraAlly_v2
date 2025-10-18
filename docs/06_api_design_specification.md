@@ -3,18 +3,37 @@
 ---
 
 **文件版本:** `v1.0.0`
-**最後更新:** `2025-10-16`
+**最後更新:** `2025-10-18`
 **主要作者:** `Claude Code AI`
 **狀態:** `草稿 (Draft)`
-**相關架構文件:** `[./architecture_and_design.md]`
-**OpenAPI 定義文件:** `(待建立)`
+
+**相關文檔:**
+- **系統架構:** [./05_architecture_and_design.md](./05_architecture_and_design.md) - 整體架構設計
+- **資料庫設計:** [./DATABASE_SCHEMA_DESIGN.md](./DATABASE_SCHEMA_DESIGN.md) - 資料庫結構與設計
+- **前端架構:** [./12_frontend_architecture_specification.md](./12_frontend_architecture_specification.md) - 前端技術棧與規範
+- **前端信息架構:** [./17_frontend_information_architecture_template.md](./17_frontend_information_architecture_template.md) - 前端頁面結構與路由
+- **OpenAPI 定義文件:** `(待建立)`
 
 ---
 
 ## 1. 引言 (Introduction)
 
 ### 1.1 目的
-為 `RespiraAlly V2.0` 的後端微服務提供統一、明確、易於遵循的 API 接口契約，確保前端、後端與跨服務間的高效協作。
+為 `RespiraAlly V2.0` 的**後端服務**提供統一、明確、易於遵循的 **API 接口契約**，定義後端 FastAPI 應用的所有 HTTP/WebSocket 端點、請求/回應格式、認證授權機制、錯誤處理策略,確保前端與後端間的高效協作。
+
+**本文檔專注於後端服務責任:**
+- ✅ 後端 API 端點設計 (RESTful API、WebSocket)
+- ✅ 請求/回應數據模型 (Pydantic Schemas)
+- ✅ 認證授權機制 (JWT、RBAC)
+- ✅ 錯誤處理與狀態碼
+- ✅ 後端性能要求 (P95 < 500ms)
+
+**本文檔不包含:**
+- ❌ 前端 UI/UX 設計 (參考前端架構文件)
+- ❌ 前端頁面路由 (參考 17_frontend_information_architecture_template.md)
+- ❌ 前端狀態管理 (參考 12_frontend_architecture_specification.md)
+
+**架構說明**: 基於 [ARCHITECTURE_REVIEW.md](./ARCHITECTURE_REVIEW.md) 的建議，**MVP 階段 (Phase 0-2) 採用 Modular Monolith 架構**，所有業務模組（auth, patients, daily_logs, voice 等）運行在同一個 FastAPI 應用實例中。Phase 3 後可根據實際需求拆分為微服務。
 
 ### 1.2 快速入門
 *   **第 1 步: 獲取 Access Token**
@@ -155,6 +174,43 @@
 *   **授權:** `therapist` 角色，且為該病患的負責人。
 *   **成功回應 (200 OK):** `Patient360`
 
+#### `GET /patients/{patient_id}/kpis` (查詢病患 KPI)
+*   **描述:** 查詢病患的 KPI 快取資料 (依從率、健康指標、最新問卷等)。
+*   **授權:** `patient` (自己) 或 `therapist` (負責該病患)。
+*   **查詢參數:**
+    *   `refresh` (可選): 若為 `true`,先刷新 KPI 快取再返回
+*   **成功回應 (200 OK):** `PatientKPI`
+*   **性能要求:** < 50ms (直接查詢 patient_kpi_cache 表)
+
+#### `GET /patients/{patient_id}/health-timeline` (查詢健康時間序列)
+*   **描述:** 查詢病患的每日健康數據時間序列 (用於前端折線圖)。
+*   **授權:** `patient` (自己) 或 `therapist` (負責該病患)。
+*   **查詢參數:**
+    *   `days` (可選): 返回近 N 天數據,預設 30,最大 90
+    *   `include_ma` (可選): 是否包含移動平均線,預設 true
+*   **成功回應 (200 OK):** `List[TrendPoint]`
+*   **性能要求:** < 300ms (查詢 patient_health_timeline 視圖)
+
+#### `GET /patients/{patient_id}/survey-trends` (查詢問卷趨勢)
+*   **描述:** 查詢病患的 CAT/mMRC 問卷歷史趨勢。
+*   **授權:** `patient` (自己) 或 `therapist` (負責該病患)。
+*   **查詢參數:**
+    *   `survey_type` (可選): 篩選問卷類型 ("CAT" 或 "mMRC"),不提供則返回所有
+    *   `limit` (可選): 最多返回 N 筆,預設 10
+*   **成功回應 (200 OK):** `List[SurveyTrend]`
+
+#### `POST /patients/{patient_id}/kpis/refresh` (刷新病患 KPI 快取)
+*   **描述:** 手動觸發 KPI 快取刷新 (調用 `refresh_patient_kpi_cache` 存儲過程)。
+*   **授權:** `therapist` 角色。
+*   **成功回應 (200 OK):**
+    ```json
+    {
+      "message": "KPI cache refreshed successfully",
+      "patient_id": "patient-uuid",
+      "refreshed_at": "2025-10-18T10:30:00Z"
+    }
+    ```
+
 ### 6.4 資源：語音 (Voice)
 
 *   **資源路徑:** `/voice`
@@ -184,8 +240,21 @@
 class PatientCreate(BaseModel):
     line_user_id: str
     name: str
-    gender: Literal["male", "female", "other"]
+    gender: Literal["MALE", "FEMALE", "OTHER"]
     birth_date: date
+
+    # 醫院整合資訊
+    hospital_medical_record_number: Optional[str] = None
+
+    # 體徵數據
+    height_cm: Optional[conint(ge=50, le=250)] = None
+    weight_kg: Optional[confloat(ge=20.0, le=300.0)] = None
+
+    # 吸菸史
+    smoking_status: Optional[Literal["NEVER", "FORMER", "CURRENT"]] = None
+    smoking_years: Optional[conint(ge=0, le=100)] = None
+
+    # 聯絡資訊
     phone: Optional[str] = None
 ```
 
@@ -198,20 +267,59 @@ class DailyLogCreate(BaseModel):
     cigarette_count: conint(ge=0)
 ```
 
-### 7.3 `Patient360`
+### 7.3 `PatientKPI`
 ```python
-class KPI(BaseModel):
-    cat_score: Optional[int]
-    mmrc_score: Optional[int]
-    adherence_rate_7d: float
-    risk_score: int
+class PatientKPI(BaseModel):
+    """病患 KPI 快取資料 - 從 patient_kpi_cache 表查詢"""
+    total_logs_count: int
+    first_log_date: Optional[date]
+    last_log_date: Optional[date]
+
+    # 依從率
+    adherence_rate_7d: Optional[int]  # 百分比 0-100
+    adherence_rate_30d: Optional[int]
+
+    # 健康指標
+    avg_water_intake_7d: Optional[int]
+    avg_water_intake_30d: Optional[int]
+    avg_steps_7d: Optional[int]
+    avg_steps_30d: Optional[int]
+
+    # 最新問卷
+    latest_cat_score: Optional[int]
+    latest_cat_date: Optional[date]
+    latest_mmrc_score: Optional[int]
+    latest_mmrc_date: Optional[date]
+
+    # 最新風險
+    latest_risk_score: Optional[int]
+    latest_risk_level: Optional[Literal["LOW", "MEDIUM", "HIGH"]]
+    latest_risk_date: Optional[date]
+
+    # 症狀統計
+    symptom_occurrences_30d: int
+
+    last_calculated_at: datetime
 
 class TrendPoint(BaseModel):
-    date: date
-    value: float
+    log_date: date
+    medication_taken: Optional[bool]
+    water_intake_ml: Optional[int]
+    steps_count: Optional[int]
+    water_intake_7d_ma: Optional[float]  # 移動平均
+    steps_7d_ma: Optional[float]
+
+class SurveyTrend(BaseModel):
+    survey_type: str
+    submitted_at: datetime
+    total_score: int
+    severity_level: str
+    score_change: Optional[int]  # 與上次的差異
+    score_change_from_baseline: Optional[int]  # 與首次的差異
 
 class Patient360(Patient): # 繼承自基礎 Patient 模型
-    kpis: KPI
-    trends: Dict[str, List[TrendPoint]]
+    kpis: PatientKPI
+    health_timeline: List[TrendPoint]  # 近 30 日每日數據
+    survey_trends: List[SurveyTrend]   # 問卷歷史
     event_timeline: List[Event]
 ```

@@ -81,9 +81,11 @@ C4Context
 
 ### 2.2 Level 2: 容器圖 (Container Diagram)
 
+**🎯 MVP 策略變更說明**: 基於 [架構審視報告](./ARCHITECTURE_REVIEW.md) 的建議，**MVP 階段採用 Modular Monolith** 而非微服務架構，以降低複雜度、加速交付並便於除錯。未來可根據實際業務需求逐步拆分為微服務。
+
 ```mermaid
 C4Container
-    title RespiraAlly 容器圖
+    title RespiraAlly 容器圖 (Modular Monolith - MVP)
 
     Person(patient, "病患", "COPD 患者")
     Person(therapist, "治療師", "呼吸治療師")
@@ -95,58 +97,64 @@ C4Container
     System_Boundary(browser, "Browser") {
         Container(dashboard_spa, "Dashboard SPA", "React, Next.js", "治療師管理介面")
     }
-    
+
     System_Boundary(respira_backend, "RespiraAlly Backend (on Zeabur)") {
-        Container(api_gateway, "API Gateway", "FastAPI", "統一入口, 認證, 路由")
-        
-        Container(auth_svc, "認證服務", "FastAPI", "JWT, LINE OAuth, RBAC")
-        Container(patient_svc, "個案服務", "FastAPI", "病患 CRUD, 360° 檔案")
-        Container(log_svc, "日誌服務", "FastAPI", "日誌/問卷提交, 依從率")
-        Container(risk_svc, "風險引擎", "FastAPI", "風險評分, 異常預警")
-        Container(rag_svc, "RAG 服務", "FastAPI", "向量檢索, 衛教管理")
-        Container(notify_svc, "通知服務", "FastAPI", "排程, 推播")
+        Container(main_app, "主應用服務", "FastAPI (Modular Monolith)", "包含所有業務模組:<br/>- auth (認證授權)<br/>- patients (個案管理)<br/>- daily_logs (日誌服務)<br/>- risk_engine (風險引擎)<br/>- rag (知識檢索)<br/>- notifications (通知排程)")
 
-        Container(ai_worker, "AI Worker", "Python", "STT, LLM, TTS 任務處理")
+        Container(ai_worker, "AI Worker", "Python (可選)", "STT, LLM, TTS 任務處理<br/>(Phase 2 引入)")
 
-        ContainerDb(postgres_db, "PostgreSQL", "pgvector", "儲存結構化資料與向量")
-        ContainerDb(mongo_db, "MongoDB", " ", "儲存事件與非結構化日誌")
-        ContainerDb(redis, "Redis", " ", "快取, 會話, 任務鎖")
-        ContainerDb(minio, "MinIO", " ", "儲存音檔等檔案")
-        Container(rabbitmq, "RabbitMQ", " ", "異步任務訊息佇列")
+        ContainerDb(postgres_db, "PostgreSQL 15+", "含 pgvector 擴展", "- 結構化資料<br/>- 向量資料<br/>- 事件日誌 (JSONB)")
+        ContainerDb(redis, "Redis 7+", "Cache & Session", "- 會話存儲<br/>- 快取層<br/>- 分散式鎖")
+        ContainerDb(minio, "MinIO", "Object Storage", "音檔存儲<br/>(Phase 2 引入)")
+        Container(rabbitmq, "RabbitMQ", "Message Queue (可選)", "AI 異步任務<br/>(Phase 2 引入)")
     }
+
+    System_Ext(line_platform, "LINE Platform", "OAuth, Messaging API")
+    System_Ext(openai_api, "OpenAI API", "GPT-4, Whisper, TTS")
 
     Rel(patient, line_app, "使用")
     Rel(therapist, dashboard_spa, "使用")
-    
-    Rel(line_app, api_gateway, "API 呼叫", "HTTPS/REST")
-    Rel(dashboard_spa, api_gateway, "API 呼叫", "HTTPS/REST")
 
-    Rel(api_gateway, auth_svc, "認證")
-    Rel(api_gateway, patient_svc, "個案管理")
-    Rel(api_gateway, log_svc, "日誌/問卷")
-    
-    Rel(log_svc, risk_svc, "觸發計算")
-    Rel(api_gateway, rag_svc, "知識檢索")
-    Rel(api_gateway, notify_svc, "發送通知")
+    Rel(line_app, main_app, "API 呼叫", "HTTPS/REST")
+    Rel(dashboard_spa, main_app, "API 呼叫", "HTTPS/REST")
 
-    Rel(auth_svc, redis, "讀寫會話")
-    Rel(patient_svc, postgres_db, "讀寫")
-    Rel(log_svc, postgres_db, "讀寫")
-    Rel(risk_svc, postgres_db, "讀寫")
-    Rel(risk_svc, mongo_db, "讀取事件")
-    Rel(rag_svc, postgres_db, "讀寫向量")
-    
-    Rel(api_gateway, rabbitmq, "發布語音任務")
+    Rel(main_app, postgres_db, "讀寫", "SQLAlchemy ORM")
+    Rel(main_app, redis, "讀寫", "Redis Client")
+
+    Rel(main_app, rabbitmq, "發布任務", "Pika")
     Rel(rabbitmq, ai_worker, "消費任務")
+    Rel(ai_worker, postgres_db, "讀寫")
     Rel(ai_worker, minio, "讀寫音檔")
+    Rel(ai_worker, openai_api, "調用 API")
+
+    Rel(main_app, line_platform, "OAuth & Push", "HTTPS")
+    Rel(main_app, openai_api, "Embedding API", "HTTPS")
 ```
 
 **容器職責與技術選型理由**:
-- **API Gateway (FastAPI)**: 使用 FastAPI 作為統一入口，可利用其 Middleware 實現認證、日誌等橫切關注點，並簡化前端路由。
-- **微服務 (FastAPI)**: 按照業務邊界拆分服務，便於獨立開發、部署與擴展。FastAPI 的異步特性與 Pydantic 型別檢查能提升開發效率與系統性能。
-- **PostgreSQL + pgvector**: 選擇成熟的 PostgreSQL 處理關聯性資料，並利用 pgvector 擴充套件，在 MVP 階段將向量儲存與結構化資料放在一起，簡化架構。
-- **MongoDB**: 用於儲存半結構化的事件日誌，其靈活的 Schema 有利於快速迭代與擴展。
-- **RabbitMQ**: 選擇成熟可靠的 RabbitMQ 處理 AI 語音等耗時的異步任務，解耦主服務與背景 Worker。
+
+| 容器 | 技術選型 | 核心職責 | 選型理由 |
+|------|----------|----------|----------|
+| **主應用服務 (Modular Monolith)** | FastAPI | - 統一 API 入口<br/>- 認證授權 (JWT, LINE OAuth)<br/>- 所有業務邏輯 (患者、日誌、風險、RAG、通知) | - **簡化架構**: 單一 Process，避免分散式事務<br/>- **加速開發**: 直接函數調用，無需 RPC<br/>- **易於除錯**: 統一日誌、單一部署單元<br/>- **保留演進性**: 模組邊界清晰，未來可拆分 |
+| **AI Worker** | Python | - 語音轉文字 (STT)<br/>- LLM 推理<br/>- 文字轉語音 (TTS) | - **Phase 2 引入**: Phase 0/1 暫不實作<br/>- **異步處理**: 避免阻塞主服務<br/>- **可選 RabbitMQ**: 初期可用 Celery + Redis 替代 |
+| **PostgreSQL** | PostgreSQL 15 + pgvector | - 所有結構化資料<br/>- 向量資料 (衛教知識庫)<br/>- 事件日誌 (JSONB 欄位) | - **單一數據源**: 移除 MongoDB，簡化技術棧<br/>- **JSONB 強大**: 支援靈活 Schema，可替代 MongoDB<br/>- **pgvector 足夠**: MVP 階段向量量 < 10萬，性能足夠 |
+| **Redis** | Redis 7 | - 會話存儲 (JWT Refresh Token)<br/>- 熱點數據快取<br/>- 分散式鎖 (登入失敗計數) | - **高性能**: 毫秒級讀寫<br/>- **豐富數據結構**: String, Hash, Set, ZSet<br/>- **持久化支援**: AOF + RDB |
+| **RabbitMQ** | RabbitMQ 3 | - AI 語音任務佇列 | - **可選元件**: Phase 0/1 不引入<br/>- **備選方案**: Celery + Redis 或同步 API |
+
+**🔄 演進路徑**:
+```
+Phase 0/1 (Week 1-8):
+  └── Modular Monolith (FastAPI) + PostgreSQL + Redis
+
+Phase 2 (Week 9-12):
+  └── 新增 AI Worker + (可選) RabbitMQ
+
+Phase 3+ (未來):
+  └── 根據瓶頸逐步拆分微服務
+      ├── 候選 1: AI Worker → 獨立微服務
+      ├── 候選 2: RAG Service → 獨立微服務 (若查詢量 > 1000 QPS)
+      └── 候選 3: Notification Service → 獨立微服務 (若推播量過大)
+```
 
 ### 2.3 Level 3: 組件圖 (Component Diagram) - 以日誌服務為例
 
@@ -267,19 +275,32 @@ graph TD
 
 本章節詳述 RespiraAlly V2.0 的數據架構，包含核心數據模型、關鍵數據流、一致性策略以及數據生命週期管理，確保數據的完整性、可用性與合規性。
 
+**📄 完整資料庫設計文檔**: 詳細的表結構、索引、約束、觸發器、存儲過程、視圖設計請參閱:
+- **[Database Schema Design v1.0](./database/schema_design_v1.0.md)** - 實作層級完整設計
+
 ### 5.1 核心實體關係圖 (Core Entity-Relationship Diagram)
 
+以下 ER 圖提供系統核心數據模型的概覽。詳細的表定義、欄位約束、索引策略請參閱上述完整設計文檔。
+
 以下 ER 圖展示了系統中核心業務實體及其關係，這些實體主要儲存在 PostgreSQL 資料庫中。
+
+**🔄 重要變更** (基於架構審視報告):
+- ✅ **優化 USERS 表繼承模式** - `PATIENT_PROFILES` 與 `THERAPIST_PROFILES` 直接使用 `user_id` 作為 PK
+- ✅ **新增 `EVENT_LOGS` 表** - 使用 PostgreSQL JSONB 替代 MongoDB
+- ✅ **新增 `PATIENT_KPI_CACHE` 表** - 反正規化加速查詢
+- ✅ **新增 `NOTIFICATION_HISTORY` 表** - 追蹤通知狀態
 
 ```mermaid
 erDiagram
     USERS {
-        string user_id PK
-        string line_user_id UK "LINE User ID"
-        string email UK "Therapist Email"
-        string hashed_password
-        string role "PATIENT or THERAPIST"
-        datetime created_at
+        uuid user_id PK
+        string line_user_id UK "Nullable for PATIENT"
+        string email UK "Nullable for THERAPIST"
+        string hashed_password "Nullable for LINE OAuth"
+        enum role "PATIENT or THERAPIST"
+        timestamp created_at
+        timestamp updated_at
+        timestamp deleted_at "Soft delete"
     }
 
     PATIENTS {
@@ -287,7 +308,13 @@ erDiagram
         string therapist_id FK "Assigned Therapist"
         string name "Patient Name"
         date birth_date
-        jsonb profile_details "Other demographics"
+        string hospital_medical_record_number "病歷號"
+        integer height_cm "身高 cm"
+        decimal weight_kg "體重 kg"
+        enum smoking_status "NEVER, FORMER, CURRENT"
+        integer smoking_years "吸菸年數"
+        jsonb medical_history "COPD stage, comorbidities"
+        jsonb contact_info "Phone, address"
     }
 
     THERAPISTS {
@@ -374,12 +401,12 @@ flowchart LR
     APIGateway -->|2. 請求轉發| LogService[日誌服務]
     LogService -->|3. 寫入 強一致| Postgres((PostgreSQL))
     LogService -->|4. 發布事件| RabbitMQ[RabbitMQ<br/>daily_log.submitted]
-    
+
     RabbitMQ -->|5. 訂閱| RiskEngine[風險引擎]
     RiskEngine -->|6. 讀取近期數據| Postgres
     RiskEngine -->|7. 更新分數| Postgres
     RiskEngine -->|8. 若有異常, 發布事件| RabbitMQ[alert.triggered]
-    
+
     RabbitMQ -->|9. 訂閱| NotificationService[通知服務]
     NotificationService -->|10. 推播給治療師| LINE[LINE Platform]
 
@@ -387,7 +414,131 @@ flowchart LR
     style RabbitMQ fill:#ccccff
 ```
 
-### 5.3 數據一致性策略 (Data Consistency Strategy)
+### 5.3 KPI 快取層與資料視圖設計 (KPI Cache & Data Views)
+
+**設計目標**: 為前端數據視覺化提供高效能 (<50ms) 的 KPI 查詢能力,同時保持數據的即時性與一致性。
+
+**📄 詳細設計文檔**: 完整的 KPI 快取表、視圖、觸發器、存儲過程設計請參閱:
+- **[Database Schema Design - Section 4.5](./database/schema_design_v1.0.md#45-patient_kpi_cache-kpi-快取表)** - KPI 快取層實作細節
+
+#### 5.3.1 兩層式架構設計
+
+```mermaid
+graph TD
+    subgraph "即時寫入層"
+        DailyLogs[Daily Logs]
+        Surveys[Survey Responses]
+        Risks[Risk Scores]
+    end
+
+    subgraph "快取層 (Cache Layer)"
+        KPICache[patient_kpi_cache<br/>預聚合統計<br/>查詢 < 50ms]
+    end
+
+    subgraph "視圖層 (View Layer)"
+        KPIWindows[patient_kpi_windows<br/>動態時間窗口 KPI<br/>7/30/90天]
+        HealthTimeline[patient_health_timeline<br/>每日時間序列<br/>含移動平均]
+        SurveyTrends[patient_survey_trends<br/>問卷趨勢<br/>含分數變化]
+        HealthSummary[patient_health_summary<br/>病患健康摘要<br/>含 BMI 計算]
+    end
+
+    DailyLogs -->|觸發器自動更新| KPICache
+    Surveys -->|觸發器自動更新| KPICache
+    Risks -->|觸發器自動更新| KPICache
+
+    DailyLogs -.->|Window Functions| KPIWindows
+    DailyLogs -.->|Window Functions| HealthTimeline
+    Surveys -.->|Window Functions| SurveyTrends
+
+    KPICache -->|API查詢| Frontend[前端 Dashboard]
+    KPIWindows -->|API查詢| Frontend
+    HealthTimeline -->|API查詢| Frontend
+    SurveyTrends -->|API查詢| Frontend
+    HealthSummary -->|API查詢| Frontend
+
+    style KPICache fill:#ffcccc
+    style KPIWindows fill:#ccffcc
+    style HealthTimeline fill:#ccffcc
+    style SurveyTrends fill:#ccffcc
+    style HealthSummary fill:#ccffcc
+```
+
+#### 5.3.2 `patient_kpi_cache` 表設計
+
+**用途**: 預聚合的病患 KPI 統計,支持 <50ms 快速查詢。
+
+**核心欄位**:
+- 基礎統計: `total_logs_count`, `first_log_date`, `last_log_date`
+- 依從率: `adherence_rate_7d`, `adherence_rate_30d`
+- 健康指標: `avg_water_intake_7d`, `avg_steps_7d/30d`
+- 最新問卷: `latest_cat_score`, `latest_cat_date`, `latest_mmrc_score`
+- 最新風險: `latest_risk_score`, `latest_risk_level`, `latest_risk_date`
+- 症狀統計: `symptom_occurrences_30d`
+
+**更新機制**:
+1. **觸發器自動更新** (即時):
+   - `update_patient_kpi_on_log_insert()` - 新增日誌時更新基礎統計
+   - `update_patient_kpi_on_survey_insert()` - 新增問卷時更新最新分數
+   - `update_patient_kpi_on_risk_insert()` - 新增風險評分時更新風險數據
+
+2. **定期刷新** (按需):
+   - `refresh_patient_kpi_cache(patient_id)` - 刷新所有計算型 KPI
+   - 建議: 使用 pg_cron 每小時執行,或在病患查詢 Dashboard 時按需調用
+
+#### 5.3.3 資料視圖設計
+
+**1. patient_kpi_windows (動態時間窗口 KPI)**
+- **用途**: 支持 7/30/90 天窗口的 KPI 對比分析
+- **關鍵特性**: 使用 FILTER WHERE 子句實現多時間窗口聚合
+- **查詢性能**: ~200ms (依賴底層日誌表索引)
+
+**2. patient_health_timeline (每日時間序列)**
+- **用途**: 前端折線圖數據源
+- **關鍵特性**:
+  - 7 天移動平均 (平滑曲線)
+  - 累積統計 (累積趨勢圖)
+  - Window Functions 計算
+
+**3. patient_survey_trends (問卷趨勢)**
+- **用途**: CAT/mMRC 問卷歷史圖表
+- **關鍵特性**:
+  - 分數變化 (與上次問卷對比)
+  - 基線對比 (與首次問卷對比)
+  - 累計問卷次數
+
+**4. patient_health_summary (健康摘要)**
+- **用途**: 病患基本資料查詢,含自動計算 BMI
+- **關鍵特性**:
+  - BMI 自動計算: `weight_kg / (height_cm/100)^2`
+  - BMI 分級: UNDERWEIGHT/NORMAL/OVERWEIGHT/OBESE
+  - 年齡自動計算
+
+#### 5.3.4 性能優化策略
+
+**索引設計** (參考 DATABASE_SCHEMA_DESIGN.md):
+```sql
+-- patient_kpi_cache 主鍵索引
+CREATE INDEX idx_patient_kpi_patient_id ON patient_kpi_cache(patient_id);
+
+-- daily_logs 複合索引 (支持時間窗口查詢)
+CREATE INDEX idx_daily_logs_patient_date
+  ON daily_logs(patient_id, log_date DESC);
+
+-- survey_responses 複合索引
+CREATE INDEX idx_survey_patient_type_date
+  ON survey_responses(patient_id, survey_type, submitted_at DESC);
+```
+
+**查詢性能目標**:
+- `patient_kpi_cache` 直接查詢: **< 50ms**
+- `patient_kpi_windows` 視圖查詢: **< 200ms**
+- `patient_health_timeline` 視圖查詢 (30天): **< 300ms**
+
+**降級策略**:
+- 若 KPI Cache 過期 (last_calculated_at > 1小時), 前端顯示刷新按鈕
+- 若視圖查詢超時, 降級為簡化版圖表 (僅顯示近 7 天)
+
+### 5.4 數據一致性策略 (Data Consistency Strategy)
 
 在分散式微服務架構中，我們根據業務場景選擇不同的一致性模型，以平衡系統的可用性、性能與數據準確性。
 
@@ -500,12 +651,13 @@ graph TD
 |--------|------|------|------|
 | **ADR-001** | 採用 FastAPI 而非 Flask | 已決定 | [ADR-001](./adr/ADR-001-fastapi-vs-flask.md) |
 | **ADR-002** | pgvector 作為初期向量庫 | 已決定 | [ADR-002](./adr/ADR-002-pgvector-for-vector-db.md) |
-| **ADR-003** | MongoDB 儲存事件日誌 | 已決定 | [ADR-003](./adr/ADR-003-mongodb-for-event-logs.md) |
+| **ADR-003** | ~~MongoDB 儲存事件日誌~~ → PostgreSQL JSONB | 已變更 | ~~[ADR-003](./adr/ADR-003-mongodb-for-event-logs.md)~~ [DATABASE_SCHEMA_DESIGN.md](./DATABASE_SCHEMA_DESIGN.md) |
 | **ADR-004** | LINE 為唯一病患入口 | 已決定 | [ADR-004](./adr/ADR-004-line-as-patient-entrypoint.md) |
-| **ADR-005** | RabbitMQ 作為訊息佇列 | 已決定 | [ADR-005](./adr/ADR-005-rabbitmq-for-message-queue.md) |
+| **ADR-005** | RabbitMQ 作為訊息佇列 (Phase 2) | 已決定 | [ADR-005](./adr/ADR-005-rabbitmq-for-message-queue.md) |
 | **ADR-006** | 三時段智慧提醒策略 | 已決定 | [ADR-006](./adr/ADR-006-reminder-strategy.md) |
 | **ADR-007** | 擬人化孫女口吻訊息 | 已決定 | [ADR-007](./adr/ADR-007-message-tone.md) |
 | **ADR-008** | 治療師登入失敗鎖定策略 | 已決定 | [ADR-008](./adr/ADR-008-login-lockout-policy.md) |
+| **ADR-009** | Modular Monolith 而非微服務 (MVP) | 已決定 | [ARCHITECTURE_REVIEW.md](./ARCHITECTURE_REVIEW.md) |
 
 ---
 
@@ -845,8 +997,11 @@ flowchart TD
 
 - **需求來源**: [02_product_requirements_document.md](./02_product_requirements_document.md) - 產品需求文件
 - **決策記錄**: [adr/](./adr/) - 架構決策記錄目錄
-- **API 設計**: [06_api_design_specification.md](./06_api_design_specification.md) - API 規範文件（待建立）
-- **模組規範**: [07_module_specification_and_tests.md](./07_module_specification_and_tests.md) - 模組設計文件（待建立）
+- **資料庫設計**: [DATABASE_SCHEMA_DESIGN.md](./DATABASE_SCHEMA_DESIGN.md) - 完整資料庫設計文件
+- **API 設計**: [06_api_design_specification.md](./06_api_design_specification.md) - 後端 API 規範文件
+- **前端架構**: [12_frontend_architecture_specification.md](./12_frontend_architecture_specification.md) - 前端架構與技術棧規範
+- **前端信息架構**: [17_frontend_information_architecture_template.md](./17_frontend_information_architecture_template.md) - 前端頁面結構與用戶旅程
+- **模組規範**: [07_module_specification_and_tests.md](./07_module_specification_and_tests.md) - 模組設計與測試規範
 - **BDD 場景**: [bdd/](./bdd/) - 行為驅動開發場景
 - **專案 README**: [../PROJECT_README.md](../PROJECT_README.md) - 專案總覽文件
 - **WBS 計畫**: [WBS_DEVELOPMENT_PLAN.md](./WBS_DEVELOPMENT_PLAN.md) - 工作分解結構與時程
