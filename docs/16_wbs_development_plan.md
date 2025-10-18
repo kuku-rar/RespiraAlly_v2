@@ -2,11 +2,11 @@
 
 ---
 
-**文件版本 (Document Version):** `v2.2` ⭐ 開發流程管控完成 + 文檔結構優化
-**最後更新 (Last Updated):** `2025-10-18 10:23`
+**文件版本 (Document Version):** `v2.3` ✅ Git Hooks 修復完成 + 開發環境就緒
+**最後更新 (Last Updated):** `2025-10-18 11:12`
 **主要作者 (Lead Author):** `TaskMaster Hub / Claude Code AI`
 **審核者 (Reviewers):** `Technical Lead, Product Manager, Architecture Team`
-**狀態 (Status):** `執行中 - Sprint 0 進度 35.7% (專案管理 19.5% + 系統架構 48%)`
+**狀態 (Status):** `執行中 - Sprint 0 進度 35.7% (專案管理 19.5% + 系統架構 48%) - 開發環境就緒`
 
 ---
 
@@ -158,6 +158,13 @@
 - ⬜ 未開始 (Not Started)
 
 **⚠️ 重要架構決策變更記錄:**
+- **v2.3 更新 (2025-10-18 11:12)** ✅ **Git Hooks 修復完成 + 開發環境就緒**:
+  - ✅ **修復 Git Hooks CRLF 問題**: 修復 Windows CRLF 導致 hooks 無法執行的問題
+  - ✅ **npm 依賴安裝**: 安裝 175 packages (commitlint@18.6.1, husky@8.0.3)
+  - ✅ **驗證測試通過**: Invalid messages 攔截 ✅, Valid messages 通過 ✅
+  - ✅ **建立防護機制**: 更新 .gitattributes 強制 .husky/** 使用 LF
+  - ✅ **開發環境完全就緒**: 所有開發流程基礎設施已可用
+
 - **v2.2 更新 (2025-10-18 10:23)** ✅ **開發流程管控完成 + 文檔結構優化**:
   - ✅ **完成 1.4.1-1.4.4 開發流程管控任務**: Git Workflow SOP, PR Review SLA, CI Quality Gates, Conventional Commits Hook
   - ✅ **建立專案管理文檔資料夾** `docs/project_management/`: 集中管理流程文檔, 建立 README 索引
@@ -213,7 +220,7 @@
 | 1.4.1 | Git Workflow SOP 建立 | TL | 2 | ✅ | 2025-10-18 | - | [git_workflow_sop.md](./project_management/git_workflow_sop.md) | 01_development_workflow.md §Ⅲ.1 |
 | 1.4.2 | PR Review SLA 設定 | PM | 1 | ✅ | 2025-10-18 | 1.4.1 | [pr_review_sla_policy.md](./project_management/pr_review_sla_policy.md) + [PR Template](../.github/pull_request_template.md) | 01_development_workflow.md §Ⅲ.5 |
 | 1.4.3 | CI/CD Quality Gates 配置 | DevOps | 4 | ✅ | 2025-10-18 | 3.1.8 | [ci.yml](../.github/workflows/ci.yml) (增強: Prettier, Coverage Threshold) | 01_development_workflow.md §Ⅳ |
-| 1.4.4 | Conventional Commits 驗證 Hook | DevOps | 2 | ✅ | 2025-10-18 | 1.4.3 | [commitlint.config.js](../commitlint.config.js) + [.husky/commit-msg](../.husky/commit-msg) + [setup_git_hooks.md](./project_management/setup_git_hooks.md) | 01_development_workflow.md §Ⅲ.4 |
+| 1.4.4 | Conventional Commits 驗證 Hook | DevOps | 2 | ✅ | 2025-10-18 | 1.4.3 | [commitlint.config.js](../commitlint.config.js) + [.husky/commit-msg](../.husky/commit-msg) (✅ 已修復 CRLF) + [package-lock.json](../package-lock.json) + [setup_git_hooks.md](./project_management/setup_git_hooks.md) | 01_development_workflow.md §Ⅲ.4 |
 | 1.4.5 | 技術債追蹤機制 | TL | 2 | ⬜ | Sprint 2 | 1.4.2 | GitHub Issues Template + Sprint 預留 20% 時間 | - |
 | 1.4.6 | 每週流程健康度檢查 | PM | 0.5h × 16 週 = 8h | ⏳ | 持續 | 1.4.1-1.4.5 | 每週報告: PR Throughput, CI 成功率, Review Time | - |
 
@@ -664,6 +671,59 @@
 2. 執行 1.4.2: PR Review SLA 設定 (24h SLA)
 3. 執行 1.4.3: CI/CD Quality Gates 配置
 4. 執行 1.4.4: Conventional Commits Hook (commitlint + husky)
+
+---
+
+### 2025-10-18 11:12 - v2.3 Git Hooks 修復完成 + 開發環境就緒 ✅ 完成
+
+**✅ 修復項目** (Git Hooks CRLF 問題修復):
+
+#### 1. **問題診斷與修復**
+
+   - **根本原因**: Windows CRLF 行尾符號導致 Git hooks 無法執行
+     ```
+     /usr/bin/env: 'sh\r': No such file or directory
+     ```
+
+   - **修復步驟**:
+     1. ✅ 執行 `npm install` - 安裝 175 個套件 (commitlint, husky 等)
+     2. ✅ 執行 `dos2unix .husky/commit-msg` - 轉換 CRLF → LF
+     3. ✅ 更新 `.gitattributes` - 強制 `.husky/**` 使用 LF
+     4. ✅ 新增 `package-lock.json` - 鎖定依賴版本
+
+   - **驗證測試**:
+     - ✅ Invalid commit message 成功被攔截
+     - ✅ Valid commit message 正常通過
+     - ✅ Git hooks path 配置正確 (`core.hooksPath = .husky`)
+
+#### 2. **開發環境狀態確認**
+
+   - ✅ **npm 依賴**: 175 packages 已安裝
+   - ✅ **Husky hooks**: 已啟用並正常運作
+   - ✅ **Commitlint**: v18.6.1 驗證正常
+   - ✅ **CRLF 問題**: 已修復且建立防護機制
+   - ✅ **CI/CD Pipeline**: Quality Gates 就緒
+   - ✅ **PR Review SLA**: 24h 政策已生效
+
+#### 3. **團隊協作就緒**
+
+   - ✅ 所有開發流程規範已建立
+   - ✅ Git hooks 自動驗證 commit message
+   - ✅ 團隊成員只需執行 `npm install` 即可啟用
+   - ✅ 詳細設置指南已提供 (`docs/project_management/setup_git_hooks.md`)
+
+**交付物**:
+- `package-lock.json` (新增)
+- `.gitattributes` (更新 - 新增 .husky/** 規則)
+- `.husky/commit-msg` (修復 CRLF)
+
+**Git Commits**:
+- `8bdf1ca` fix(hooks): fix git hooks CRLF issue and add package-lock.json
+- `278a9a1` chore(test): remove test file
+- `9e029e5` test(hooks): verify commitlint hook is working
+
+**下一步準備**:
+Sprint 0 開發流程基礎設施已全部就緒，可以開始 Sprint 1 實際開發工作。
 
 ---
 
