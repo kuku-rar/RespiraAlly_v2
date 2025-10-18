@@ -185,49 +185,425 @@ C4Component
 
 ## 3. DDD 戰略設計 (Strategic Design)
 
-### 3.1 界限上下文映射 (Context Mapping)
+本章節基於 Domain-Driven Design (DDD) 戰略設計原則，定義 RespiraAlly V2.0 的領域邊界、統一語言與聚合模型，確保業務邏輯與技術實現的高內聚、低耦合。
+
+---
+
+### 3.1 界限上下文映射 (Bounded Context Mapping)
+
+界限上下文 (Bounded Context) 是 DDD 中定義領域邊界的核心概念。每個上下文內維護自己的模型與術語，上下文間透過明確的關係進行協作。
+
+#### 3.1.1 上下文全景圖 (Context Map)
 
 ```mermaid
 graph TD
   subgraph "核心域 (Core Domain)"
-    LogContext[日誌上下文<br/>Daily Log Context]
-    RiskContext[風險上下文<br/>Risk Context]
+    LogContext[日誌上下文<br/>Daily Log Context<br/>📌 核心業務]
+    RiskContext[風險上下文<br/>Risk Context<br/>📌 核心業務]
   end
 
   subgraph "支撐子域 (Supporting Subdomain)"
-    PatientContext[個案上下文<br/>Patient Context]
-    SurveyContext[問卷上下文<br/>Survey Context]
-    RagContext[衛教上下文<br/>RAG Context]
+    PatientContext[個案上下文<br/>Patient Context<br/>🔧 支撐功能]
+    SurveyContext[問卷上下文<br/>Survey Context<br/>🔧 支撐功能]
+    RagContext[衛教上下文<br/>RAG Context<br/>🔧 支撐功能]
   end
 
   subgraph "通用子域 (Generic Subdomain)"
-    AuthContext[認證上下文<br/>Auth Context]
-    NotificationContext[通知上下文<br/>Notification Context]
+    AuthContext[認證上下文<br/>Auth Context<br/>⚙️ 通用功能]
+    NotificationContext[通知上下文<br/>Notification Context<br/>⚙️ 通用功能]
   end
 
-  RiskContext -- "Customer-Supplier" --> LogContext
-  RiskContext -- "Customer-Supplier" --> PatientContext
-  LogContext -- "Customer-Supplier" --> PatientContext
-  
-  RagContext -- "Open Host Service" --> NotificationContext
-  
-  style LogContext fill:#ff9999
-  style RiskContext fill:#ff9999
+  %% 核心域間關係
+  RiskContext -->|Customer-Supplier<br/>依賴日誌數據| LogContext
+  RiskContext -->|Customer-Supplier<br/>依賴個案檔案| PatientContext
+
+  %% 支撐子域關係
+  LogContext -->|Customer-Supplier<br/>驗證患者存在| PatientContext
+  SurveyContext -->|Customer-Supplier<br/>驗證患者存在| PatientContext
+
+  %% 核心域與支撐子域關係
+  RiskContext -->|Partner<br/>共同計算風險| SurveyContext
+
+  %% 與通用子域關係
+  LogContext -->|Published Language<br/>發布 LogSubmitted 事件| NotificationContext
+  RiskContext -->|Published Language<br/>發布 AlertTriggered 事件| NotificationContext
+  RagContext -->|Open Host Service<br/>提供知識檢索 API| NotificationContext
+
+  %% 認證上下文與所有上下文的關係
+  AuthContext -.->|ACL<br/>提供身份驗證| LogContext
+  AuthContext -.->|ACL<br/>提供身份驗證| PatientContext
+  AuthContext -.->|ACL<br/>提供身份驗證| SurveyContext
+  AuthContext -.->|ACL<br/>提供身份驗證| RiskContext
+
+  style LogContext fill:#ff9999,stroke:#cc0000,stroke-width:3px
+  style RiskContext fill:#ff9999,stroke:#cc0000,stroke-width:3px
+  style PatientContext fill:#99ccff,stroke:#0066cc,stroke-width:2px
+  style SurveyContext fill:#99ccff,stroke:#0066cc,stroke-width:2px
+  style RagContext fill:#99ccff,stroke:#0066cc,stroke-width:2px
+  style AuthContext fill:#99ff99,stroke:#009900,stroke-width:2px
+  style NotificationContext fill:#99ff99,stroke:#009900,stroke-width:2px
 ```
 
-**上下文關係說明**:
-- **Customer-Supplier**: 風險上下文是日誌與個案上下文的下游客戶，它依賴上游提供的資料模型進行計算。
-- **Open Host Service**: 衛教上下文提供開放的 API 服務，讓通知等其他上下文可以查詢並使用其內容。
+#### 3.1.2 上下文詳細定義
+
+##### 🔴 核心域 (Core Domain) - 競爭優勢所在
+
+**1. 日誌上下文 (Daily Log Context)**
+
+| 屬性 | 內容 |
+|------|------|
+| **職責** | 管理患者每日健康記錄，計算健康行為依從率 |
+| **核心實體** | DailyLog (聚合根), MedicationRecord, WaterIntake, SymptomRecord |
+| **關鍵業務規則** | - 每位患者每日僅一筆記錄<br/>- 依從率 = (7日內用藥天數 / 7) × 100%<br/>- 提交後觸發風險重新計算 |
+| **對外 API** | - `POST /daily-logs` - 提交日誌<br/>- `GET /daily-logs/{patientId}` - 查詢歷史<br/>- `GET /daily-logs/{patientId}/trends` - 獲取趨勢圖數據 |
+| **發布事件** | - `DailyLogSubmitted` - 日誌提交成功<br/>- `DailyLogUpdated` - 日誌更新 |
+| **訂閱事件** | 無 (作為數據源頭) |
+| **依賴上下文** | Patient Context (驗證 patient_id 存在) |
+
+**2. 風險上下文 (Risk Context)**
+
+| 屬性 | 內容 |
+|------|------|
+| **職責** | 評估患者健康風險，觸發異常預警，管理預警生命週期 |
+| **核心實體** | RiskScore (聚合根), Alert (聚合根), RiskEngine (領域服務) |
+| **關鍵業務規則** | - 風險分數計算公式: `Score = f(依從率, CAT分數, 症狀頻率, 年齡, 吸菸史)`<br/>- 風險等級: LOW (0-40), MEDIUM (41-70), HIGH (71-100)<br/>- Alert 觸發條件: 風險等級 >= MEDIUM 且較上次提升 |
+| **對外 API** | - `POST /risk-scores/calculate/{patientId}` - 計算風險<br/>- `GET /alerts?therapistId=xxx&status=OPEN` - 查詢預警列表<br/>- `PATCH /alerts/{alertId}/acknowledge` - 確認預警 |
+| **發布事件** | - `RiskScoreCalculated` - 風險評分完成<br/>- `AlertTriggered` - 觸發新預警<br/>- `AlertResolved` - 預警解決 |
+| **訂閱事件** | - `DailyLogSubmitted` (來自 Log Context)<br/>- `SurveyCompleted` (來自 Survey Context) |
+| **依賴上下文** | - Daily Log Context (讀取近期日誌)<br/>- Patient Context (讀取患者檔案)<br/>- Survey Context (讀取最新問卷分數) |
+
+##### 🔵 支撐子域 (Supporting Subdomain) - 支撐核心業務
+
+**3. 個案上下文 (Patient Context)**
+
+| 屬性 | 內容 |
+|------|------|
+| **職責** | 管理患者檔案、治療師分配、個案基本資料 CRUD |
+| **核心實體** | Patient (聚合根), PatientProfile, TherapistAssignment |
+| **關鍵業務規則** | - 患者必須分配給一位治療師<br/>- BMI 自動計算: `weight_kg / (height_cm / 100)^2`<br/>- 年齡限制: 18-120 歲 |
+| **對外 API** | - `POST /patients` - 新增患者<br/>- `GET /patients/{id}` - 查詢患者檔案<br/>- `PATCH /patients/{id}/assign-therapist` - 分配治療師 |
+| **發布事件** | - `PatientRegistered` - 患者註冊成功<br/>- `PatientProfileUpdated` - 檔案更新<br/>- `TherapistAssigned` - 治療師分配 |
+| **訂閱事件** | - `UserCreated` (來自 Auth Context) |
+| **依賴上下文** | Auth Context (驗證 user_id 與 LINE User ID 綁定) |
+
+**4. 問卷上下文 (Survey Context)**
+
+| 屬性 | 內容 |
+|------|------|
+| **職責** | 管理 CAT/mMRC 問卷、計算評分、追蹤病情嚴重度 |
+| **核心實體** | SurveyResponse (聚合根), CATScorer, mMRCScorer (領域服務) |
+| **關鍵業務規則** | - **CAT 評分**: 0-40 分，<10=輕微, 10-20=中度, 21-30=嚴重, >30=極嚴重<br/>- **mMRC 評分**: 0-4 分，表示呼吸困難程度<br/>- 問卷提交後觸發風險重新計算 |
+| **對外 API** | - `POST /surveys/{type}` - 提交問卷 (type: CAT/mMRC)<br/>- `GET /surveys/{patientId}/history` - 查詢歷史問卷<br/>- `GET /surveys/{patientId}/latest` - 獲取最新分數 |
+| **發布事件** | - `SurveyCompleted` - 問卷完成<br/>- `SeverityLevelChanged` - 嚴重度變化 |
+| **訂閱事件** | 無 |
+| **依賴上下文** | Patient Context (驗證 patient_id 存在) |
+
+**5. 衛教上下文 (RAG Context)**
+
+| 屬性 | 內容 |
+|------|------|
+| **職責** | 管理衛教知識庫、向量檢索、AI 語音問答 (STT → RAG → LLM → TTS) |
+| **核心實體** | EducationalDocument (聚合根), DocumentChunk, EmbeddingService (領域服務) |
+| **關鍵業務規則** | - 文件必須分塊 (每塊 ≤ 500 字)<br/>- 向量相似度檢索 Top-K=5<br/>- AI 回覆必須引用來源 (Citation) |
+| **對外 API** | - `POST /rag/query` - 文字問答<br/>- `POST /rag/voice-query` - 語音問答 (異步)<br/>- `GET /rag/documents` - 查詢知識庫 |
+| **發布事件** | - `VoiceQueryReceived` - 收到語音查詢<br/>- `VoiceResponseGenerated` - 語音回覆生成完成 |
+| **訂閱事件** | 無 |
+| **依賴上下文** | 無 (獨立上下文) |
+
+##### 🟢 通用子域 (Generic Subdomain) - 可用現成方案
+
+**6. 認證上下文 (Auth Context)**
+
+| 屬性 | 內容 |
+|------|------|
+| **職責** | 用戶認證、授權、會話管理、登入鎖定策略 |
+| **核心實體** | User (聚合根), Session, AccessToken (JWT), RefreshToken |
+| **關鍵業務規則** | - **患者**: LINE OAuth 登入，無密碼<br/>- **治療師**: 帳密登入，登入失敗 3 次鎖定 15 分鐘<br/>- JWT 有效期: Access Token 1 小時, Refresh Token 7 天 |
+| **對外 API** | - `POST /auth/line/callback` - LINE 登入回調<br/>- `POST /auth/therapist/login` - 治療師登入<br/>- `POST /auth/refresh` - 刷新 Token |
+| **發布事件** | - `UserCreated` - 新用戶註冊<br/>- `UserLoggedIn` - 登入成功<br/>- `AccountLocked` - 帳號鎖定 |
+| **訂閱事件** | 無 |
+| **依賴上下文** | 無 (基礎服務) |
+
+**7. 通知上下文 (Notification Context)**
+
+| 屬性 | 內容 |
+|------|------|
+| **職責** | 管理通知排程、發送 LINE 訊息/Email、追蹤發送狀態 |
+| **核心實體** | Notification (聚合根), NotificationSchedule, DeliveryStatus |
+| **關鍵業務規則** | - 智慧提醒時段: 12:00, 17:00, 20:00<br/>- 通知失敗重試 3 次 (指數退避)<br/>- LINE 訊息擬人化口吻 (孫女語氣) |
+| **對外 API** | - `POST /notifications/send` - 立即發送<br/>- `POST /notifications/schedule` - 排程發送<br/>- `GET /notifications/history/{userId}` - 查詢歷史 |
+| **發布事件** | - `NotificationSent` - 通知發送成功<br/>- `NotificationFailed` - 發送失敗 |
+| **訂閱事件** | - `DailyLogSubmitted` (觸發鼓勵訊息)<br/>- `AlertTriggered` (通知治療師)<br/>- `SurveyCompleted` (觸發感謝訊息) |
+| **依賴上下文** | RAG Context (查詢衛教內容用於推播) |
+
+---
+
+#### 3.1.3 上下文間關係說明
+
+**關係類型定義**:
+
+1. **Customer-Supplier (客戶-供應商)**:
+   - **定義**: 下游上下文 (Customer) 依賴上游上下文 (Supplier) 提供的數據或服務
+   - **範例**: 風險上下文 → 日誌上下文 (風險計算需要日誌數據)
+   - **實作**: 透過 REST API 或共享數據庫視圖
+
+2. **Open Host Service (開放主機服務)**:
+   - **定義**: 上下文提供公開的、文檔完善的 API 供其他上下文調用
+   - **範例**: 衛教上下文提供知識檢索 API
+   - **實作**: RESTful API + OpenAPI 規範
+
+3. **Published Language (發布語言)**:
+   - **定義**: 上下文透過領域事件進行異步通信，使用統一的事件 Schema
+   - **範例**: 日誌上下文發布 `DailyLogSubmitted` 事件
+   - **實作**: RabbitMQ + 事件版本化
+
+4. **Anti-Corruption Layer (防腐層)**:
+   - **定義**: 保護上下文不受外部系統變化影響的適配層
+   - **範例**: 認證上下文 (ACL) 隔離 LINE Platform 變化
+   - **實作**: Adapter Pattern
+
+5. **Partner (合作夥伴)**:
+   - **定義**: 兩個上下文緊密協作，共同實現業務目標
+   - **範例**: 風險上下文 ↔ 問卷上下文 (共同計算風險)
+   - **實作**: 同步 API 調用 + 共享事件
+
+**關鍵關係矩陣**:
+
+| 下游上下文 (Customer) | 上游上下文 (Supplier) | 關係類型 | 協作方式 |
+|----------------------|---------------------|----------|----------|
+| 風險上下文 | 日誌上下文 | Customer-Supplier | REST API (讀取近 30 日日誌) |
+| 風險上下文 | 個案上下文 | Customer-Supplier | REST API (讀取患者檔案) |
+| 風險上下文 | 問卷上下文 | Partner | REST API + Event (`SurveyCompleted`) |
+| 日誌上下文 | 個案上下文 | Customer-Supplier | Database FK (驗證 patient_id) |
+| 問卷上下文 | 個案上下文 | Customer-Supplier | Database FK (驗證 patient_id) |
+| 通知上下文 | 衛教上下文 | Open Host Service | REST API (查詢衛教內容) |
+| 通知上下文 | 日誌上下文 | Published Language | Event (`DailyLogSubmitted`) |
+| 通知上下文 | 風險上下文 | Published Language | Event (`AlertTriggered`) |
+| 所有上下文 | 認證上下文 | ACL | JWT Middleware (身份驗證) |
+
+---
 
 ### 3.2 統一語言 (Ubiquitous Language)
 
-| 業務術語 | 定義 | 所屬上下文 |
-|---|---|---|
-| 健康日誌 (Daily Log) | 病患每日提交的健康行為記錄，包含用藥、飲水等。 | 日誌上下文 |
-| 依從率 (Adherence Rate) | 病患遵循醫囑（如每日用藥）的比例。 | 日誌上下文 |
-| 風險分數 (Risk Score) | 基於多因子計算的病患健康風險量化指標 (0-100)。 | 風險上下文 |
-| 預警 (Alert) | 當偵測到異常行為模式時，系統自動產生的提醒。 | 風險上下文 |
-| 知識區塊 (Chunk) | 從衛教文章中拆分出用於向量檢索的最小單位。 | 衛教上下文 |
+統一語言 (Ubiquitous Language) 是 DDD 的核心實踐，確保開發團隊、領域專家、產品經理使用相同的術語描述業務概念，避免歧義與誤解。
+
+#### 3.2.1 核心術語表
+
+以下術語按照所屬上下文分類，並提供中英對照、精確定義與反例。
+
+##### 🔴 認證上下文 (Auth Context)
+
+| 術語 | 英文 | 定義 | 反例 / 注意事項 | 所屬上下文 |
+|------|------|------|-----------------|-----------|
+| 用戶 | User | 系統中的使用者實體，包含病患 (Patient) 與治療師 (Therapist) | ≠ 病患 (Patient 是 User 的子類型) | Auth Context |
+| 角色 | Role | 用戶的身份類型，枚舉值: PATIENT 或 THERAPIST | ≠ 權限 (Role 決定權限，但不等於權限本身) | Auth Context |
+| 訪問令牌 | Access Token | 短期 JWT，有效期 1 小時，用於 API 鑑權 | ≠ Refresh Token (後者用於刷新前者) | Auth Context |
+| 刷新令牌 | Refresh Token | 長期 JWT，有效期 7 天，用於獲取新的 Access Token | 存儲在 Redis，單次使用後失效 (Rotation) | Auth Context |
+| 帳號鎖定 | Account Lockout | 治療師登入失敗 3 次後鎖定 15 分鐘的安全機制 | 僅適用於治療師，患者無密碼登入故不適用 | Auth Context |
+| LINE 用戶 ID | LINE User ID | LINE Platform 提供的唯一用戶識別碼，格式 `U{32 位十六進位}` | ≠ 系統內部 user_id (UUID) | Auth Context |
+
+##### 🔴 個案上下文 (Patient Context)
+
+| 術語 | 英文 | 定義 | 反例 / 注意事項 | 所屬上下文 |
+|------|------|------|-----------------|-----------|
+| 病患 | Patient | COPD 患者，透過 LINE 使用系統的使用者 | ≠ 治療師 (Therapist) | Patient Context |
+| 治療師 | Therapist | 呼吸治療師，透過 Web Dashboard 管理病患的使用者 | ≠ 醫生 (本系統僅支援治療師角色) | Patient Context |
+| 病患檔案 | Patient Profile | 病患的詳細資料，包含姓名、生日、身高體重、病歷號、吸菸史等 | ≠ User (User 僅包含認證資訊) | Patient Context |
+| 病歷號 | Medical Record Number | 醫院提供的病患唯一識別碼，用於跨系統對接 | 選填欄位，未來可用於 FHIR/HL7 整合 | Patient Context |
+| BMI | Body Mass Index | 身體質量指數，計算公式: `weight_kg / (height_cm / 100)^2` | 自動計算欄位，不可直接修改 | Patient Context |
+| 吸菸史 | Smoking History | 病患的吸菸狀態 (從未/曾經/目前) 與吸菸年數 | COPD 關鍵風險因素，必填 | Patient Context |
+| 治療師分配 | Therapist Assignment | 將病患指派給特定治療師的動作，一對多關係 | 一位治療師可管理多位病患，但病患僅有一位負責治療師 | Patient Context |
+
+##### 🔴 日誌上下文 (Daily Log Context)
+
+| 術語 | 英文 | 定義 | 反例 / 注意事項 | 所屬上下文 |
+|------|------|------|-----------------|-----------|
+| 健康日誌 | Daily Log | 病患每日提交的健康行為記錄，包含用藥、飲水、步數、症狀、心情 | ≠ 問卷 (Survey) - 後者是定期評估，前者是每日記錄 | Daily Log Context |
+| 用藥記錄 | Medication Record | 病患當日是否服藥的布林值記錄 | 僅記錄是/否，不記錄藥物種類 (藥物清單在 PatientProfile.medical_history 中) | Daily Log Context |
+| 飲水量 | Water Intake | 病患當日飲水量，單位毫升 (ml)，範圍 0-10000 | 異常值 (如 > 5000ml) 會觸發資料驗證警告 | Daily Log Context |
+| 步數 | Steps Count | 病患當日步行步數，範圍 0-100000 | 選填欄位，未來可整合穿戴裝置 | Daily Log Context |
+| 症狀 | Symptoms | 病患自述的當日症狀，自由文字欄位 | 未來可用 NLP 分析症狀關鍵詞 (咳嗽、喘、痰) | Daily Log Context |
+| 心情 | Mood | 病患當日情緒狀態，枚舉值: GOOD (好), NEUTRAL (普通), BAD (不好) | 用於追蹤心理健康，與症狀嚴重度相關聯 | Daily Log Context |
+| 依從率 | Adherence Rate | 病患遵循醫囑的比例，公式: `(N 日內用藥天數 / N) × 100%` | 系統支援 7 日 / 30 日兩種統計窗口 | Daily Log Context |
+| 打卡天數 | Streak Days | 病患連續提交日誌的天數，用於遊戲化激勵 | 斷一天歸零，當前連續 / 歷史最長兩種統計 | Daily Log Context |
+
+##### 🔴 問卷上下文 (Survey Context)
+
+| 術語 | 英文 | 定義 | 反例 / 注意事項 | 所屬上下文 |
+|------|------|------|-----------------|-----------|
+| CAT 問卷 | COPD Assessment Test | COPD 評估測驗，8 題量表，評估 COPD 對生活品質的影響，分數 0-40 | ≠ mMRC (後者僅評估呼吸困難) | Survey Context |
+| mMRC 問卷 | modified Medical Research Council | 修正版英國醫學研究委員會呼吸困難量表，單題量表，分數 0-4 | ≠ CAT (後者是多維度評估) | Survey Context |
+| 問卷回覆 | Survey Response | 病患完成問卷後的答案記錄，包含原始答案 (JSONB) 與計算分數 | 提交後不可修改，僅能新增新一筆回覆 | Survey Context |
+| 嚴重度 | Severity Level | 根據 CAT 分數計算的 COPD 嚴重程度，枚舉值: MILD, MODERATE, SEVERE, VERY_SEVERE | CAT < 10=輕微, 10-20=中度, 21-30=嚴重, >30=極嚴重 | Survey Context |
+| 評分器 | Scorer | 領域服務，負責計算問卷總分與嚴重度分級 | 不同問卷類型有不同的 Scorer 實作 (Strategy Pattern) | Survey Context |
+
+##### 🔴 風險上下文 (Risk Context)
+
+| 術語 | 英文 | 定義 | 反例 / 注意事項 | 所屬上下文 |
+|------|------|------|-----------------|-----------|
+| 風險分數 | Risk Score | 基於多因子計算的病患健康風險量化指標，範圍 0-100 | 分數越高風險越大 | Risk Context |
+| 風險等級 | Risk Level | 根據風險分數分級的枚舉值: LOW (0-40), MEDIUM (41-70), HIGH (71-100) | ≠ 嚴重度 (Severity) - 後者來自 CAT 問卷，前者是綜合評估 | Risk Context |
+| 風險引擎 | Risk Engine | 領域服務，負責計算風險分數的核心邏輯 | 公式: `Score = f(依從率, CAT分數, 症狀頻率, 年齡, 吸菸史)` | Risk Context |
+| 貢獻因子 | Contributing Factors | 組成風險分數的各個子因素及其權重，以 JSONB 儲存 | 範例: `{adherence: 0.3, cat_score: 0.25, symptoms: 0.2, age: 0.15, smoking: 0.1}` | Risk Context |
+| 預警 | Alert | 當偵測到異常模式時系統自動產生的通知，需治療師確認與處理 | ≠ 通知 (Notification) - 預警需要人工處理，通知僅為資訊推播 | Risk Context |
+| 預警類型 | Alert Type | 預警的觸發原因，枚舉值: MISSED_MEDICATION, NO_LOG, SYMPTOM_SPIKE, RISK_ELEVATED | 不同類型有不同的處理優先級 | Risk Context |
+| 預警狀態 | Alert Status | 預警的處理狀態，枚舉值: OPEN (未處理), ACKNOWLEDGED (已確認), RESOLVED (已解決) | 狀態轉換單向: OPEN → ACKNOWLEDGED → RESOLVED | Risk Context |
+
+##### 🔵 衛教上下文 (RAG Context)
+
+| 術語 | 英文 | 定義 | 反例 / 注意事項 | 所屬上下文 |
+|------|------|------|-----------------|-----------|
+| 衛教文件 | Educational Document | 提供給病患的衛教知識文章，類別包含用藥、運動、飲食、呼吸訓練等 | ≠ 系統文檔 (Documentation) | RAG Context |
+| 知識區塊 | Chunk | 從衛教文件中拆分出用於向量檢索的最小單位，每塊 ≤ 500 字 | 拆分策略: 按段落 + 滑動窗口 (Sliding Window) | RAG Context |
+| 向量嵌入 | Embedding | 知識區塊轉換為高維向量的表示，使用 OpenAI text-embedding-3-small (維度 1536) | ≠ Tokenization (後者是文本轉數字，前者是語義向量化) | RAG Context |
+| 語義檢索 | Semantic Retrieval | 根據查詢文本的語義 (而非關鍵詞) 找到最相關的知識區塊 | 使用餘弦相似度 (Cosine Similarity) 排序 | RAG Context |
+| RAG | Retrieval-Augmented Generation | 檢索增強生成，先檢索相關知識，再用 LLM 生成回答的技術 | 流程: Query → Embedding → Retrieval (Top-K) → LLM Prompt → Response | RAG Context |
+| 引用來源 | Citation | AI 回覆中標註的參考資料來源，包含文件標題與連結 | 透明化 AI 推理過程，提升使用者信任感 | RAG Context |
+| STT | Speech-To-Text | 語音轉文字服務，使用 OpenAI Whisper API | 支援台語/國語混合辨識 (繁體中文) | RAG Context |
+| TTS | Text-To-Speech | 文字轉語音服務，使用 OpenAI TTS API | 使用擬人化聲音 (孫女語氣) | RAG Context |
+
+##### 🟢 通知上下文 (Notification Context)
+
+| 術語 | 英文 | 定義 | 反例 / 注意事項 | 所屬上下文 |
+|------|------|------|-----------------|-----------|
+| 通知 | Notification | 系統發送給使用者的訊息，包含提醒、預警、週報等 | ≠ 預警 (Alert) - 預警需治療師處理，通知僅為資訊推播 | Notification Context |
+| 智慧提醒 | Smart Reminder | 根據病患行為模式自動排程的提醒通知，三時段: 12:00, 17:00, 20:00 | 未填日誌時觸發，連續填寫 3 天後自動減少頻率 | Notification Context |
+| 推播管道 | Channel | 通知發送的管道，枚舉值: LINE, EMAIL | MVP 階段僅支援 LINE，Phase 2 加入 Email | Notification Context |
+| 發送狀態 | Delivery Status | 通知的發送狀態，枚舉值: PENDING (待發送), SENT (已發送), FAILED (失敗) | 失敗後自動重試 3 次 (指數退避) | Notification Context |
+| 訊息模板 | Message Template | 預先定義的通知文案格式，支援變數替換 | 範例: `{patient_name} 您好，今日還沒記錄健康日誌喔！` | Notification Context |
+| 擬人化口吻 | Humanized Tone | 通知文案使用孫女對長輩的溫馨語氣，提升親和力 | 參考 ADR-007: 擬人化訊息策略 | Notification Context |
+
+---
+
+#### 3.2.2 術語使用規範
+
+**開發團隊規範**:
+1. **代碼命名**: 類別、變數、函數命名必須使用統一語言的英文術語 (如 `DailyLog`, `adherence_rate`)
+2. **文檔撰寫**: 技術文檔與 PRD 必須使用統一語言的中文術語，並在首次出現時附註英文
+3. **溝通會議**: 需求討論與技術評審會議中，團隊成員必須使用統一語言術語，避免自創詞彙
+4. **術語更新**: 當發現業務概念變化時，必須更新本詞彙表，並通知全體團隊
+
+**常見錯誤與糾正**:
+
+| ❌ 錯誤術語 | ✅ 正確術語 | 糾正理由 |
+|------------|------------|----------|
+| "日記" | "健康日誌 (Daily Log)" | "日記" 過於口語化，不精確 |
+| "問題" | "症狀 (Symptoms)" 或 "預警 (Alert)" | 需區分患者自述症狀 vs 系統預警 |
+| "通知" 與 "預警" 混用 | 明確區分: "通知 (Notification)" vs "預警 (Alert)" | 預警需治療師處理，通知僅為資訊 |
+| "用戶" 與 "病患" 混用 | 明確區分: "用戶 (User)" 包含病患與治療師 | 病患是用戶的子類型 |
+| "登入失敗次數" | "帳號鎖定 (Account Lockout)" | 應使用業務術語而非技術實作細節 |
+
+---
+
+### 3.3 聚合設計 (Aggregate Design)
+
+聚合 (Aggregate) 是 DDD 戰術設計的核心模式，用於維護業務不變量 (Invariants) 與定義事務邊界。每個聚合有且僅有一個聚合根 (Aggregate Root)，作為對外訪問的唯一入口。
+
+#### 3.3.1 聚合設計原則
+
+遵循以下 DDD 聚合設計原則:
+
+1. **小聚合優先** - 聚合越小越好，僅包含必須保持強一致性的實體
+2. **不變量保護** - 聚合根負責維護聚合內所有業務規則
+3. **事務邊界** - 每次事務僅修改一個聚合實例
+4. **通過 ID 引用** - 聚合間通過 ID 關聯，而非直接持有對象引用
+5. **最終一致性** - 跨聚合的業務規則透過領域事件實現最終一致性
+
+#### 3.3.2 聚合目錄
+
+RespiraAlly V2.0 系統包含以下 7 個核心聚合:
+
+| 聚合根 | 所屬上下文 | 核心職責 | 不變量 (Invariants) |
+|--------|-----------|----------|---------------------|
+| **Patient** | Patient Context | 管理患者檔案、治療師分配 | - 年齡 >= 18 歲<br/>- BMI 由身高體重計算<br/>- 必須分配給一位治療師 |
+| **DailyLog** | Daily Log Context | 記錄每日健康行為 | - 每位患者每天僅一筆記錄<br/>- 用藥狀態必須明確 (true/false)<br/>- 飲水量 0-10000ml |
+| **SurveyResponse** | Survey Context | 記錄問卷答案與評分 | - CAT 分數 0-40<br/>- mMRC 分數 0-4<br/>- 提交後不可修改 |
+| **RiskScore** | Risk Context | 計算並儲存風險評分 | - 分數 0-100<br/>- 風險等級由分數計算<br/>- 每天僅一個分數 |
+| **Alert** | Risk Context | 管理預警生命週期 | - 狀態轉換單向: OPEN → ACKNOWLEDGED → RESOLVED<br/>- 僅能由負責治療師處理 |
+| **EducationalDocument** | RAG Context | 管理衛教文件與區塊 | - 文件必須有至少一個區塊<br/>- 區塊 index 必須連續<br/>- Embedding 維度一致 |
+| **User** | Auth Context | 管理認證與授權 | - LINE User ID 或 Email 至少一個<br/>- Role 與登入方式一致<br/>- 治療師登入失敗鎖定邏輯 |
+
+---
+
+#### 3.3.3 關鍵聚合設計範例
+
+##### Patient Aggregate (個案聚合)
+
+**聚合邊界**:
+```
+┌─────────────────────────────────────┐
+│  Patient Aggregate                  │
+│  ┌─────────────┐                    │
+│  │  Patient    │ (Aggregate Root)   │
+│  │  - user_id  │                    │
+│  │  - therapist_id ──> (Reference)  │
+│  │  - profile  │                    │
+│  └─────────────┘                    │
+└─────────────────────────────────────┘
+```
+
+**核心不變量**:
+1. Patient 年齡必須 >= 18 歲
+2. BMI = weight_kg / (height_cm / 100)² (自動計算)
+3. 必須分配給一位治療師 (therapist_id NOT NULL)
+
+**領域事件**:
+- `PatientRegistered` - 患者註冊完成
+- `TherapistAssigned` - 治療師分配變更
+- `PatientProfileUpdated` - 檔案更新
+
+##### DailyLog Aggregate (日誌聚合)
+
+**聚合邊界**:
+```
+┌─────────────────────────────────────┐
+│  DailyLog Aggregate                 │
+│  ┌─────────────┐                    │
+│  │  DailyLog   │ (Aggregate Root)   │
+│  │  - log_id   │                    │
+│  │  - patient_id ──> (Reference)    │
+│  │  - log_date │                    │
+│  │  - medication_taken │            │
+│  │  - water_intake_ml │             │
+│  └─────────────┘                    │
+└─────────────────────────────────────┘
+```
+
+**核心不變量**:
+1. 每位患者每天僅一筆記錄 (UNIQUE INDEX on patient_id, log_date)
+2. 不可提交未來日期的日誌
+3. 飲水量必須在 0-10000ml 範圍內
+
+**領域事件**:
+- `DailyLogSubmitted` - 觸發風險重新計算
+- `AdherenceRateChanged` - 依從率變化 (可選)
+
+##### RiskScore Aggregate (風險評分聚合)
+
+**核心不變量**:
+1. 風險分數必須在 0-100 之間
+2. 風險等級 (LOW/MEDIUM/HIGH) 由分數自動計算
+3. 每位患者每天僅一個風險分數
+
+**領域服務**:
+- `RiskEngine.calculate()` - 計算風險分數的領域服務
+- 公式: `Score = f(adherence_rate × 0.3, cat_score × 0.25, symptom_frequency × 0.2, age × 0.15, smoking_years × 0.1)`
+
+**領域事件**:
+- `RiskScoreCalculated` - 風險評分完成
+- `AlertTriggered` - 風險等級提升觸發預警
+
+---
+
+#### 3.3.4 聚合設計檢核清單
+
+- [x] **每個聚合有明確的聚合根** - 所有 7 個聚合都有唯一的 Aggregate Root
+- [x] **聚合邊界清晰** - 聚合內實體緊密相關,聚合間通過 ID 引用
+- [x] **不變量明確** - 每個聚合都有明確的業務規則與驗證邏輯
+- [x] **事務邊界** - 每次事務僅修改一個聚合實例
+- [x] **領域事件** - 跨聚合操作通過領域事件實現最終一致性
+- [x] **小聚合優先** - 聚合僅包含必須強一致性的實體
+- [x] **通過 ID 引用** - Patient 聚合引用 Therapist 使用 `therapist_id` 而非對象引用
 
 ---
 
