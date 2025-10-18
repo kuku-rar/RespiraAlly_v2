@@ -2854,6 +2854,1206 @@ flowchart TD
 
 ---
 
+## 6. 事件驅動架構 (Event-Driven Architecture)
+
+### 6.1 事件驅動設計概述
+
+#### 6.1.1 設計原則與動機
+
+**為什麼需要事件驅動？**
+
+基於 Linus 實用主義三問分析：
+
+1. **這是真問題嗎？** ✅ 是
+   - **問題**: Modular Monolith 的模組間需要解耦，避免同步調用導致的級聯故障
+   - **真實場景**: 日誌提交後需觸發風險計算、通知發送、KPI 更新，若使用同步調用，任一服務故障會阻塞整個流程
+
+2. **有更簡單的方法嗎？** ❌ 沒有
+   - **同步 API 調用**: 會產生強耦合，違反 §4.1.6 模組依賴規則
+   - **數據庫 Trigger**: 違反分層原則，業務邏輯應在應用層而非數據層
+   - **事件驅動**: 最佳實踐，實現異步解耦、彈性擴展、事件溯源
+
+3. **會破壞什麼嗎？** ❌ 不會
+   - 新增 Event Bus 基礎設施，不影響現有同步 API
+   - 遵循最終一致性模型（§5.3.3），符合業務需求
+
+**關鍵優勢**:
+- ✅ **解耦性**: 發布者不知道訂閱者，新增訂閱者無需修改發布者
+- ✅ **可擴展性**: 異步處理允許獨立擴展各模組
+- ✅ **可追溯性**: 事件日誌提供完整的業務流程審計軌跡
+- ✅ **容錯性**: 使用 Dead Letter Queue 處理失敗，支持重試
+- ✅ **最終一致性**: 符合分布式系統 CAP 理論權衡
+
+**適用場景**:
+| 場景 | 是否使用事件 | 理由 |
+|------|-------------|------|
+| 日誌提交後觸發風險計算 | ✅ 事件驅動 | 異步處理，不阻塞日誌提交 |
+| 風險等級提升時發送通知 | ✅ 事件驅動 | 通知失敗不應影響風險計算 |
+| 查詢患者檔案驗證患者存在 | ❌ 同步 API | 需要立即驗證結果 |
+| 獲取治療師負責的患者列表 | ❌ 同步 API | 讀取操作，需即時返回 |
+
+---
+
+### 6.2 領域事件目錄 (Domain Events Catalog)
+
+#### 6.2.1 事件命名規範
+
+**格式**: `{模組名稱}.{實體名稱}{動作過去式}` (採用 PascalCase)
+
+**範例**:
+- ✅ `daily_log.DailyLogSubmitted` (日誌模組，日誌已提交)
+- ✅ `risk.RiskScoreCalculated` (風險模組，風險分數已計算)
+- ❌ `SubmitLog` (錯誤：使用現在式)
+- ❌ `log_submitted` (錯誤：使用 snake_case)
+
+**事件版本控制**:
+- 使用 `version` 欄位標記事件 Schema 版本 (v1, v2...)
+- 向後兼容：新增欄位時不移除舊欄位，使用 Optional 類型
+- 破壞性變更：建立新事件名稱 (如 `DailyLogSubmittedV2`)
+
+#### 6.2.2 事件清單 (按模組分類)
+
+**1. auth 模組 (認證授權)**
+
+| 事件名稱 | Routing Key | 觸發時機 | Payload Schema | 訂閱者 |
+|---------|-------------|---------|----------------|--------|
+| `UserRegistered` | `auth.user.registered` | 用戶註冊完成 | `{user_id, email, role, registered_at}` | patient (創建檔案), notification (歡迎郵件) |
+| `UserLoggedIn` | `auth.user.logged_in` | 用戶登入成功 | `{user_id, login_at, ip_address}` | audit (審計日誌) |
+| `PasswordChanged` | `auth.user.password_changed` | 密碼變更 | `{user_id, changed_at}` | notification (安全通知) |
+| `SessionExpired` | `auth.session.expired` | 會話過期 | `{user_id, session_id, expired_at}` | audit (審計日誌) |
+
+**2. patient 模組 (個案管理)**
+
+| 事件名稱 | Routing Key | 觸發時機 | Payload Schema | 訂閱者 |
+|---------|-------------|---------|----------------|--------|
+| `PatientProfileCreated` | `patient.profile.created` | 患者檔案創建 | `{patient_id, user_id, therapist_id, created_at}` | notification (綁定 Rich Menu), daily_log (初始化 KPI) |
+| `TherapistAssigned` | `patient.therapist.assigned` | 治療師分配/變更 | `{patient_id, old_therapist_id, new_therapist_id, assigned_at}` | notification (通知雙方) |
+| `PatientStatusChanged` | `patient.status.changed` | 患者狀態變更 | `{patient_id, old_status, new_status, changed_at}` | notification (通知治療師) |
+
+**3. daily_log 模組 (每日日誌) - 核心域**
+
+| 事件名稱 | Routing Key | 觸發時機 | Payload Schema | 訂閱者 |
+|---------|-------------|---------|----------------|--------|
+| `DailyLogSubmitted` | `daily_log.log.submitted` | 日誌提交成功 | `{log_id, patient_id, log_date, medication_taken, water_intake_ml, submitted_at}` | **risk** (重算風險), notification (依從提醒), daily_log (更新 KPI) |
+| `AdherenceRateChanged` | `daily_log.adherence.changed` | 依從率變化 ≥5% | `{patient_id, old_rate, new_rate, changed_at}` | risk (調整權重), notification (通知治療師) |
+| `DailyLogDeleted` | `daily_log.log.deleted` | 日誌刪除 (管理員) | `{log_id, patient_id, log_date, deleted_by, deleted_at}` | risk (重算風險), audit (審計) |
+
+**4. survey 模組 (問卷評估)**
+
+| 事件名稱 | Routing Key | 觸發時機 | Payload Schema | 訂閱者 |
+|---------|-------------|---------|----------------|--------|
+| `SurveyCompleted` | `survey.survey.completed` | 問卷完成 | `{survey_id, patient_id, survey_type, total_score, completed_at}` | **risk** (重算風險), notification (評分通知) |
+| `CATScoreChanged` | `survey.cat.score_changed` | CAT 分數變化 ≥4 | `{patient_id, old_score, new_score, changed_at}` | risk (調整權重), notification (通知治療師) |
+| `mMRCScoreChanged` | `survey.mmrc.score_changed` | mMRC 等級變化 | `{patient_id, old_grade, new_grade, changed_at}` | risk (調整權重), notification (通知治療師) |
+
+**5. risk 模組 (風險評分) - 核心域**
+
+| 事件名稱 | Routing Key | 觸發時機 | Payload Schema | 訂閱者 |
+|---------|-------------|---------|----------------|--------|
+| `RiskScoreCalculated` | `risk.score.calculated` | 風險分數計算完成 | `{patient_id, risk_score, risk_level, calculated_at, factors: {...}}` | patient (更新檔案), notification (風險報告) |
+| `RiskLevelEscalated` | `risk.level.escalated` | 風險等級提升 | `{patient_id, old_level, new_level, escalated_at}` | **notification** (緊急通知), patient (標記高風險) |
+| `AlertTriggered` | `risk.alert.triggered` | 異常規則觸發預警 | `{alert_id, patient_id, rule_name, severity, triggered_at}` | **notification** (即時通知), audit (審計) |
+| `AlertResolved` | `risk.alert.resolved` | 預警解除 | `{alert_id, patient_id, resolved_at}` | notification (通知治療師) |
+
+**6. rag 模組 (衛教 AI)**
+
+| 事件名稱 | Routing Key | 觸發時機 | Payload Schema | 訂閱者 |
+|---------|-------------|---------|----------------|--------|
+| `ChatSessionStarted` | `rag.chat.started` | AI 對話開始 | `{session_id, patient_id, started_at}` | audit (使用統計) |
+| `KnowledgeRetrieved` | `rag.knowledge.retrieved` | RAG 檢索完成 | `{session_id, query, chunks: [...], scores: [...], retrieved_at}` | audit (檢索分析) |
+| `AIResponseGenerated` | `rag.response.generated` | LLM 生成完成 | `{session_id, response_text, token_usage, cost_usd, generated_at}` | audit (成本統計) |
+| `InappropriateContentDetected` | `rag.safety.violation` | 安全檢測觸發 | `{session_id, patient_id, violation_type, detected_at}` | audit (安全審計), notification (通知管理員) |
+
+**7. notification 模組 (通知服務)**
+
+| 事件名稱 | Routing Key | 觸發時機 | Payload Schema | 訂閱者 |
+|---------|-------------|---------|----------------|--------|
+| `NotificationSent` | `notification.sent` | 通知發送成功 | `{notification_id, recipient_id, channel, sent_at}` | audit (送達統計) |
+| `NotificationFailed` | `notification.failed` | 通知發送失敗 | `{notification_id, recipient_id, channel, error, failed_at}` | audit (失敗分析), 自己 (重試) |
+| `NotificationBatchScheduled` | `notification.batch.scheduled` | 批次通知排程 | `{batch_id, recipient_count, scheduled_at}` | 自己 (定時觸發) |
+
+**事件統計**:
+- **總事件數**: 27 個
+- **核心域事件**: 7 個 (daily_log: 3, risk: 4)
+- **支撐域事件**: 13 個 (patient: 3, survey: 3, rag: 4, notification: 3)
+- **通用域事件**: 7 個 (auth: 4, notification: 3)
+
+---
+
+### 6.3 Event Bus 架構設計 (RabbitMQ)
+
+#### 6.3.1 Exchange 與 Routing 策略
+
+**選擇 Topic Exchange 的理由**:
+- ✅ 支持複雜路由規則 (使用萬用字元 `*` 和 `#`)
+- ✅ 訂閱者可訂閱特定模組、特定實體或所有事件
+- ✅ 易於擴展，新增訂閱者無需修改發布者
+
+**Exchange 設計**:
+
+```
+Exchange Name: respira.events
+Type: topic
+Durability: true (持久化，RabbitMQ 重啟後保留)
+Auto Delete: false
+```
+
+**Routing Key 格式**: `{module}.{entity}.{action}`
+
+**範例**:
+```
+daily_log.log.submitted        → DailyLogSubmitted 事件
+risk.score.calculated          → RiskScoreCalculated 事件
+auth.user.registered           → UserRegistered 事件
+```
+
+**訂閱模式範例**:
+```python
+# 訂閱所有 daily_log 模組的事件
+binding_key = "daily_log.*.*"
+
+# 訂閱所有模組的「已提交」事件
+binding_key = "*.*.submitted"
+
+# 訂閱所有 risk 模組的 score 相關事件
+binding_key = "risk.score.*"
+
+# 訂閱所有事件 (審計用途)
+binding_key = "#"
+```
+
+#### 6.3.2 Queue 設計
+
+**命名規範**: `{service_name}.{event_category}`
+
+**範例 Queue**:
+```
+# Risk Service 訂閱日誌與問卷事件
+risk_service.log_events
+  └─ Bindings: ["daily_log.log.submitted", "daily_log.log.deleted"]
+
+risk_service.survey_events
+  └─ Bindings: ["survey.survey.completed"]
+
+# Notification Service 訂閱多種事件
+notification_service.alert_events
+  └─ Bindings: ["risk.alert.triggered", "risk.level.escalated"]
+
+notification_service.user_events
+  └─ Bindings: ["auth.user.registered", "patient.profile.created"]
+```
+
+**Queue 配置**:
+```python
+{
+    "durable": True,  # 持久化
+    "auto_delete": False,
+    "arguments": {
+        "x-message-ttl": 86400000,  # 訊息 TTL: 24 小時
+        "x-max-length": 10000,      # 最大訊息數: 10000
+        "x-dead-letter-exchange": "respira.dlx",  # Dead Letter Exchange
+        "x-dead-letter-routing-key": "failed.{module}.{entity}.{action}"
+    }
+}
+```
+
+#### 6.3.3 Dead Letter Queue (DLQ) 策略
+
+**DLX Exchange**:
+```
+Exchange Name: respira.dlx
+Type: topic
+Durability: true
+```
+
+**DLQ Queue**:
+```
+Queue Name: respira.dead_letter_queue
+Bindings: ["failed.#"]  # 所有失敗事件
+TTL: 7 天 (604800000 ms)
+```
+
+**失敗處理流程**:
+1. **訂閱者處理失敗** → 訊息 `nack(requeue=False)`
+2. **訊息進入 DLQ** (帶上失敗原因 header)
+3. **監控告警** → 管理員收到 DLQ 訊息堆積告警
+4. **手動重試** → 管理員修復問題後，從 DLQ 重新發布到原 Queue
+
+**自動重試策略**:
+```python
+# 使用 x-message-ttl + x-dead-letter-exchange 實現延遲重試
+retry_queue_config = {
+    "x-message-ttl": 60000,  # 1 分鐘後重試
+    "x-dead-letter-exchange": "respira.events",  # 重新發布到主 Exchange
+    "x-max-retries": 3  # 最多重試 3 次 (自定義 header)
+}
+```
+
+#### 6.3.4 Event Bus 拓撲圖
+
+```mermaid
+graph LR
+    subgraph "Publishers (發布者)"
+        DailyLogSvc[DailyLog Service]
+        RiskSvc[Risk Service]
+        SurveySvc[Survey Service]
+    end
+
+    subgraph "RabbitMQ"
+        Exchange[respira.events<br/>Topic Exchange]
+        DLX[respira.dlx<br/>DLX Exchange]
+
+        RiskQueue[risk_service.log_events]
+        NotifQueue[notification_service.alert_events]
+        AuditQueue[audit_service.all_events]
+        DLQueue[respira.dead_letter_queue]
+    end
+
+    subgraph "Subscribers (訂閱者)"
+        RiskWorker[Risk Worker]
+        NotifWorker[Notification Worker]
+        AuditWorker[Audit Worker]
+    end
+
+    DailyLogSvc -->|Publish: daily_log.log.submitted| Exchange
+    RiskSvc -->|Publish: risk.alert.triggered| Exchange
+    SurveySvc -->|Publish: survey.survey.completed| Exchange
+
+    Exchange -->|Binding: daily_log.*.*| RiskQueue
+    Exchange -->|Binding: risk.alert.*| NotifQueue
+    Exchange -->|Binding: #| AuditQueue
+
+    RiskQueue -->|Consume| RiskWorker
+    NotifQueue -->|Consume| NotifWorker
+    AuditQueue -->|Consume| AuditWorker
+
+    RiskWorker -.->|nack (requeue=False)| DLX
+    DLX -.->|failed.#| DLQueue
+
+    style Exchange fill:#ff9999
+    style DLX fill:#ffcc99
+    style DLQueue fill:#ff6666
+```
+
+---
+
+### 6.4 Event Store 設計
+
+#### 6.4.1 事件存儲表 Schema
+
+**表名**: `event_logs` (已存在於 §5.2.1，此處擴展設計)
+
+```sql
+CREATE TABLE event_logs (
+    -- 唯一識別
+    event_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
+    -- 事件元數據
+    event_type TEXT NOT NULL,  -- 事件類型 (e.g., "daily_log.DailyLogSubmitted")
+    event_version TEXT NOT NULL DEFAULT 'v1',  -- 事件 Schema 版本
+
+    -- 聚合追蹤
+    aggregate_id UUID NOT NULL,  -- 聚合根 ID (e.g., patient_id, log_id)
+    aggregate_type TEXT NOT NULL,  -- 聚合類型 (e.g., "Patient", "DailyLog")
+
+    -- 事件內容
+    payload JSONB NOT NULL,  -- 事件數據 (完整 JSON)
+    metadata JSONB DEFAULT '{}',  -- 元數據 (correlation_id, causation_id, user_id...)
+
+    -- 發布狀態
+    published_at TIMESTAMP WITH TIME ZONE,  -- 發布到 RabbitMQ 的時間
+    is_published BOOLEAN NOT NULL DEFAULT false,
+
+    -- 審計欄位
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_by UUID,  -- 觸發事件的用戶 (可選)
+
+    -- 索引
+    CONSTRAINT event_type_format CHECK (event_type ~ '^[a-z_]+\.[A-Z][a-zA-Z]+$')
+);
+
+-- 索引設計
+CREATE INDEX idx_event_logs_aggregate ON event_logs(aggregate_type, aggregate_id, created_at DESC);
+CREATE INDEX idx_event_logs_type ON event_logs(event_type, created_at DESC);
+CREATE INDEX idx_event_logs_unpublished ON event_logs(is_published, created_at ASC) WHERE is_published = false;
+CREATE INDEX idx_event_logs_payload ON event_logs USING GIN (payload);
+
+COMMENT ON TABLE event_logs IS '領域事件存儲 - 記錄所有業務事件，支持事件溯源與審計';
+COMMENT ON COLUMN event_logs.metadata IS 'JSONB - 包含 correlation_id (追蹤整個業務流程), causation_id (觸發此事件的父事件), user_id (操作用戶)';
+```
+
+**Payload 範例** (`DailyLogSubmitted`):
+```json
+{
+  "log_id": "123e4567-e89b-12d3-a456-426614174000",
+  "patient_id": "789e4567-e89b-12d3-a456-426614174111",
+  "log_date": "2025-10-18",
+  "medication_taken": true,
+  "water_intake_ml": 2000,
+  "exercise_minutes": 30,
+  "symptoms": "輕微咳嗽",
+  "submitted_at": "2025-10-18T14:30:00Z"
+}
+```
+
+**Metadata 範例**:
+```json
+{
+  "correlation_id": "req-20251018-143000-abc123",  // 追蹤整個請求鏈
+  "causation_id": "evt-20251018-142500-xyz789",    // 父事件 ID
+  "user_id": "user-12345",
+  "ip_address": "192.168.1.100",
+  "user_agent": "LINE/10.2.0"
+}
+```
+
+#### 6.4.2 Outbox Pattern 實現
+
+**問題**: 如何確保數據庫事務與事件發布的原子性？
+
+**方案**: 使用 **Transactional Outbox Pattern**
+
+**流程**:
+1. **業務事務** (在同一個 DB 事務中):
+   ```python
+   async with db_session.begin():
+       # 1. 持久化聚合根
+       daily_log = await daily_log_repo.save(daily_log)
+
+       # 2. 寫入 event_logs (is_published=False)
+       event = EventLog(
+           event_type="daily_log.DailyLogSubmitted",
+           aggregate_id=daily_log.log_id,
+           aggregate_type="DailyLog",
+           payload={...},
+           is_published=False
+       )
+       await event_log_repo.save(event)
+   # 事務提交 → 數據與事件原子性保證
+   ```
+
+2. **後台 Worker 發布事件** (Polling 或 CDC):
+   ```python
+   # Event Publisher Worker (每 100ms 輪詢一次)
+   async def publish_pending_events():
+       while True:
+           # 查詢未發布事件
+           events = await event_log_repo.find_unpublished(limit=100)
+
+           for event in events:
+               try:
+                   # 發布到 RabbitMQ
+                   await rabbitmq.publish(
+                       exchange="respira.events",
+                       routing_key=event.routing_key,
+                       body=event.payload
+                   )
+
+                   # 標記為已發布
+                   event.is_published = True
+                   event.published_at = datetime.utcnow()
+                   await event_log_repo.update(event)
+
+               except Exception as e:
+                   logger.error(f"Failed to publish event {event.event_id}: {e}")
+
+           await asyncio.sleep(0.1)  # 100ms
+   ```
+
+**優勢**:
+- ✅ 保證事件至少發布一次 (At-Least-Once Delivery)
+- ✅ 數據庫與訊息隊列的最終一致性
+- ✅ Worker 失敗重啟後自動恢復
+
+#### 6.4.3 事件溯源 (Event Sourcing) 策略
+
+**適用場景** (僅關鍵聚合使用):
+- ✅ **Risk Score**: 需要追溯每次分數變化的原因
+- ✅ **Patient Profile**: 需要審計治療師分配歷史
+- ❌ **Daily Log**: 簡單 CRUD，不需要事件溯源
+
+**事件溯源示例** (`RiskScore` 聚合):
+
+```python
+# domain/entities/risk_score.py
+class RiskScore:
+    """風險分數聚合根 (使用事件溯源)"""
+
+    def __init__(self):
+        self.patient_id: UUID = None
+        self.current_score: int = 0
+        self.current_level: str = "LOW"
+        self.version: int = 0  # 樂觀鎖版本
+        self._uncommitted_events: List[DomainEvent] = []
+
+    @classmethod
+    def from_events(cls, events: List[DomainEvent]) -> "RiskScore":
+        """從事件流重建聚合狀態"""
+        instance = cls()
+        for event in events:
+            instance._apply_event(event)
+        return instance
+
+    def calculate_risk(self, adherence_rate: float, cat_score: int):
+        """計算風險分數 (產生事件)"""
+        new_score = int(adherence_rate * 30 + cat_score * 25)
+        new_level = self._get_level(new_score)
+
+        # 產生事件
+        event = RiskScoreCalculated(
+            patient_id=self.patient_id,
+            risk_score=new_score,
+            risk_level=new_level,
+            calculated_at=datetime.utcnow()
+        )
+
+        self._apply_event(event)
+        self._uncommitted_events.append(event)
+
+    def _apply_event(self, event: DomainEvent):
+        """應用事件到聚合狀態 (純函數)"""
+        if isinstance(event, RiskScoreCalculated):
+            self.current_score = event.risk_score
+            self.current_level = event.risk_level
+            self.version += 1
+        elif isinstance(event, RiskLevelEscalated):
+            self.current_level = event.new_level
+            self.version += 1
+
+    def get_uncommitted_events(self) -> List[DomainEvent]:
+        return self._uncommitted_events.copy()
+```
+
+**Repository 實現** (事件溯源):
+```python
+# infrastructure/repositories/risk_score_repository.py
+class RiskScoreRepository:
+    async def save(self, risk_score: RiskScore):
+        """保存聚合 (僅保存新事件)"""
+        events = risk_score.get_uncommitted_events()
+
+        async with self.db_session.begin():
+            for event in events:
+                event_log = EventLog(
+                    event_type=event.__class__.__name__,
+                    aggregate_id=risk_score.patient_id,
+                    aggregate_type="RiskScore",
+                    payload=event.to_dict(),
+                    is_published=False
+                )
+                self.db_session.add(event_log)
+
+    async def find_by_patient(self, patient_id: UUID) -> RiskScore:
+        """從事件流重建聚合"""
+        # 查詢該聚合的所有事件
+        event_logs = await self.db_session.execute(
+            select(EventLog)
+            .where(EventLog.aggregate_id == patient_id)
+            .where(EventLog.aggregate_type == "RiskScore")
+            .order_by(EventLog.created_at.asc())
+        )
+
+        events = [self._to_domain_event(log) for log in event_logs.scalars()]
+        return RiskScore.from_events(events)
+```
+
+**事件溯源 vs 傳統 CRUD 對比**:
+
+| 特性 | 事件溯源 | 傳統 CRUD |
+|------|---------|----------|
+| 數據存儲 | 事件流 (event_logs) | 當前狀態 (risk_scores) |
+| 查詢性能 | 需重建聚合，較慢 | 直接查詢，較快 |
+| 審計能力 | 完整歷史追溯 | 僅當前狀態 |
+| 複雜度 | 高 (需實現 from_events) | 低 (標準 ORM) |
+| 適用場景 | 關鍵業務邏輯 | 一般 CRUD |
+
+**混合策略** (推薦):
+- ✅ 使用事件溯源存儲 (`event_logs`)
+- ✅ 同時維護 Read Model (`risk_scores` 表，用於快速查詢)
+- ✅ 通過事件訂閱者更新 Read Model
+
+---
+
+### 6.5 實作範例
+
+#### 6.5.1 Publisher 實現 (發布事件)
+
+**場景**: DailyLog Service 提交日誌後發布 `DailyLogSubmitted` 事件
+
+```python
+# modules/daily_log/domain/events.py
+from dataclasses import dataclass
+from datetime import date, datetime
+from uuid import UUID
+
+@dataclass
+class DailyLogSubmitted:
+    """領域事件：日誌已提交"""
+    log_id: UUID
+    patient_id: UUID
+    log_date: date
+    medication_taken: bool
+    water_intake_ml: int
+    exercise_minutes: int
+    symptoms: str
+    submitted_at: datetime
+
+    def to_dict(self) -> dict:
+        return {
+            "log_id": str(self.log_id),
+            "patient_id": str(self.patient_id),
+            "log_date": self.log_date.isoformat(),
+            "medication_taken": self.medication_taken,
+            "water_intake_ml": self.water_intake_ml,
+            "exercise_minutes": self.exercise_minutes,
+            "symptoms": self.symptoms,
+            "submitted_at": self.submitted_at.isoformat()
+        }
+
+    @property
+    def routing_key(self) -> str:
+        return "daily_log.log.submitted"
+```
+
+```python
+# modules/daily_log/application/use_cases/submit_daily_log.py
+from modules.daily_log.domain.entities import DailyLog
+from modules.daily_log.domain.events import DailyLogSubmitted
+from modules.daily_log.domain.ports import IDailyLogRepository
+from shared.event_bus import IEventBus
+from shared.event_store import IEventStore
+
+class SubmitDailyLogUseCase:
+    def __init__(
+        self,
+        daily_log_repo: IDailyLogRepository,
+        event_store: IEventStore,
+        event_bus: IEventBus
+    ):
+        self.daily_log_repo = daily_log_repo
+        self.event_store = event_store
+        self.event_bus = event_bus
+
+    async def execute(self, command: SubmitDailyLogCommand) -> DailyLog:
+        # Step 1: 創建領域對象
+        daily_log = DailyLog.create(
+            patient_id=command.patient_id,
+            log_date=command.log_date,
+            medication_taken=command.medication_taken,
+            water_intake_ml=command.water_intake_ml,
+            # ...
+        )
+
+        # Step 2: 原子性操作 (在同一個事務中)
+        async with self.db_session.begin():
+            # 2a. 持久化聚合
+            saved_log = await self.daily_log_repo.save(daily_log)
+
+            # 2b. 保存事件到 event_logs (Outbox Pattern)
+            event = DailyLogSubmitted(
+                log_id=saved_log.log_id,
+                patient_id=saved_log.patient_id,
+                log_date=saved_log.log_date,
+                medication_taken=saved_log.medication_taken,
+                water_intake_ml=saved_log.water_intake_ml,
+                exercise_minutes=saved_log.exercise_minutes,
+                symptoms=saved_log.symptoms,
+                submitted_at=datetime.utcnow()
+            )
+
+            await self.event_store.append(
+                event_type="daily_log.DailyLogSubmitted",
+                aggregate_id=saved_log.log_id,
+                aggregate_type="DailyLog",
+                payload=event.to_dict(),
+                metadata={
+                    "correlation_id": command.correlation_id,
+                    "user_id": str(command.user_id)
+                }
+            )
+
+        # Step 3: 事務成功提交，返回結果
+        # (後台 Worker 會自動發布 event_logs 中未發布的事件)
+        return saved_log
+```
+
+#### 6.5.2 Subscriber 實現 (訂閱事件)
+
+**場景**: Risk Service 訂閱 `DailyLogSubmitted` 事件，重新計算風險分數
+
+```python
+# modules/risk/application/event_handlers/daily_log_handler.py
+from modules.risk.application.use_cases import CalculateRiskScoreUseCase
+from modules.daily_log.domain.events import DailyLogSubmitted
+from shared.event_bus import IEventHandler
+
+class DailyLogSubmittedHandler(IEventHandler):
+    """處理 DailyLogSubmitted 事件"""
+
+    def __init__(self, calculate_risk_use_case: CalculateRiskScoreUseCase):
+        self.calculate_risk_use_case = calculate_risk_use_case
+
+    async def handle(self, event: DailyLogSubmitted):
+        """處理事件邏輯"""
+        try:
+            # 觸發風險分數重新計算
+            await self.calculate_risk_use_case.execute(
+                patient_id=event.patient_id
+            )
+
+            logger.info(
+                f"Risk score recalculated for patient {event.patient_id} "
+                f"after log submission on {event.log_date}"
+            )
+
+        except Exception as e:
+            logger.error(
+                f"Failed to calculate risk for patient {event.patient_id}: {e}",
+                exc_info=True
+            )
+            # 重新拋出異常，讓 RabbitMQ 重試
+            raise
+```
+
+```python
+# modules/risk/infrastructure/event_subscribers.py
+from shared.rabbitmq import RabbitMQEventBus
+
+async def setup_event_subscribers(event_bus: RabbitMQEventBus):
+    """註冊所有事件訂閱者"""
+
+    # 註冊 DailyLogSubmitted 事件處理器
+    await event_bus.subscribe(
+        queue_name="risk_service.log_events",
+        binding_keys=["daily_log.log.submitted", "daily_log.log.deleted"],
+        handler=DailyLogSubmittedHandler(calculate_risk_use_case),
+        prefetch_count=10  # 每次預取 10 條訊息
+    )
+
+    # 註冊 SurveyCompleted 事件處理器
+    await event_bus.subscribe(
+        queue_name="risk_service.survey_events",
+        binding_keys=["survey.survey.completed"],
+        handler=SurveyCompletedHandler(calculate_risk_use_case),
+        prefetch_count=10
+    )
+```
+
+#### 6.5.3 Event Bus 介面定義
+
+```python
+# shared/event_bus/interface.py
+from abc import ABC, abstractmethod
+from typing import Callable, List
+
+class IEventBus(ABC):
+    """事件總線接口 (Port)"""
+
+    @abstractmethod
+    async def publish(
+        self,
+        routing_key: str,
+        payload: dict,
+        metadata: dict = None
+    ) -> None:
+        """發布事件到 Exchange"""
+        pass
+
+    @abstractmethod
+    async def subscribe(
+        self,
+        queue_name: str,
+        binding_keys: List[str],
+        handler: Callable,
+        prefetch_count: int = 1
+    ) -> None:
+        """訂閱事件"""
+        pass
+
+    @abstractmethod
+    async def close(self) -> None:
+        """關閉連接"""
+        pass
+```
+
+```python
+# shared/event_bus/rabbitmq_adapter.py
+import aio_pika
+import json
+from shared.event_bus.interface import IEventBus
+
+class RabbitMQEventBus(IEventBus):
+    """RabbitMQ 事件總線實現 (Adapter)"""
+
+    def __init__(self, connection_url: str):
+        self.connection_url = connection_url
+        self.connection = None
+        self.channel = None
+        self.exchange = None
+
+    async def connect(self):
+        """建立連接"""
+        self.connection = await aio_pika.connect_robust(self.connection_url)
+        self.channel = await self.connection.channel()
+
+        # 聲明 Exchange
+        self.exchange = await self.channel.declare_exchange(
+            "respira.events",
+            aio_pika.ExchangeType.TOPIC,
+            durable=True
+        )
+
+    async def publish(
+        self,
+        routing_key: str,
+        payload: dict,
+        metadata: dict = None
+    ) -> None:
+        """發布事件"""
+        message_body = {
+            "payload": payload,
+            "metadata": metadata or {}
+        }
+
+        message = aio_pika.Message(
+            body=json.dumps(message_body).encode(),
+            content_type="application/json",
+            delivery_mode=aio_pika.DeliveryMode.PERSISTENT  # 持久化
+        )
+
+        await self.exchange.publish(
+            message,
+            routing_key=routing_key
+        )
+
+        logger.debug(f"Published event to {routing_key}")
+
+    async def subscribe(
+        self,
+        queue_name: str,
+        binding_keys: List[str],
+        handler: Callable,
+        prefetch_count: int = 1
+    ) -> None:
+        """訂閱事件"""
+        # 設置 QoS
+        await self.channel.set_qos(prefetch_count=prefetch_count)
+
+        # 聲明 Queue
+        queue = await self.channel.declare_queue(
+            queue_name,
+            durable=True,
+            arguments={
+                "x-message-ttl": 86400000,  # 24 小時
+                "x-dead-letter-exchange": "respira.dlx"
+            }
+        )
+
+        # 綁定 Routing Keys
+        for binding_key in binding_keys:
+            await queue.bind(self.exchange, routing_key=binding_key)
+
+        # 開始消費
+        async def on_message(message: aio_pika.IncomingMessage):
+            async with message.process(requeue=False):
+                try:
+                    body = json.loads(message.body.decode())
+                    await handler.handle(body["payload"])
+
+                except Exception as e:
+                    logger.error(f"Handler failed: {e}", exc_info=True)
+                    # 訊息會進入 DLQ (因為 requeue=False)
+                    raise
+
+        await queue.consume(on_message)
+        logger.info(f"Subscribed to {queue_name} with bindings: {binding_keys}")
+
+    async def close(self):
+        """關閉連接"""
+        if self.connection:
+            await self.connection.close()
+```
+
+#### 6.5.4 完整流程範例 (端到端)
+
+**場景**: 用戶提交日誌 → 觸發風險計算 → 發送通知
+
+```mermaid
+sequenceDiagram
+    participant User as 用戶 (LINE)
+    participant API as FastAPI
+    participant LogUC as SubmitDailyLogUseCase
+    participant DB as PostgreSQL
+    participant Worker as Event Publisher Worker
+    participant RabbitMQ as RabbitMQ
+    participant RiskWorker as Risk Worker
+    participant NotifWorker as Notification Worker
+
+    User->>API: POST /api/v1/daily-logs
+    API->>LogUC: execute(command)
+
+    Note over LogUC,DB: 原子性事務
+    LogUC->>DB: 1. INSERT INTO daily_logs
+    LogUC->>DB: 2. INSERT INTO event_logs<br/>(is_published=false)
+    DB-->>LogUC: 事務提交成功
+
+    LogUC-->>API: 返回 201 Created
+    API-->>User: 日誌提交成功
+
+    Note over Worker,RabbitMQ: 後台異步發布
+    loop 每 100ms
+        Worker->>DB: SELECT * FROM event_logs<br/>WHERE is_published=false
+        DB-->>Worker: 返回未發布事件
+        Worker->>RabbitMQ: PUBLISH to respira.events<br/>Routing Key: daily_log.log.submitted
+        Worker->>DB: UPDATE event_logs<br/>SET is_published=true
+    end
+
+    Note over RabbitMQ,RiskWorker: 風險計算
+    RabbitMQ->>RiskWorker: Deliver: DailyLogSubmitted
+    RiskWorker->>RiskWorker: CalculateRiskScoreUseCase.execute()
+    RiskWorker->>DB: UPDATE risk_scores
+    RiskWorker->>DB: INSERT INTO event_logs<br/>(RiskScoreCalculated)
+    RiskWorker->>RabbitMQ: ACK
+
+    Note over RabbitMQ,NotifWorker: 通知發送
+    RabbitMQ->>NotifWorker: Deliver: RiskScoreCalculated
+    NotifWorker->>NotifWorker: SendNotificationUseCase.execute()
+    NotifWorker->>NotifWorker: LINE Push Message
+    NotifWorker->>RabbitMQ: ACK
+```
+
+**時序說明**:
+1. **同步階段** (0-200ms): 用戶提交日誌 → 數據持久化 → 返回成功
+2. **異步階段** (200ms-5s): 事件發布 → 風險計算 → 通知發送
+3. **失敗處理**: 任一階段失敗，不影響前序階段（最終一致性）
+
+---
+
+### 6.6 事件流程圖 (關鍵業務場景)
+
+#### 6.6.1 場景 1: 日誌提交觸發風險計算與通知
+
+```mermaid
+graph TD
+    A[用戶提交日誌] -->|HTTP POST| B[DailyLog Service]
+    B -->|保存聚合| C[(daily_logs 表)]
+    B -->|保存事件| D[(event_logs 表)]
+    D -->|Outbox Worker| E{RabbitMQ<br/>respira.events}
+
+    E -->|Routing: daily_log.log.submitted| F[Risk Service<br/>Queue: risk_service.log_events]
+    F -->|訂閱處理| G[CalculateRiskScoreUseCase]
+    G -->|更新分數| H[(risk_scores 表)]
+    G -->|發布事件| I[RiskScoreCalculated]
+
+    I -->|Routing: risk.score.calculated| J[Notification Service<br/>Queue: notification_service.risk_events]
+    J -->|訂閱處理| K[SendNotificationUseCase]
+    K -->|LINE Push| L[用戶收到通知]
+
+    E -->|Routing: daily_log.log.submitted| M[DailyLog Service<br/>Queue: daily_log.kpi_events]
+    M -->|訂閱處理| N[UpdateKPICacheUseCase]
+    N -->|更新 KPI| O[(patient_kpi_cache 表)]
+
+    style A fill:#ccffcc
+    style E fill:#ff9999
+    style L fill:#ccffcc
+    style C fill:#ccccff
+    style H fill:#ccccff
+    style O fill:#ccccff
+```
+
+#### 6.6.2 場景 2: 風險等級提升觸發緊急通知
+
+```mermaid
+graph TD
+    A[Risk Service<br/>計算風險分數] -->|分數提升| B{風險等級提升?<br/>LOW → MEDIUM → HIGH}
+    B -->|是| C[發布 RiskLevelEscalated 事件]
+    B -->|否| D[僅發布 RiskScoreCalculated]
+
+    C -->|Routing: risk.level.escalated| E[Notification Service<br/>Queue: notification_service.urgent_events]
+    E -->|Priority: HIGH| F[SendUrgentNotificationUseCase]
+
+    F -->|並行發送| G1[LINE 通知患者]
+    F -->|並行發送| G2[LINE 通知治療師]
+    F -->|並行發送| G3[Email 通知治療師]
+
+    G1 & G2 & G3 -->|記錄| H[(notification_history 表)]
+
+    C -->|Routing: risk.level.escalated| I[Patient Service<br/>Queue: patient_service.risk_events]
+    I -->|更新檔案| J[(patient_profiles 表<br/>標記為高風險)]
+
+    style B fill:#ffcccc
+    style E fill:#ff6666
+    style F fill:#ff9999
+```
+
+#### 6.6.3 場景 3: 事件失敗處理與重試
+
+```mermaid
+graph TD
+    A[RabbitMQ 投遞事件] --> B[Risk Worker 接收]
+    B --> C{處理成功?}
+
+    C -->|成功| D[發送 ACK]
+    D --> E[訊息刪除]
+
+    C -->|失敗| F{重試次數 < 3?}
+    F -->|是| G[發送 NACK<br/>requeue=true]
+    G --> H[延遲 1 分鐘後<br/>重新投遞]
+    H --> B
+
+    F -->|否| I[發送 NACK<br/>requeue=false]
+    I --> J[訊息進入 DLX]
+    J --> K[(Dead Letter Queue)]
+    K --> L[監控告警<br/>通知管理員]
+    L --> M[手動排查與修復]
+    M --> N[從 DLQ 重新發布]
+    N --> A
+
+    style C fill:#ffcc99
+    style F fill:#ffcc99
+    style K fill:#ff6666
+    style L fill:#ff9999
+```
+
+---
+
+### 6.7 事件版本控制與演進策略
+
+#### 6.7.1 事件 Schema 版本化
+
+**問題**: 如何在不破壞現有訂閱者的前提下演進事件 Schema？
+
+**策略**: 使用 `event_version` 欄位標記版本，遵循向後兼容原則
+
+**範例**: `DailyLogSubmitted` 事件演進
+
+**v1 (初始版本)**:
+```json
+{
+  "log_id": "...",
+  "patient_id": "...",
+  "log_date": "2025-10-18",
+  "medication_taken": true,
+  "water_intake_ml": 2000,
+  "submitted_at": "2025-10-18T14:30:00Z"
+}
+```
+
+**v2 (新增欄位 - 向後兼容)**:
+```json
+{
+  "log_id": "...",
+  "patient_id": "...",
+  "log_date": "2025-10-18",
+  "medication_taken": true,
+  "water_intake_ml": 2000,
+  "exercise_minutes": 30,  // ✅ 新增欄位
+  "symptoms": "輕微咳嗽",   // ✅ 新增欄位
+  "submitted_at": "2025-10-18T14:30:00Z"
+}
+```
+
+**處理策略**:
+```python
+class DailyLogSubmittedHandler:
+    async def handle(self, event: dict):
+        # 讀取事件版本
+        version = event.get("_version", "v1")
+
+        if version == "v1":
+            # v1 訂閱者: 忽略新欄位
+            patient_id = event["patient_id"]
+            log_date = event["log_date"]
+            # 使用默認值處理缺失欄位
+            exercise_minutes = event.get("exercise_minutes", 0)
+
+        elif version == "v2":
+            # v2 訂閱者: 使用所有欄位
+            patient_id = event["patient_id"]
+            log_date = event["log_date"]
+            exercise_minutes = event["exercise_minutes"]
+
+        await self.calculate_risk(patient_id, log_date, exercise_minutes)
+```
+
+**破壞性變更處理**:
+- ❌ 不可刪除現有欄位
+- ❌ 不可變更欄位類型 (如 `int` → `str`)
+- ✅ 若必須破壞性變更，建立新事件名稱: `DailyLogSubmittedV2`
+
+#### 6.7.2 事件棄用策略
+
+**流程**:
+1. **發布新版本事件** (如 `DailyLogSubmittedV2`)
+2. **雙寫期** (3-6 個月): 同時發布舊版本與新版本事件
+3. **遷移訂閱者**: 逐步將訂閱者遷移到新事件
+4. **監控**: 檢查舊事件訂閱者數量
+5. **棄用**: 舊事件訂閱者歸零後，停止發布舊事件
+6. **文檔更新**: 標記舊事件為 `@deprecated`
+
+---
+
+### 6.8 監控與可觀測性
+
+#### 6.8.1 關鍵指標 (Metrics)
+
+**RabbitMQ 指標**:
+```python
+# 使用 Prometheus + RabbitMQ Exporter
+respira_event_published_total{module="daily_log", event_type="DailyLogSubmitted"}
+respira_event_consumed_total{service="risk_service", queue="log_events"}
+respira_event_failed_total{service="risk_service", error_type="DatabaseError"}
+respira_dlq_message_count{queue="respira.dead_letter_queue"}
+respira_event_latency_seconds{event_type="DailyLogSubmitted", percentile="p95"}
+```
+
+**告警規則**:
+```yaml
+# Prometheus Alert Rules
+groups:
+  - name: event_bus_alerts
+    rules:
+      - alert: DeadLetterQueueGrowing
+        expr: respira_dlq_message_count > 100
+        for: 5m
+        annotations:
+          summary: "DLQ 訊息堆積超過 100 條"
+
+      - alert: EventProcessingSlowdown
+        expr: rate(respira_event_consumed_total[5m]) < 10
+        for: 10m
+        annotations:
+          summary: "事件消費速率過低 (<10/s)"
+
+      - alert: HighEventFailureRate
+        expr: rate(respira_event_failed_total[5m]) / rate(respira_event_published_total[5m]) > 0.05
+        for: 5m
+        annotations:
+          summary: "事件失敗率超過 5%"
+```
+
+#### 6.8.2 分散式追蹤 (Distributed Tracing)
+
+**使用 OpenTelemetry 追蹤事件流程**:
+
+```python
+from opentelemetry import trace
+from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
+
+tracer = trace.get_tracer(__name__)
+
+# 發布事件時注入 Trace Context
+async def publish_event(event: DomainEvent):
+    with tracer.start_as_current_span("publish_event") as span:
+        span.set_attribute("event.type", event.__class__.__name__)
+        span.set_attribute("event.aggregate_id", str(event.aggregate_id))
+
+        # 注入 Trace Context 到事件 metadata
+        propagator = TraceContextTextMapPropagator()
+        carrier = {}
+        propagator.inject(carrier)
+
+        metadata = {
+            "trace_id": carrier.get("traceparent"),
+            "correlation_id": event.correlation_id
+        }
+
+        await event_bus.publish(
+            routing_key=event.routing_key,
+            payload=event.to_dict(),
+            metadata=metadata
+        )
+
+# 訂閱事件時提取 Trace Context
+async def handle_event(message: dict):
+    metadata = message.get("metadata", {})
+
+    # 提取 Trace Context
+    propagator = TraceContextTextMapPropagator()
+    context = propagator.extract(carrier={"traceparent": metadata.get("trace_id")})
+
+    with tracer.start_as_current_span("handle_event", context=context) as span:
+        span.set_attribute("event.type", message["event_type"])
+        await process_event(message["payload"])
+```
+
+**效果**: 在 Jaeger/Zipkin 中可視化整個事件流程鏈：
+```
+Trace: req-20251018-143000-abc123
+├─ Span: POST /api/v1/daily-logs (200ms)
+│  ├─ Span: SubmitDailyLogUseCase.execute (150ms)
+│  │  ├─ Span: daily_log_repo.save (50ms)
+│  │  └─ Span: event_store.append (30ms)
+│  └─ Span: publish_event (10ms)
+├─ Span: RabbitMQ delivery (5ms)
+├─ Span: Risk Worker: handle DailyLogSubmitted (500ms)
+│  ├─ Span: CalculateRiskScoreUseCase.execute (400ms)
+│  └─ Span: publish RiskScoreCalculated (20ms)
+└─ Span: Notification Worker: handle RiskScoreCalculated (300ms)
+   └─ Span: LINE API: push message (250ms)
+```
+
+#### 6.8.3 日誌關聯 (Log Correlation)
+
+**統一日誌格式** (JSON 結構化日誌):
+```json
+{
+  "timestamp": "2025-10-18T14:30:00.123Z",
+  "level": "INFO",
+  "service": "risk_service",
+  "trace_id": "abc123",
+  "correlation_id": "req-20251018-143000",
+  "event_type": "daily_log.DailyLogSubmitted",
+  "patient_id": "patient-123",
+  "message": "Risk score calculated successfully",
+  "latency_ms": 450
+}
+```
+
+**日誌查詢** (使用 Loki/Elasticsearch):
+```promql
+# 查詢特定 correlation_id 的所有日誌 (追蹤整個業務流程)
+{service=~".+"} |= "req-20251018-143000"
+
+# 查詢特定患者的所有事件處理日誌
+{service=~".+"} | json | patient_id="patient-123"
+```
+
+---
+
+### 6.9 設計檢查清單
+
+**事件設計**:
+- [ ] 事件名稱使用過去式 (如 `DailyLogSubmitted`)
+- [ ] 事件包含足夠上下文 (訂閱者無需查詢數據庫)
+- [ ] 事件 Schema 有版本控制 (`event_version` 欄位)
+- [ ] 破壞性變更使用新事件名稱
+
+**Event Bus 配置**:
+- [ ] Exchange 設置為持久化 (`durable=True`)
+- [ ] Queue 配置 TTL 與 DLX
+- [ ] Routing Key 遵循命名規範
+- [ ] 訂閱者使用 `prefetch_count` 控制並發
+
+**Outbox Pattern**:
+- [ ] 事件與聚合在同一事務中保存
+- [ ] 後台 Worker 定期發布未發布事件
+- [ ] 事件發布後標記 `is_published=True`
+
+**失敗處理**:
+- [ ] 訂閱者處理失敗時拋出異常 (觸發重試)
+- [ ] 最多重試 3 次
+- [ ] 重試失敗後進入 DLQ
+- [ ] DLQ 監控告警設置
+
+**監控**:
+- [ ] 事件發布/消費速率監控
+- [ ] DLQ 訊息數量告警
+- [ ] 事件處理延遲 P95 監控
+- [ ] 分散式追蹤配置 (Trace Context 傳遞)
+
+---
+
 **記住**: 架構是為業務目標服務的，好的架構平衡了當前需求與未來演進，是團隊共識的結晶。本文件將隨著專案演進持續更新。
 
 **文件結束**
