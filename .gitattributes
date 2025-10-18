@@ -10,6 +10,9 @@
 *.yml text eol=lf
 *.yaml text eol=lf
 
+# Git hooks must always use LF
+.husky/** text eol=lf
+
 # Denote binary files
 *.png binary
 *.jpg binary
