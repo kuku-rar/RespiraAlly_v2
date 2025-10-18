@@ -1,92 +1,165 @@
-# RespiraAlly 開發流程總覽手冊 (Development Workflow Cookbook)
+# RespiraAlly 開發工作流程手冊 (Development Workflow Cookbook)
 
 ---
 
-**文件版本 (Document Version):** `v1.0`
-**最後更新 (Last Updated):** `2025-10-16`
-**主要作者 (Lead Author):** `Claude Code AI`
+**文件版本 (Document Version):** `v2.0`
+**最後更新 (Last Updated):** `2025-10-18`
+**主要作者 (Lead Author):** `Gemini Code AI`
 **狀態 (Status):** `活躍 (Active)`
 
 ---
 
-## 目錄 (Table of Contents)
+## Ⅰ. 核心目標
 
-- [Ⅰ. 核心理念：從商業價值到高品質程式碼](#ⅰ-核心理念從商業價值到高品質程式碼)
-- [Ⅱ. 開發階段與文件產出](#ⅱ-開發階段與文件產出)
-  - [**第一階段：規劃 (Planning) - 定義「為何」與「什麼」**](#第一階段規劃-planning---定義為何與什麼)
-  - [**第二階段：設計 (Design) - 定義「如何」的藍圖**](#第二階段設計-design---定義如何的藍圖)
-  - [**第三階段：開發 (Development) - 精確實現**](#第三階段開發-development---精確實現)
-  - [**第四階段：品質與部署 (Quality & Deployment)**](#第四階段品質與部署-quality--deployment)
-- [Ⅲ. 支援文件](#ⅲ-支援文件)
+本文件為 `RespiraAlly` 專案的開發人員提供一套標準化、可執行的工作流程。其目標是確保程式碼品質、統一開發實踐，並提升團隊協作效率。這是一份「實踐手冊」，包含具體的指令與步驟。
 
----
+## Ⅱ. 環境設定 (Initial Setup)
 
-## Ⅰ. 核心理念：從商業價值到高品質程式碼
+在開始之前，請確保您的本機環境已安裝 `git`, `node` (v18+), `npm` (v9+), `python` (v3.11+), 和 `poetry`。
 
-**目的**: 本手冊旨在提供一個頂層指導，說明 `RespiraAlly` 專案開發流程的各個階段、目標，並作為導航中心，連結到所有相關的文件範本。
+1.  **Clone 專案庫:**
+    ```bash
+    git clone https://github.com/your-repo/RespiraAlly.git
+    cd RespiraAlly
+    ```
 
-本開發流程旨在建立一個從商業需求到高品質程式碼的完整、可追溯的鏈路。我們融合 BDD (行為驅動開發)、DDD (領域驅動設計)、Clean Architecture (潔淨架構) 與 TDD (測試驅動開發)，形成一套以「規格」為驅動、以「測試」為驗證的現代軟體開發模型。
+2.  **安裝後端 (Backend) 依賴:**
+    *   進入後端目錄並使用 Poetry 安裝。
+    ```bash
+    cd backend
+    poetry install
+    ```
 
-**推演的第一性原理:**
+3.  **安裝前端 (Frontend) 依賴:**
+    *   本專案有兩個前端應用，請分別安裝。
 
-1.  **從「為何」到「什麼」，再到「如何」**:
-    *   **為何 (Why)**: 我們為何要投入資源？這要解決什麼商業問題？ (詳見 [PRD](./product_requirements_document.md))
-    *   **什麼 (What)**: 使用者認為「完成」的標準是什麼？ (詳見 [BDD 情境](./bdd/README.md))
-    *   **如何 (How)**: 系統與程式碼應如何被建構以實現目標？ (詳見 [架構設計文件](./architecture_and_design.md))
+    *   **治療師儀表板 (Dashboard):**
+        ```bash
+        cd frontend/dashboard
+        npm install
+        ```
 
-2.  **品質內建 (Quality Built-in)**: 我們不將測試視為事後檢查，而是將其融入開發的每一步，從根本上減少錯誤。
+    *   **病患 LIFF 應用:**
+        ```bash
+        cd frontend/liff
+        npm install
+        ```
 
-3.  **AI 輔助就緒 (AI-Assistant Ready)**: 流程中的每一份文件都旨在產生精確、無歧義的「上下文」，為大型語言模型 (LLM) 輔助開發提供必要的「護欄」。
+## Ⅲ. 開發週期 (Development Cycle)
 
----
+### 1. 建立分支 (Branching)
 
-## Ⅱ. 開發階段與文件產出
+所有開發工作都應在獨立的分支上進行。請從 `main` 分支建立新分支。
 
-本流程分為四個主要階段，每個階段都會產出關鍵文件，環環相扣，共同構成專案的完整藍圖。
+**分支命名慣例:**
 
-### **第一階段：規劃 (Planning) - 定義「為何」與「什麼」**
+*   **新功能:** `feature/<ticket-id>-short-description` (e.g., `feature/RA-123-patient-list-view`)
+*   **錯誤修復:** `fix/<ticket-id>-short-description` (e.g., `fix/RA-124-login-button-bug`)
+*   **技術任務/重構:** `chore/<ticket-id>-short-description` (e.g., `chore/RA-125-refactor-api-service`)
+*   **文件:** `docs/<ticket-id>-short-description` (e.g., `docs/RA-126-update-workflow-guide`)
 
-**目標**: 確保開發方向從一開始就與商業價值和使用者需求對齊。
+### 2. 編寫程式碼 (Coding)
 
-1.  **[敏捷設計文件 (Agile Design Document)](./AGILE_DESIGN_DOCUMENT.md)**
-    *   **目的**: 作為專案的起點與核心資訊來源，定義了從使用者故事到 Sprint 規劃的所有內容。
+*   **後端 (Backend):**
+    *   在 `backend` 目錄下執行開發伺服器：
+    ```bash
+    cd backend
+    poetry run uvicorn src.respira_ally.main:app --reload
+    ```
 
-2.  **[產品需求文件 (PRD)](./product_requirements_document.md)**
-    *   **目的**: 提煉敏捷設計文件，定義專案的「為何」與「為誰」，設定最高層次的目標和邊界。
-    *   **產出**: 一份清晰的 PRD 文件，包含商業目標、使用者故事、成功指標以及範圍限制。
+*   **前端儀表板 (Frontend Dashboard):**
+    *   在 `frontend/dashboard` 目錄下執行開發伺服器：
+    ```bash
+    cd frontend/dashboard
+    npm run dev
+    ```
 
-3.  **[行為驅動情境 (BDD Scenarios)](./bdd/README.md)**
-    *   **目的**: 將 PRD 中的使用者故事轉化為精確、無歧義的自然語言規格，作為連接業務與技術的橋樑。
-    *   **產出**: `.feature` 檔案，其中包含使用 Gherkin 語法描述的 `Given-When-Then` 情境。
+*   **前端 LIFF (Frontend LIFF):**
+    *   在 `frontend/liff` 目錄下執行開發伺服器：
+    ```bash
+    cd frontend/liff
+    npm run dev
+    ```
 
-### **第二階段：設計 (Design) - 定義「如何」的藍圖**
+### 3. 品質保證 (Quality Assurance)
 
-**目標**: 將業務需求轉化為穩固、可擴展的技術藍圖，避免系統演變成難以維護的「大泥球」。
+在提交程式碼前，必須在本機執行所有品質檢查。
 
-4.  **[架構與設計文件 (SAD & SDD)](./architecture_and_design.md)**
-    *   **目的**: 建立系統的結構（架構）並填充具體的實現細節（設計）。
-    *   **產出**: 一份整合性的設計文檔，包含 C4 模型、DDD 戰略設計、Clean Architecture 分層，並連結至：
-        *   **[架構決策記錄 (ADR)](./adr/README.md)**
-        *   **[API 設計規格](./api_design_specification.md)**
+*   **後端 (Backend):**
+    *   在 `backend` 目錄下執行：
+    ```bash
+    # 格式化
+    poetry run black .
+    # Linting
+    poetry run ruff check . --fix
+    # 型別檢查
+    poetry run mypy .
+    # 單元測試
+    poetry run pytest
+    ```
 
-### **第三階段：開發 (Development) - 精確實現**
+*   **前端 (Frontend - Dashboard & LIFF):**
+    *   在對應的 `frontend/dashboard` 或 `frontend/liff` 目錄下執行：
+    ```bash
+    # 格式化
+    npm run format
+    # Linting
+    npm run lint
+    # 型別檢查
+    npm run type-check
+    # 測試 (僅限 Dashboard)
+    npm test
+    ```
 
-**目標**: 透過 TDD 和契約式設計，確保每一個程式碼單元都被精確、健壯地實現。
+### 4. 提交變更 (Committing)
 
-5.  **[模組規格與測試](./module_specification_and_tests.md)**
-    *   **目的**: 將高層次的 BDD 情境分解到具體的模組或類別層級，並使用契約式設計 (DbC) 來精確定義其職責邊界。
-    *   **產出**: 模組規格文件，包含詳細的測試情境與函式契約（前置/後置條件、不變性）。
+我們遵循 **Conventional Commits** 規範。這有助於自動化版本管理和變更日誌的生成。
 
-### **第四階段：品質與部署 (Quality & Deployment)**
+**Commit 訊息格式:**
 
-**目標**: 確保專案在交付前符合安全、隱私與生產環境的標準。
+```
+<type>[optional scope]: <description>
 
-6.  **安全與上線檢查清單** `(待建立)`
-    *   **目的**: 在設計階段與部署前進行全面的審查。
-    *   **產出**: 已完成的檢查清單，確保所有項目均已達標。
+[optional body]
 
----
+[optional footer]
+```
 
-## Ⅲ. 支援文件
+*   **`<type>` 類型:** `feat`, `fix`, `build`, `chore`, `ci`, `docs`, `perf`, `refactor`, `revert`, `style`, `test`
+*   **範例:**
+    ```
+    feat(api): add endpoint for patient data retrieval
 
-*   **[專案結構指南](./project_structure_guide.md)**: 提供標準化的專案目錄結構，確保所有專案的一致性。
+    Implements the GET /api/v1/patients/{id} endpoint to fetch detailed
+    information for a specific patient.
+
+    Resolves: RA-123
+    ```
+
+### 5. 拉取請求 (Pull Request)
+
+1.  **Push 分支:**
+    ```bash
+    git push origin feature/RA-123-patient-list-view
+    ```
+
+2.  **建立 Pull Request (PR):**
+    *   在 GitHub 上，從您的分支建立一個指向 `main` 分支的 Pull Request。
+    *   **標題:** 應清晰描述 PR 的目的，通常是您的主要 Commit 訊息。
+    *   **描述:** 使用 PR 範本，連結到相關的 Jira Ticket (e.g., `RA-123`)，並簡要說明變更內容、原因以及任何需要注意的測試細節。
+
+3.  **程式碼審查 (Code Review):**
+    *   您的 PR 必須至少獲得一位其他團隊成員的批准 (Approve)。
+    *   所有 GitHub Actions CI/CD 檢查（包括測試、Linting、建置）必須全部通過。
+
+4.  **合併 (Merging):**
+    *   在獲得批准且所有檢查通過後，使用 **Squash and Merge** 將您的變更合併到 `main` 分支。這能保持 `main` 分支的提交歷史乾淨、線性。
+
+## Ⅳ. CI/CD
+
+本專案使用 GitHub Actions 進行持續整合與部署。當您建立 PR 或將變更推送到 `main` 分支時，系統會自動觸發以下流程：
+
+*   **後端:** 執行 Linting, 型別檢查, 單元測試, 並建置 Docker 映像。
+*   **前端:** 執行 Linting, 型別檢查, 測試 (如適用), 並建置靜態資源。
+
+請確保您的所有變更都能順利通過這些自動化檢查。

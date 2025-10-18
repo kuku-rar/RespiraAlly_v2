@@ -1003,8 +1003,8 @@ flowchart TD
 - **前端信息架構**: [17_frontend_information_architecture_template.md](./17_frontend_information_architecture_template.md) - 前端頁面結構與用戶旅程
 - **模組規範**: [07_module_specification_and_tests.md](./07_module_specification_and_tests.md) - 模組設計與測試規範
 - **BDD 場景**: [bdd/](./bdd/) - 行為驅動開發場景
-- **專案 README**: [../PROJECT_README.md](../PROJECT_README.md) - 專案總覽文件
-- **WBS 計畫**: [WBS_DEVELOPMENT_PLAN.md](./WBS_DEVELOPMENT_PLAN.md) - 工作分解結構與時程
+- **專案 README**: [../README.md](../README.md) - 專案總覽文件
+- **WBS 計畫**: [16_wbs_development_plan.md](./16_wbs_development_plan.md) - 工作分解結構與時程
 
 ---
 

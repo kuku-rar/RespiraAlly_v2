@@ -15,6 +15,12 @@
 *   確保團隊成員能夠快速定位代碼、配置文件和文檔。
 *   促進代碼的模塊化和關注點分離，與我們的 Clean Architecture 設計原則保持一致。
 
+**架構演進策略** (基於 [ARCHITECTURE_REVIEW.md](./ARCHITECTURE_REVIEW.md)):
+- **Phase 0-2 (MVP)**: **Modular Monolith** - 所有業務模組運行在單一 FastAPI 應用中，透過 Clean Architecture 分層保持模組邊界清晰
+- **Phase 3+**: 根據實際需求與效能瓶頸，逐步拆分為微服務架構（若需要）
+
+此結構設計支持未來的架構演進，同時避免過早優化。
+
 ## 2. 核心設計原則
 
 *   **按功能組織 (Organize by Feature)**: 相關的功能（例如，用戶認證、日誌管理）應盡可能放在一起，而不是按技術類型（e.g., `routers`, `models`）分散在各處。
@@ -44,9 +50,9 @@ respira-ally/
 
 ## 4. 目錄詳解
 
-### 4.1 `backend/` - 後端原始碼
+### 4.1 `backend/` - 後端原始碼 (Modular Monolith)
 
-後端遵循 Clean Architecture 分層，並按業務領域劃分模組。
+後端遵循 **Clean Architecture** 分層，並按業務領域劃分模組。**MVP 階段採用 Modular Monolith**，所有模組共用同一個資料庫連線池與 FastAPI 應用實例，透過明確的分層與模組邊界保持可維護性。
 
 ```plaintext
 backend/

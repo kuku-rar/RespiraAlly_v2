@@ -11,7 +11,8 @@
 
 ## 模組: `RiskEngineService`
 
-**對應架構文件**: `[./architecture_and_design.md#risk-svc]`
+**對應架構文件**: [05_architecture_and_design.md](./05_architecture_and_design.md)
+**架構說明**: 此模組為 **Modular Monolith** 中的核心業務模組（位於 `backend/src/respira_ally/application/risk_engine/`），負責計算病患健康分數與風險分級。Phase 3 後可獨立為微服務。
 **對應 BDD Feature**: `N/A` (系統內部邏輯)
 **對應使用者故事**: `US-601`
 
@@ -29,16 +30,36 @@ def calculate_health_score(
     exercise_avg_30d: float,     # 30 日平均運動時長 (min)
     smoke_avg_7d: float,         # 7 日平均抽菸量 (支)
     latest_cat_score: int,       # 最新 CAT 問卷分數 (0 - 40)
-    # 假設已正規化為風險值 R̂ (0-100)
-    survey_risk_normalized: int, # 最新問卷正規化風險 (0 - 100) 
+    survey_risk_normalized: int, # 最新問卷正規化風險 (0 - 100)
+    bmi: Optional[float] = None, # BMI 值 (若有身高體重)
+    smoking_years: Optional[int] = None, # 吸菸年數 (若為吸菸者)
 ) -> int:
     """Calculates the patient's health score based on multiple factors."""
     ...
 ```
 
-**核心公式** (源自 `US-601`):
-`S = 0.35×A₇ + 0.15×H₃₀ + 0.15×(100-N₃₀) + 0.15×(100-C) + 0.20×(100-R̂)`
-*備註: 這裡的變數與函式簽名中的變數是對應的，但公式中的 H, N, C, R̂ 都是經過正規化 (normalized) 到 0-100 區間的值。*
+**核心公式** (更新版,考慮新健康指標):
+
+**基礎公式**:
+`S_base = 0.30×A₇ + 0.15×H₃₀ + 0.15×(100-N₃₀) + 0.15×(100-C) + 0.20×(100-R̂)`
+
+**健康指標調整** (若資料可用):
+- **BMI 調整**:
+  - BMI < 18.5 (過輕): -5 分
+  - BMI 18.5-24 (正常): 0 分
+  - BMI 24-27 (過重): -3 分
+  - BMI ≥ 27 (肥胖): -8 分
+- **吸菸年數調整**:
+  - smoking_years ≥ 20: -10 分
+  - smoking_years 10-19: -5 分
+  - smoking_years 1-9: -2 分
+  - smoking_status = "NEVER": 0 分
+
+**最終分數**:
+`S_final = S_base + BMI_adjustment + Smoking_adjustment`
+*(確保最終分數在 0-100 範圍內)*
+
+*備註: A₇ 為依從率百分比 (0-100), H₃₀, N₃₀, C, R̂ 都是經過正規化到 0-100 區間的值。*
 
 **契約式設計 (Design by Contract, DbC)**:
 *   **前置條件 (Preconditions)**:
@@ -114,3 +135,133 @@ def calculate_health_score(
 *   **描述**: 輸入的依從率為負數。
 *   **測試步驟**: 呼叫 `calculate_health_score(adherence_7d=-0.5, ...)`
 *   **預期結果**: 拋出 `ValueError` 或類似的例外，並提示 "adherence_7d must be between 0.0 and 1.0"。
+
+#### 情境 6: 考慮新健康指標 - 肥胖且長期吸菸者
+
+*   **測試案例 ID**: `TC-RiskEngine-006`
+*   **描述**: 病患有肥胖問題 (BMI ≥ 27) 且長期吸菸 (≥20年),應額外扣分。
+*   **輸入值**:
+    *   基礎指標: `A₇=80, H₃₀=70, N₃₀=60, C=30, R̂=40`
+    *   `bmi=29.5` (肥胖)
+    *   `smoking_years=25` (長期吸菸)
+*   **預期計算**:
+    *   `S_base = 0.30*80 + 0.15*70 + 0.15*(100-60) + 0.15*(100-30) + 0.20*(100-40)`
+    *   `S_base = 24 + 10.5 + 6 + 10.5 + 12 = 63`
+    *   `BMI_adjustment = -8` (肥胖)
+    *   `Smoking_adjustment = -10` (≥20年)
+    *   `S_final = 63 - 8 - 10 = 45`
+*   **預期結果**: `45`。屬於 "High" risk bucket (<60)。
+
+---
+
+## 模組: `KPICalculationService`
+
+**對應架構文件**: [05_architecture_and_design.md - Section 5.3](./05_architecture_and_design.md#53-kpi-快取層與資料視圖設計)
+**架構說明**: 此模組負責計算與刷新病患 KPI 快取數據,為前端提供高效能查詢。
+**對應資料庫設計**: [DATABASE_SCHEMA_DESIGN.md - Section 4.5](./DATABASE_SCHEMA_DESIGN.md#45-patient_kpi_cache-kpi-快取表)
+
+---
+
+### 規格 2: `refresh_patient_kpi_cache`
+
+**描述**: 刷新指定病患或所有病患的 KPI 快取數據 (對應資料庫存儲過程)。
+
+**函式簽名**:
+```python
+async def refresh_patient_kpi_cache(
+    db: AsyncSession,
+    patient_id: Optional[UUID] = None,
+) -> RefreshResult:
+    """
+    刷新病患 KPI 快取。
+
+    Args:
+        db: 資料庫會話
+        patient_id: 指定病患 ID (若為 None 則刷新所有病患)
+
+    Returns:
+        RefreshResult 包含:
+            - refreshed_count: 刷新的病患數量
+            - duration_ms: 執行時間 (毫秒)
+    """
+    ...
+```
+
+**契約式設計**:
+*   **前置條件**:
+    1. `db` 必須為有效的資料庫會話
+    2. 若提供 `patient_id`,該 ID 必須存在於 `patient_profiles` 表
+*   **後置條件**:
+    1. `patient_kpi_cache.last_calculated_at` 已更新為當前時間
+    2. 所有計算型 KPI (依從率、平均值等) 已更新
+*   **副作用**:
+    1. 更新資料庫 `patient_kpi_cache` 表
+    2. 可能觸發相關索引更新
+
+---
+
+### 測試情境與案例
+
+#### 情境 1: 刷新單一病患 KPI
+
+*   **測試案例 ID**: `TC-KPI-001`
+*   **描述**: 刷新特定病患的 KPI 快取。
+*   **前置條件**:
+    *   病患 `patient-A` 存在
+    *   病患 `patient-A` 有 10 筆 daily_logs (近 7 天: 7 筆, 近 30 天: 10 筆)
+    *   7 天內用藥 5 次
+*   **測試步驟**: 呼叫 `refresh_patient_kpi_cache(db, patient_id="patient-A")`
+*   **預期結果**:
+    *   `refreshed_count = 1`
+    *   `patient_kpi_cache.adherence_rate_7d = 71` (5/7 ≈ 71%)
+    *   `patient_kpi_cache.last_calculated_at` 已更新
+    *   執行時間 < 100ms
+
+#### 情境 2: 批量刷新所有病患 KPI
+
+*   **測試案例 ID**: `TC-KPI-002`
+*   **描述**: 刷新所有病患的 KPI 快取 (定期排程任務)。
+*   **前置條件**: 系統中有 100 位病患
+*   **測試步驟**: 呼叫 `refresh_patient_kpi_cache(db, patient_id=None)`
+*   **預期結果**:
+    *   `refreshed_count = 100`
+    *   所有病患的 `last_calculated_at` 已更新
+    *   執行時間 < 10 秒 (平均 100ms/病患)
+
+#### 情境 3: 刷新不存在的病患
+
+*   **測試案例 ID**: `TC-KPI-003`
+*   **描述**: 嘗試刷新不存在的病患 ID。
+*   **測試步驟**: 呼叫 `refresh_patient_kpi_cache(db, patient_id="nonexistent-id")`
+*   **預期結果**: 拋出 `PatientNotFoundError`
+
+---
+
+### 規格 3: `calculate_bmi`
+
+**描述**: 根據身高體重計算 BMI 並分級。
+
+**函式簽名**:
+```python
+def calculate_bmi(
+    height_cm: int,
+    weight_kg: float,
+) -> BMIResult:
+    """
+    計算 BMI 與分級。
+
+    Returns:
+        BMIResult(
+            bmi: float,  # 計算結果 (保留1位小數)
+            category: str  # UNDERWEIGHT/NORMAL/OVERWEIGHT/OBESE
+        )
+    """
+    ...
+```
+
+**測試案例**:
+
+*   **TC-BMI-001** (正常): `height_cm=170, weight_kg=65` → `BMI=22.5, category=NORMAL`
+*   **TC-BMI-002** (過輕): `height_cm=175, weight_kg=55` → `BMI=18.0, category=UNDERWEIGHT`
+*   **TC-BMI-003** (肥胖): `height_cm=160, weight_kg=75` → `BMI=29.3, category=OBESE`
+*   **TC-BMI-004** (邊界): `height_cm=170, weight_kg=69.3` → `BMI=24.0, category=NORMAL` (邊界值)

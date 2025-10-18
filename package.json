@@ -1,0 +1,39 @@
+{
+  "name": "respiraally",
+  "version": "2.0.0",
+  "description": "RespiraAlly V2.0 - COPD Patient Healthcare Platform with AI/ML Support",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "prepare": "husky install",
+    "commitlint": "commitlint --edit",
+    "test": "echo \"Use npm test in backend/frontend directories\" && exit 0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kuku-rar/RespiraAlly_v2.git"
+  },
+  "keywords": [
+    "healthcare",
+    "copd",
+    "ai",
+    "line-bot",
+    "fastapi",
+    "nextjs"
+  ],
+  "author": "RespiraAlly Team",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/kuku-rar/RespiraAlly_v2/issues"
+  },
+  "homepage": "https://github.com/kuku-rar/RespiraAlly_v2#readme",
+  "devDependencies": {
+    "@commitlint/cli": "^18.4.3",
+    "@commitlint/config-conventional": "^18.4.3",
+    "husky": "^8.0.3"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  }
+}
