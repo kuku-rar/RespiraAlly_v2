@@ -1,5 +1,7 @@
 # RespiraAlly V2.0 - COPD Patient Healthcare Platform
 
+[繁體中文](README.zh-TW.md)
+
 > **AI-powered healthcare platform for COPD patient management with LINE integration, voice interaction, and intelligent risk assessment**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)

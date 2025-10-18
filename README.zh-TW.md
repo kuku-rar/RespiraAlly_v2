@@ -1,5 +1,7 @@
 # RespiraAlly V2.0 - COPD 患者健康照護平台
 
+[English](README.md)
+
 > **一個由 AI 驅動的健康照護平台，專為 COPD 患者管理設計，整合了 LINE、語音互動與智慧風險評估功能**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)

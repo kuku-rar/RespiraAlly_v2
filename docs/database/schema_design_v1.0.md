@@ -1,7 +1,7 @@
 # RespiraAlly V2.0 資料庫 Schema 設計
 
-**文件版本**: v2.0 (基於架構審視報告優化)
-**最後更新**: 2025-10-17
+**文件版本**: v2.1 (新增 AI 處理日誌表)
+**最後更新**: 2025-10-18
 **設計者**: Claude Code AI - Data Engineer
 **狀態**: 詳細設計中 (Detailed Design)
 
@@ -195,6 +195,30 @@ erDiagram
     RISK_SCORES ||--o{ ALERTS : "triggers"
     ALERTS }|--|| THERAPIST_PROFILES : "notifies"
     EDUCATIONAL_DOCUMENTS ||--|{ DOCUMENT_CHUNKS : "is_chunked_into"
+
+    AI_PROCESSING_LOGS {
+        uuid log_id PK
+        uuid user_id FK
+        string session_id "會話識別"
+        string request_id "請求識別"
+        enum processing_stage "STT, LLM, TTS, RAG, MEMORY_GATE"
+        jsonb input_data "輸入數據"
+        jsonb output_data "輸出數據"
+        integer latency_ms "延遲 (毫秒)"
+        jsonb token_usage "Token 使用量 (LLM only)"
+        decimal cost_usd "成本 (美金)"
+        enum status "PENDING, SUCCESS, FAILED, RETRYING"
+        string error_message "錯誤訊息 (Nullable)"
+        integer retry_count "重試次數"
+        string dedup_hash "去重雜湊"
+        boolean is_duplicate "是否重複"
+        string model_name "AI 模型名稱"
+        string provider "服務提供者"
+        jsonb metadata "額外資訊"
+        timestamp created_at
+    }
+
+    USERS ||--|{ AI_PROCESSING_LOGS : "has"
 ```
 
 ### 關鍵改進
@@ -205,8 +229,9 @@ erDiagram
 2. ✅ **新增 `EVENT_LOGS` 表** - 替代 MongoDB 事件存儲
 3. ✅ **新增 `PATIENT_KPI_CACHE` 表** - 反正規化加速查詢
 4. ✅ **新增 `NOTIFICATION_HISTORY` 表** - 追蹤通知發送狀態
-5. ✅ **所有表加入審計欄位** - `created_at`, `updated_at`, `deleted_at`
-6. ✅ **JSONB 欄位** - 靈活擴展 (`medical_history`, `contact_info`, `event_data`)
+5. ✅ **新增 `AI_PROCESSING_LOGS` 表** - Phase 2 語音對話處理日誌 (詳見 [21_ai_processing_logs_design.md](../ai/21_ai_processing_logs_design.md))
+6. ✅ **所有表加入審計欄位** - `created_at`, `updated_at`, `deleted_at`
+7. ✅ **JSONB 欄位** - 靈活擴展 (`medical_history`, `contact_info`, `event_data`)
 
 ---
 
@@ -472,7 +497,88 @@ CREATE TABLE notification_history (
 
 ---
 
-### 3.5 性能優化表
+### 3.5 AI 處理日誌表
+
+#### `ai_processing_logs` - AI 處理日誌（語音對話全流程追蹤）
+
+> **詳細設計**: 請參閱 [21_ai_processing_logs_design.md](../ai/21_ai_processing_logs_design.md)
+
+```sql
+-- 創建 ENUM 型別
+CREATE TYPE ai_processing_stage_enum AS ENUM ('STT', 'LLM', 'TTS', 'RAG', 'MEMORY_GATE');
+CREATE TYPE ai_processing_status_enum AS ENUM ('PENDING', 'SUCCESS', 'FAILED', 'RETRYING');
+
+CREATE TABLE ai_processing_logs (
+    log_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+
+    -- 會話追蹤
+    session_id TEXT NOT NULL,  -- 格式: "session:{user_id}:{timestamp}"
+    request_id TEXT NOT NULL,  -- 冪等性檢查用
+
+    -- 處理階段
+    processing_stage ai_processing_stage_enum NOT NULL,
+
+    -- 輸入/輸出 (JSONB for flexibility)
+    input_data JSONB NOT NULL DEFAULT '{}',
+    output_data JSONB NOT NULL DEFAULT '{}',
+
+    -- 性能與成本指標
+    latency_ms INTEGER CHECK (latency_ms >= 0 AND latency_ms <= 300000),
+    token_usage JSONB DEFAULT '{}',  -- {prompt_tokens, completion_tokens, total_tokens}
+    cost_usd DECIMAL(10, 6) CHECK (cost_usd >= 0),
+
+    -- 錯誤處理
+    status ai_processing_status_enum NOT NULL DEFAULT 'PENDING',
+    error_message TEXT,
+    retry_count INTEGER DEFAULT 0 CHECK (retry_count >= 0 AND retry_count <= 5),
+
+    -- 去重機制
+    dedup_hash TEXT,  -- SHA-1(user_id + time_bucket_3s)
+    is_duplicate BOOLEAN DEFAULT false,
+
+    -- Metadata
+    model_name TEXT,
+    provider TEXT CHECK (provider IN ('openai', 'azure', 'anthropic', 'custom')),
+    metadata JSONB DEFAULT '{}',
+
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 關鍵索引
+CREATE INDEX idx_ai_logs_user_session ON ai_processing_logs(user_id, session_id, created_at DESC);
+CREATE INDEX idx_ai_logs_dedup_hash ON ai_processing_logs(dedup_hash, created_at DESC) WHERE is_duplicate = false;
+CREATE INDEX idx_ai_logs_status ON ai_processing_logs(status, created_at DESC) WHERE status IN ('PENDING', 'FAILED', 'RETRYING');
+CREATE INDEX idx_ai_logs_stage ON ai_processing_logs(processing_stage, created_at DESC);
+CREATE INDEX idx_ai_logs_cost ON ai_processing_logs(created_at DESC) INCLUDE (cost_usd, token_usage);
+CREATE INDEX idx_ai_logs_input_data ON ai_processing_logs USING GIN (input_data);
+CREATE INDEX idx_ai_logs_output_data ON ai_processing_logs USING GIN (output_data);
+```
+
+**核心功能**:
+- **除錯追蹤**: 記錄 STT/LLM/TTS 各階段的輸入/輸出
+- **成本監控**: 統計 Token 使用量與 API 費用
+- **性能分析**: 追蹤各階段延遲 (latency_ms)
+- **去重驗證**: 基於 3 秒時間桶的 SHA-1 hash 去重
+- **錯誤處理**: 記錄失敗原因與重試次數
+
+**使用場景**:
+```python
+# 查詢某使用者的會話歷史
+SELECT processing_stage, input_data, output_data, latency_ms, cost_usd
+FROM ai_processing_logs
+WHERE user_id = 'uuid' AND session_id = 'session:uuid:timestamp'
+ORDER BY created_at ASC;
+
+# 每日成本統計
+SELECT DATE(created_at), processing_stage, SUM(cost_usd) AS total_cost
+FROM ai_processing_logs
+GROUP BY DATE(created_at), processing_stage;
+```
+
+---
+
+### 3.6 性能優化表
 
 #### `patient_kpi_cache` - 病患 KPI 快取（反正規化，用於 Dashboard 快速查詢）
 

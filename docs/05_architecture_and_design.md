@@ -607,43 +607,840 @@ RespiraAlly V2.0 系統包含以下 7 個核心聚合:
 
 ---
 
-## 4. 架構分層 (Layered Architecture)
+## 4. 架構設計 (Architecture Design)
 
-遵循 **Clean Architecture** 原則，嚴格執行依賴倒置：
+本章節定義 RespiraAlly V2.0 的整體架構設計，包含水平的模組邊界劃分（Modular Monolith）與垂直的分層設計（Clean Architecture），確保系統的高內聚、低耦合、可測試與可演進。
+
+---
+
+### 4.1 Modular Monolith 模組邊界劃分
+
+#### 4.1.1 設計原則與決策依據
+
+**什麼是 Modular Monolith？**
+
+Modular Monolith（模組化單體）是一種架構模式，在單一部署單元（Monolith）內部通過明確的模組邊界（Modules）實現邏輯隔離。每個模組：
+- 擁有獨立的業務職責與數據所有權
+- 對外暴露明確的 API 接口（Public Interface）
+- 內部實現細節完全封裝（Private Implementation）
+- 透過事件或接口與其他模組通信
+
+**為什麼選擇 Modular Monolith？**
+
+基於 Linus-style 五層分析：
+
+| 分析層 | 評估 |
+|--------|------|
+| **數據結構分析** | 7 個界限上下文自然映射為 7 個模組，數據所有權清晰 |
+| **特殊情況識別** | 通用子域（Auth, Notification）被多個模組依賴，需通過依賴注入避免循環依賴 |
+| **複雜度審查** | Modular Monolith 比微服務簡單（無分布式複雜性），比傳統單體清晰（有明確邊界） |
+| **破壞性分析** | 零破壞：新專案從零開始，未來可演進為微服務（模組邊界已清晰） |
+| **實用性驗證** | ✅ MVP 階段 DAU < 100，Modular Monolith 足夠；未來可按模組拆分為微服務 |
+
+**ADR 決策**: 詳見 `docs/04_architecture_decision_record/ADR-003_modular_monolith_vs_microservices.md`
+
+---
+
+#### 4.1.2 模組映射表 (Module Mapping)
+
+基於 DDD 戰略設計的 7 個界限上下文（§3.1），定義 7 個 Modular Monolith 模組：
+
+| 模組名稱 | 對應界限上下文 | 子域類型 | 核心職責 | 數據所有權 |
+|----------|----------------|----------|----------|------------|
+| **auth** | Auth Context | 通用子域 | 用戶認證、授權、會話管理 | `users`, `sessions`, `refresh_tokens` |
+| **patient** | Patient Context | 支撐子域 | 個案檔案管理、治療師分配 | `patient_profiles`, `therapist_profiles` |
+| **daily_log** | Daily Log Context | **核心域** | 每日健康日誌、依從率計算 | `daily_logs`, `patient_kpi_cache` |
+| **survey** | Survey Context | 支撐子域 | CAT/mMRC 問卷、評分計算 | `survey_responses` |
+| **risk** | Risk Context | **核心域** | 風險評分、異常預警 | `risk_scores`, `alerts` |
+| **rag** | RAG Context | 支撐子域 | 衛教知識庫、AI 語音問答 | `educational_documents`, `document_chunks`, `chat_sessions`, `ai_processing_logs` |
+| **notification** | Notification Context | 通用子域 | LINE/Email 通知、排程發送 | `notification_history` |
+
+**模組所有權原則**:
+- ✅ 每張資料表僅屬於一個模組
+- ✅ 模組間不可直接 JOIN 查詢（必須通過接口或事件獲取數據）
+- ✅ 共享數據通過 Read Model（如 KPI Cache）或事件同步
+
+---
+
+#### 4.1.3 模組依賴與通信圖 (Module Dependency & Communication)
+
+```mermaid
+graph TB
+    subgraph "通用子域 (Generic Subdomain)"
+        Auth[auth<br/>認證模組]
+        Notification[notification<br/>通知模組]
+    end
+
+    subgraph "核心域 (Core Domain)"
+        DailyLog[daily_log<br/>日誌模組]
+        Risk[risk<br/>風險模組]
+    end
+
+    subgraph "支撐子域 (Supporting Subdomain)"
+        Patient[patient<br/>個案模組]
+        Survey[survey<br/>問卷模組]
+        RAG[rag<br/>衛教模組]
+    end
+
+    %% 同步依賴 (Synchronous API Calls)
+    DailyLog -->|驗證患者存在| Patient
+    Survey -->|驗證患者存在| Patient
+    Risk -->|讀取日誌數據| DailyLog
+    Risk -->|讀取問卷分數| Survey
+    Risk -->|讀取患者檔案| Patient
+
+    %% 異步依賴 (Asynchronous Events)
+    DailyLog -.->|事件: LogSubmitted| Risk
+    Survey -.->|事件: SurveyCompleted| Risk
+    Risk -.->|事件: AlertTriggered| Notification
+
+    %% 認證依賴 (所有模組依賴 Auth)
+    Auth -.->|提供 JWT 驗證| DailyLog
+    Auth -.->|提供 JWT 驗證| Patient
+    Auth -.->|提供 JWT 驗證| Survey
+    Auth -.->|提供 JWT 驗證| Risk
+    Auth -.->|提供 JWT 驗證| RAG
+
+    style Auth fill:#99ff99,stroke:#009900,stroke-width:2px
+    style Notification fill:#99ff99,stroke:#009900,stroke-width:2px
+    style DailyLog fill:#ff9999,stroke:#cc0000,stroke-width:3px
+    style Risk fill:#ff9999,stroke:#cc0000,stroke-width:3px
+    style Patient fill:#99ccff,stroke:#0066cc,stroke-width:2px
+    style Survey fill:#99ccff,stroke:#0066cc,stroke-width:2px
+    style RAG fill:#99ccff,stroke:#0066cc,stroke-width:2px
+```
+
+**圖例說明**:
+- **實線箭頭 (→)**: 同步 API 調用（通過接口）
+- **虛線箭頭 (-.->)**: 異步事件通信（通過事件總線）
+- **紅色邊框**: 核心域模組（競爭優勢所在）
+- **藍色邊框**: 支撐子域模組（支撐核心業務）
+- **綠色邊框**: 通用子域模組（可用現成方案）
+
+---
+
+#### 4.1.4 模組間通信機制 (Inter-Module Communication)
+
+**通信方式選擇矩陣**:
+
+| 場景 | 通信方式 | 範例 | 理由 |
+|------|----------|------|------|
+| **查詢數據** | 同步 API 調用 | Risk 模組查詢 DailyLog 的近期日誌 | 需要即時數據，簡單直接 |
+| **觸發副作用** | 異步事件 | DailyLog 提交後觸發 Risk 重算 | 解耦，避免級聯失敗 |
+| **通知外部** | 異步事件 | Risk 觸發 Alert 後通知 Notification | 解耦，支持多訂閱者 |
+| **身份驗證** | 中間件注入 | Auth 模組提供 JWT 驗證中間件 | 橫切關注點（Cross-Cutting Concern） |
+
+**1. 同步 API 調用 (Synchronous Calls)**
+
+透過定義 **Port Interface** 實現依賴反轉：
+
+```python
+# daily_log/domain/ports/patient_port.py (定義接口)
+from abc import ABC, abstractmethod
+from uuid import UUID
+
+class IPatientPort(ABC):
+    @abstractmethod
+    async def verify_patient_exists(self, patient_id: UUID) -> bool:
+        """驗證患者是否存在"""
+        pass
+
+# patient/application/adapters/patient_adapter.py (實現接口)
+from daily_log.domain.ports import IPatientPort
+
+class PatientAdapter(IPatientPort):
+    async def verify_patient_exists(self, patient_id: UUID) -> bool:
+        # 實作邏輯
+        return await db.fetchval("SELECT EXISTS(SELECT 1 FROM patient_profiles WHERE patient_id = $1)", patient_id)
+
+# main.py (依賴注入)
+from daily_log.application.use_cases import SubmitDailyLogUseCase
+from patient.application.adapters import PatientAdapter
+
+patient_port = PatientAdapter()
+submit_log_use_case = SubmitDailyLogUseCase(patient_port=patient_port)
+```
+
+**2. 異步事件通信 (Asynchronous Events)**
+
+透過 **Event Bus** 實現發布-訂閱模式：
+
+```python
+# daily_log/domain/events.py (定義事件)
+from dataclasses import dataclass
+from datetime import datetime
+from uuid import UUID
+
+@dataclass
+class DailyLogSubmittedEvent:
+    patient_id: UUID
+    log_date: datetime
+    medication_taken: bool
+    occurred_at: datetime
+
+# daily_log/application/use_cases/submit_daily_log.py (發布事件)
+class SubmitDailyLogUseCase:
+    async def execute(self, command: SubmitDailyLogCommand):
+        # 保存日誌
+        log = await self.repo.save(daily_log)
+
+        # 發布事件
+        event = DailyLogSubmittedEvent(
+            patient_id=log.patient_id,
+            log_date=log.log_date,
+            medication_taken=log.medication_taken,
+            occurred_at=datetime.utcnow()
+        )
+        await self.event_bus.publish(event)
+
+# risk/application/event_handlers.py (訂閱事件)
+class RiskCalculationEventHandler:
+    async def handle_daily_log_submitted(self, event: DailyLogSubmittedEvent):
+        await self.calculate_risk_use_case.execute(patient_id=event.patient_id)
+```
+
+---
+
+#### 4.1.5 模組目錄結構 (Module Directory Structure)
+
+```
+backend/
+├── modules/
+│   ├── auth/                    # 認證模組
+│   │   ├── domain/              # 領域層 (純業務邏輯)
+│   │   │   ├── entities/        # 實體 (User, Session)
+│   │   │   ├── value_objects/   # 值對象 (Email, HashedPassword)
+│   │   │   ├── services/        # 領域服務 (PasswordHasher)
+│   │   │   ├── events/          # 領域事件 (UserCreated)
+│   │   │   └── ports/           # 接口定義 (IUserRepository)
+│   │   ├── application/         # 應用層 (用例編排)
+│   │   │   ├── use_cases/       # 用例 (LoginUseCase, RefreshTokenUseCase)
+│   │   │   ├── dtos/            # 數據傳輸對象 (LoginRequest, TokenResponse)
+│   │   │   └── event_handlers/  # 事件處理器
+│   │   ├── infrastructure/      # 基礎設施層 (實作)
+│   │   │   ├── repositories/    # 倉儲實現 (SQLAlchemyUserRepository)
+│   │   │   ├── adapters/        # 外部服務適配器 (LINEOAuthAdapter)
+│   │   │   └── persistence/     # 數據模型 (SQLAlchemy Models)
+│   │   └── presentation/        # 表現層 (API)
+│   │       ├── routers/         # FastAPI 路由 (auth_router.py)
+│   │       ├── schemas/         # Pydantic 模型 (LoginRequestSchema)
+│   │       └── middleware/      # 中間件 (JWTAuthMiddleware)
+│   │
+│   ├── patient/                 # 個案模組 (結構同 auth)
+│   ├── daily_log/               # 日誌模組
+│   ├── survey/                  # 問卷模組
+│   ├── risk/                    # 風險模組
+│   ├── rag/                     # 衛教模組
+│   └── notification/            # 通知模組
+│
+├── shared/                      # 共享基礎設施 (非業務邏輯)
+│   ├── event_bus/               # 事件總線實現 (RabbitMQ 封裝)
+│   ├── database/                # 數據庫連接池
+│   ├── cache/                   # Redis 客戶端
+│   ├── logger/                  # 日誌工具
+│   └── config/                  # 配置管理
+│
+└── main.py                      # 應用入口 (依賴注入容器)
+```
+
+**目錄結構原則**:
+1. ✅ 每個模組內部遵循 **Clean Architecture 四層分層**（§4.2）
+2. ✅ `domain/` 層完全獨立，不依賴任何外部框架
+3. ✅ `infrastructure/` 層實現 `domain/ports/` 定義的接口
+4. ✅ `shared/` 僅包含技術性基礎設施（非業務邏輯）
+
+---
+
+#### 4.1.6 模組依賴規則 (Module Dependency Rules)
+
+**鐵律 (Iron Rules)**:
+
+| 規則 | 說明 | 範例 |
+|------|------|------|
+| **No Direct Database Access** | 模組不可直接查詢其他模組的資料表 | ❌ `SELECT * FROM patient_profiles WHERE ...` (在 daily_log 模組中)<br/>✅ `await patient_port.get_patient(patient_id)` |
+| **No Circular Dependencies** | 模組間不可循環依賴 | ❌ `daily_log → risk → daily_log`<br/>✅ `daily_log → risk` (單向依賴) |
+| **Event-Driven for Side Effects** | 副作用觸發必須使用事件 | ❌ `await risk_service.calculate()` (在 daily_log 中)<br/>✅ `await event_bus.publish(DailyLogSubmittedEvent)` |
+| **Core Domain Independence** | 核心域模組不依賴支撐子域 | ❌ `daily_log → survey`<br/>✅ `risk → daily_log, survey` |
+
+**依賴方向檢查**:
+
+```python
+# ✅ 允許的依賴
+daily_log → patient  # 支撐子域依賴支撐子域
+risk → daily_log     # 核心域依賴核心域
+risk → patient       # 核心域依賴支撐子域
+* → auth             # 所有模組依賴通用子域
+
+# ❌ 禁止的依賴
+patient → risk       # 支撐子域不可依賴核心域
+daily_log → risk     # 避免核心域間雙向依賴（使用事件）
+notification → risk  # 通用子域不可依賴核心域（使用事件）
+```
+
+---
+
+#### 4.1.7 演進策略 (Evolution Strategy)
+
+**從 Modular Monolith 到 Microservices 的遷移路徑**:
+
+```mermaid
+graph LR
+    A[Phase 1<br/>Modular Monolith<br/>單一部署單元] --> B[Phase 2<br/>Hybrid<br/>核心域拆分為服務]
+    B --> C[Phase 3<br/>Microservices<br/>全面微服務化]
+
+    style A fill:#99ff99
+    style B fill:#ffff99
+    style C fill:#ff9999
+```
+
+| 階段 | 觸發條件 | 拆分優先級 | 理由 |
+|------|----------|-----------|------|
+| **Phase 1** (當前) | DAU < 100 | 保持 Monolith | 簡化運維、快速迭代 |
+| **Phase 2** | DAU > 500 或核心域需獨立擴展 | 優先拆分 `risk` 模組 | 計算密集，需獨立擴展 |
+| **Phase 3** | DAU > 5000 或團隊 > 20 人 | 拆分所有模組 | 支持大規模協作 |
+
+**拆分準備清單** (每個模組已具備):
+- ✅ 清晰的 API 接口定義 (`domain/ports/`)
+- ✅ 獨立的數據所有權（無跨模組 JOIN）
+- ✅ 事件驅動通信（低耦合）
+- ✅ 完整的測試覆蓋（保證拆分後功能一致）
+
+---
+
+### 4.2 Clean Architecture 垂直分層設計
+
+每個 Modular Monolith 模組內部遵循 **Clean Architecture** 四層分層，確保業務邏輯與技術實現的完全隔離。
+
+#### 4.2.1 分層概覽圖
 
 ```
 ┌─────────────────────────────────────────────────┐
 │  表現層 (Presentation Layer)                    │
 │  - FastAPI Routers                              │
 │  - WebSocket Endpoints                          │
+│  - Pydantic Request/Response Schemas            │
 └───────────────────┬─────────────────────────────┘
-                    │
+                    │ (調用用例)
 ┌───────────────────▼─────────────────────────────┐
 │  應用層 (Application Layer)                     │
 │  - Use Cases / Application Services             │
-│  - DTOs, Request/Response Models (Pydantic)     │
+│  - DTOs (Data Transfer Objects)                 │
 │  - Orchestration & Transaction Control          │
+│  - Event Handlers                               │
 └───────────────────┬─────────────────────────────┘
-                    │
+                    │ (編排領域對象)
 ┌───────────────────▼─────────────────────────────┐
 │  領域層 (Domain Layer) - 核心業務邏輯           │
 │  - Entities, Value Objects                      │
-│  - Aggregates, Domain Services & Events         │
+│  - Aggregates, Domain Services                  │
+│  - Domain Events                                │
 │  - Business Rules & Invariants                  │
+│  - Ports (接口定義)                             │
 └───────────────────┬─────────────────────────────┘
-                    │
+                    │ (依賴反轉)
 ┌───────────────────▼─────────────────────────────┐
 │  基礎設施層 (Infrastructure Layer)              │
-│  - Repositories (SQLAlchemy)                    │
-│  - External Adapters (LINE, OpenAI)             │
-│  - Message Queue Publishers/Consumers (Pika)    │
+│  - Repositories (SQLAlchemy 實現)               │
+│  - External Adapters (LINE, OpenAI, RabbitMQ)   │
+│  - Persistence Models (ORM)                     │
+│  - Event Bus Implementation                     │
 └─────────────────────────────────────────────────┘
 ```
 
-**依賴規則**:
-- 外層可依賴內層，內層絕不可依賴外層。
-- 領域層是獨立的，不依賴任何外部框架。
-- 基礎設施層通過實現應用層定義的接口（如 Repository Port），來完成依賴反轉。
+#### 4.2.2 分層職責詳解
+
+##### **第 1 層：表現層 (Presentation Layer)**
+
+**職責**:
+- 處理 HTTP/WebSocket 請求與響應
+- 驗證輸入格式（Pydantic Schema）
+- 調用應用層用例
+- 處理異常並返回適當的 HTTP 狀態碼
+
+**技術棧**: FastAPI, Pydantic, WebSocket
+
+**範例** (daily_log 模組):
+
+```python
+# modules/daily_log/presentation/routers/daily_log_router.py
+from fastapi import APIRouter, Depends, HTTPException, status
+from uuid import UUID
+from modules.daily_log.presentation.schemas import SubmitDailyLogRequest, DailyLogResponse
+from modules.daily_log.application.use_cases import SubmitDailyLogUseCase
+from shared.auth import get_current_user
+
+router = APIRouter(prefix="/daily-logs", tags=["Daily Logs"])
+
+@router.post("/", response_model=DailyLogResponse, status_code=status.HTTP_201_CREATED)
+async def submit_daily_log(
+    request: SubmitDailyLogRequest,
+    current_user: dict = Depends(get_current_user),
+    use_case: SubmitDailyLogUseCase = Depends()
+):
+    """提交每日健康日誌"""
+    try:
+        result = await use_case.execute(
+            patient_id=current_user["user_id"],
+            log_date=request.log_date,
+            medication_taken=request.medication_taken,
+            water_intake_ml=request.water_intake_ml,
+            symptoms=request.symptoms
+        )
+        return DailyLogResponse.from_domain(result)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal error")
+```
+
+```python
+# modules/daily_log/presentation/schemas.py
+from pydantic import BaseModel, Field
+from datetime import date
+from typing import Optional
+
+class SubmitDailyLogRequest(BaseModel):
+    log_date: date = Field(..., description="日誌日期 (YYYY-MM-DD)")
+    medication_taken: bool = Field(..., description="是否已服藥")
+    water_intake_ml: int = Field(..., ge=0, le=5000, description="喝水量 (ml)")
+    symptoms: Optional[str] = Field(None, max_length=500, description="症狀描述")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "log_date": "2025-10-18",
+                "medication_taken": True,
+                "water_intake_ml": 2000,
+                "symptoms": "今天咳嗽較少"
+            }
+        }
+```
+
+---
+
+##### **第 2 層：應用層 (Application Layer)**
+
+**職責**:
+- 編排用例流程（Use Case Orchestration）
+- 協調多個領域對象完成業務操作
+- 管理事務邊界（Transaction Boundary）
+- 發布領域事件到事件總線
+- 不包含業務規則（業務規則屬於領域層）
+
+**技術棧**: 純 Python 類別，依賴注入
+
+**範例** (daily_log 模組):
+
+```python
+# modules/daily_log/application/use_cases/submit_daily_log.py
+from dataclasses import dataclass
+from datetime import date
+from uuid import UUID
+from typing import Optional
+
+from modules.daily_log.domain.entities import DailyLog
+from modules.daily_log.domain.ports import IDailyLogRepository, IPatientPort
+from modules.daily_log.domain.events import DailyLogSubmittedEvent
+from shared.event_bus import IEventBus
+
+@dataclass
+class SubmitDailyLogCommand:
+    patient_id: UUID
+    log_date: date
+    medication_taken: bool
+    water_intake_ml: int
+    symptoms: Optional[str]
+
+class SubmitDailyLogUseCase:
+    def __init__(
+        self,
+        daily_log_repo: IDailyLogRepository,
+        patient_port: IPatientPort,
+        event_bus: IEventBus
+    ):
+        self.daily_log_repo = daily_log_repo
+        self.patient_port = patient_port
+        self.event_bus = event_bus
+
+    async def execute(self, command: SubmitDailyLogCommand) -> DailyLog:
+        # Step 1: 驗證患者存在（跨模組調用）
+        if not await self.patient_port.verify_patient_exists(command.patient_id):
+            raise ValueError(f"Patient {command.patient_id} not found")
+
+        # Step 2: 檢查當日是否已提交
+        existing_log = await self.daily_log_repo.find_by_patient_and_date(
+            command.patient_id, command.log_date
+        )
+        if existing_log:
+            raise ValueError(f"Log for {command.log_date} already exists")
+
+        # Step 3: 創建領域對象（業務規則在領域層執行）
+        daily_log = DailyLog.create(
+            patient_id=command.patient_id,
+            log_date=command.log_date,
+            medication_taken=command.medication_taken,
+            water_intake_ml=command.water_intake_ml,
+            symptoms=command.symptoms
+        )
+
+        # Step 4: 持久化（通過倉儲接口）
+        saved_log = await self.daily_log_repo.save(daily_log)
+
+        # Step 5: 發布領域事件（異步觸發風險計算）
+        event = DailyLogSubmittedEvent(
+            patient_id=saved_log.patient_id,
+            log_date=saved_log.log_date,
+            medication_taken=saved_log.medication_taken,
+            occurred_at=datetime.utcnow()
+        )
+        await self.event_bus.publish(event)
+
+        return saved_log
+```
+
+---
+
+##### **第 3 層：領域層 (Domain Layer) - 核心業務邏輯**
+
+**職責**:
+- 實現業務規則與不變量（Invariants）
+- 定義實體（Entity）、值對象（Value Object）、聚合（Aggregate）
+- 定義領域服務（Domain Service）與領域事件（Domain Event）
+- 定義接口（Ports），由基礎設施層實現
+- **完全獨立**，不依賴任何外部框架
+
+**技術棧**: 純 Python 類別，無外部依賴
+
+**範例** (daily_log 模組):
+
+```python
+# modules/daily_log/domain/entities/daily_log.py
+from dataclasses import dataclass, field
+from datetime import date, datetime
+from uuid import UUID, uuid4
+from typing import Optional
+
+@dataclass
+class DailyLog:
+    """每日健康日誌聚合根"""
+    log_id: UUID = field(default_factory=uuid4)
+    patient_id: UUID = field()
+    log_date: date = field()
+    medication_taken: bool = field()
+    water_intake_ml: int = field()
+    symptoms: Optional[str] = field(default=None)
+    created_at: datetime = field(default_factory=datetime.utcnow)
+
+    @classmethod
+    def create(
+        cls,
+        patient_id: UUID,
+        log_date: date,
+        medication_taken: bool,
+        water_intake_ml: int,
+        symptoms: Optional[str]
+    ) -> "DailyLog":
+        """工廠方法：創建日誌並驗證業務規則"""
+        # 業務規則 1: 喝水量必須在合理範圍
+        if not (0 <= water_intake_ml <= 5000):
+            raise ValueError("Water intake must be between 0 and 5000 ml")
+
+        # 業務規則 2: 症狀描述不可過長
+        if symptoms and len(symptoms) > 500:
+            raise ValueError("Symptoms description must be <= 500 characters")
+
+        # 業務規則 3: 日誌日期不可為未來
+        if log_date > date.today():
+            raise ValueError("Cannot create log for future dates")
+
+        return cls(
+            patient_id=patient_id,
+            log_date=log_date,
+            medication_taken=medication_taken,
+            water_intake_ml=water_intake_ml,
+            symptoms=symptoms
+        )
+
+    def update_medication_status(self, taken: bool) -> None:
+        """更新用藥狀態（領域行為）"""
+        self.medication_taken = taken
+```
+
+```python
+# modules/daily_log/domain/ports/daily_log_repository.py
+from abc import ABC, abstractmethod
+from uuid import UUID
+from datetime import date
+from typing import Optional, List
+from modules.daily_log.domain.entities import DailyLog
+
+class IDailyLogRepository(ABC):
+    """日誌倉儲接口（Port），由基礎設施層實現"""
+
+    @abstractmethod
+    async def save(self, daily_log: DailyLog) -> DailyLog:
+        """保存日誌"""
+        pass
+
+    @abstractmethod
+    async def find_by_id(self, log_id: UUID) -> Optional[DailyLog]:
+        """根據 ID 查詢"""
+        pass
+
+    @abstractmethod
+    async def find_by_patient_and_date(
+        self, patient_id: UUID, log_date: date
+    ) -> Optional[DailyLog]:
+        """查詢患者在特定日期的日誌"""
+        pass
+
+    @abstractmethod
+    async def find_recent_logs(
+        self, patient_id: UUID, days: int = 7
+    ) -> List[DailyLog]:
+        """查詢近期日誌"""
+        pass
+```
+
+```python
+# modules/daily_log/domain/events.py
+from dataclasses import dataclass
+from datetime import datetime, date
+from uuid import UUID
+
+@dataclass
+class DailyLogSubmittedEvent:
+    """領域事件：日誌已提交"""
+    patient_id: UUID
+    log_date: date
+    medication_taken: bool
+    occurred_at: datetime
+```
+
+---
+
+##### **第 4 層：基礎設施層 (Infrastructure Layer)**
+
+**職責**:
+- 實現領域層定義的接口（Ports）
+- 提供技術細節實現（數據庫、外部 API、消息隊列）
+- ORM 模型（SQLAlchemy Models）與領域實體的轉換
+- 依賴外部框架（FastAPI, SQLAlchemy, Pika, Redis）
+
+**技術棧**: SQLAlchemy, asyncpg, Pika, httpx, Redis
+
+**範例** (daily_log 模組):
+
+```python
+# modules/daily_log/infrastructure/persistence/models.py
+from sqlalchemy import Column, String, Date, Boolean, Integer, Text, TIMESTAMP
+from sqlalchemy.dialects.postgresql import UUID
+from shared.database import Base
+import uuid
+
+class DailyLogModel(Base):
+    """SQLAlchemy ORM 模型（基礎設施層）"""
+    __tablename__ = "daily_logs"
+
+    log_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    patient_id = Column(UUID(as_uuid=True), nullable=False, index=True)
+    log_date = Column(Date, nullable=False)
+    medication_taken = Column(Boolean, nullable=False)
+    water_intake_ml = Column(Integer, nullable=False)
+    symptoms = Column(Text, nullable=True)
+    created_at = Column(TIMESTAMP(timezone=True), nullable=False)
+```
+
+```python
+# modules/daily_log/infrastructure/repositories/daily_log_repository.py
+from typing import Optional, List
+from uuid import UUID
+from datetime import date
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+
+from modules.daily_log.domain.entities import DailyLog
+from modules.daily_log.domain.ports import IDailyLogRepository
+from modules.daily_log.infrastructure.persistence.models import DailyLogModel
+
+class DailyLogRepository(IDailyLogRepository):
+    """倉儲實現（基礎設施層）"""
+
+    def __init__(self, session: AsyncSession):
+        self.session = session
+
+    async def save(self, daily_log: DailyLog) -> DailyLog:
+        model = DailyLogModel(
+            log_id=daily_log.log_id,
+            patient_id=daily_log.patient_id,
+            log_date=daily_log.log_date,
+            medication_taken=daily_log.medication_taken,
+            water_intake_ml=daily_log.water_intake_ml,
+            symptoms=daily_log.symptoms,
+            created_at=daily_log.created_at
+        )
+        self.session.add(model)
+        await self.session.commit()
+        await self.session.refresh(model)
+        return self._to_domain(model)
+
+    async def find_by_patient_and_date(
+        self, patient_id: UUID, log_date: date
+    ) -> Optional[DailyLog]:
+        stmt = select(DailyLogModel).where(
+            DailyLogModel.patient_id == patient_id,
+            DailyLogModel.log_date == log_date
+        )
+        result = await self.session.execute(stmt)
+        model = result.scalar_one_or_none()
+        return self._to_domain(model) if model else None
+
+    @staticmethod
+    def _to_domain(model: DailyLogModel) -> DailyLog:
+        """ORM 模型轉換為領域實體"""
+        return DailyLog(
+            log_id=model.log_id,
+            patient_id=model.patient_id,
+            log_date=model.log_date,
+            medication_taken=model.medication_taken,
+            water_intake_ml=model.water_intake_ml,
+            symptoms=model.symptoms,
+            created_at=model.created_at
+        )
+```
+
+---
+
+#### 4.2.3 依賴反轉實踐 (Dependency Inversion Principle)
+
+**核心原則**: 高層模組（領域層、應用層）不依賴低層模組（基礎設施層），兩者都依賴抽象（接口）。
+
+**依賴流向圖**:
+
+```mermaid
+graph TB
+    subgraph "高層模組 (High-Level)"
+        Domain[領域層<br/>DailyLog Entity]
+        Application[應用層<br/>SubmitDailyLogUseCase]
+    end
+
+    subgraph "抽象層 (Abstraction)"
+        Port[接口定義<br/>IDailyLogRepository]
+    end
+
+    subgraph "低層模組 (Low-Level)"
+        Infra[基礎設施層<br/>DailyLogRepository<br/>SQLAlchemy 實現]
+    end
+
+    Application -->|使用| Domain
+    Application -->|依賴| Port
+    Domain -->|定義| Port
+    Infra -->|實現| Port
+
+    style Domain fill:#ff9999
+    style Application fill:#99ccff
+    style Port fill:#ffff99
+    style Infra fill:#99ff99
+```
+
+**依賴注入實例** (在 `main.py` 中):
+
+```python
+# backend/main.py
+from fastapi import FastAPI, Depends
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from modules.daily_log.application.use_cases import SubmitDailyLogUseCase
+from modules.daily_log.infrastructure.repositories import DailyLogRepository
+from modules.patient.infrastructure.adapters import PatientAdapter
+from shared.database import get_db_session
+from shared.event_bus import get_event_bus
+
+app = FastAPI()
+
+# 依賴注入容器
+def get_submit_daily_log_use_case(
+    db_session: AsyncSession = Depends(get_db_session)
+) -> SubmitDailyLogUseCase:
+    daily_log_repo = DailyLogRepository(db_session)
+    patient_port = PatientAdapter(db_session)
+    event_bus = get_event_bus()
+
+    return SubmitDailyLogUseCase(
+        daily_log_repo=daily_log_repo,
+        patient_port=patient_port,
+        event_bus=event_bus
+    )
+
+# 註冊路由
+from modules.daily_log.presentation.routers import daily_log_router
+app.include_router(daily_log_router)
+```
+
+---
+
+#### 4.2.4 分層規則檢查清單
+
+| 規則 | 檢查項目 | 範例 |
+|------|----------|------|
+| **領域層獨立性** | 領域層不可 import 任何外部框架 | ❌ `from fastapi import Request`<br/>✅ `from uuid import UUID` |
+| **依賴方向正確** | 外層依賴內層，內層不依賴外層 | ✅ `Application → Domain`<br/>❌ `Domain → Infrastructure` |
+| **接口在領域層** | Repository/Service 接口定義在 `domain/ports/` | ✅ `domain/ports/daily_log_repository.py`<br/>❌ `infrastructure/repositories/interface.py` |
+| **業務規則在領域層** | 驗證邏輯在 Entity/Value Object 中 | ✅ `DailyLog.create()` 驗證喝水量<br/>❌ 在 FastAPI Router 中驗證 |
+| **用例編排在應用層** | 多個領域對象的協調在 Use Case 中 | ✅ `SubmitDailyLogUseCase` 協調 Repository + Event Bus<br/>❌ 在 Entity 中調用 Repository |
+
+---
+
+#### 4.2.5 測試策略
+
+基於分層架構，每層有不同的測試策略：
+
+| 層級 | 測試類型 | 測試重點 | Mock 對象 |
+|------|----------|----------|-----------|
+| **領域層** | 單元測試 (Unit Test) | 業務規則、不變量驗證 | 無需 Mock（純邏輯） |
+| **應用層** | 單元測試 + 整合測試 | 用例編排、事務控制 | Mock Repository, Event Bus |
+| **基礎設施層** | 整合測試 (Integration Test) | 數據庫操作、外部 API | 使用測試數據庫/Mock Server |
+| **表現層** | API 測試 (E2E Test) | HTTP 請求/響應、錯誤處理 | 使用測試客戶端 (TestClient) |
+
+**範例** (領域層單元測試):
+
+```python
+# tests/unit/domain/test_daily_log.py
+import pytest
+from datetime import date, timedelta
+from modules.daily_log.domain.entities import DailyLog
+
+def test_create_daily_log_with_valid_data():
+    log = DailyLog.create(
+        patient_id=uuid4(),
+        log_date=date.today(),
+        medication_taken=True,
+        water_intake_ml=2000,
+        symptoms="今天咳嗽較少"
+    )
+    assert log.medication_taken is True
+    assert log.water_intake_ml == 2000
+
+def test_create_daily_log_with_invalid_water_intake():
+    with pytest.raises(ValueError, match="Water intake must be between 0 and 5000 ml"):
+        DailyLog.create(
+            patient_id=uuid4(),
+            log_date=date.today(),
+            medication_taken=True,
+            water_intake_ml=10000,  # 超出範圍
+            symptoms=None
+        )
+
+def test_cannot_create_future_log():
+    with pytest.raises(ValueError, match="Cannot create log for future dates"):
+        DailyLog.create(
+            patient_id=uuid4(),
+            log_date=date.today() + timedelta(days=1),  # 未來日期
+            medication_taken=True,
+            water_intake_ml=2000,
+            symptoms=None
+        )
+```
 
 ---
 
@@ -1016,6 +1813,640 @@ graph TD
 - **可靠任務佇列**: 使用 RabbitMQ，並為 `voice_tasks` 佇列啟用訊息持久化 (Durability) 與消費者確認 (Acknowledgements)，確保即使 Worker 重啟，任務也不會遺失。
 - **指數退避重試**: 當 Worker 處理鏈中的任何一步（如呼叫外部 STT 或 LLM API）失敗時，任務將被拒絕並重新入隊。RabbitMQ 將根據指數退避策略延遲下一次投遞。
 - **死信佇列 (Dead-Letter Queue)**: 在重試 3 次後仍然失敗的任務，將被自動路由到一個專門的死信佇列中，以便後續的人工介入分析，同時向系統管理員發送警報。
+
+### 7.3 AI Worker 狀態機設計 (AI Worker State Machine)
+
+AI Worker 是 RespiraAlly 的核心組件,負責處理病患語音訊息並生成 AI 回應。其設計基於**狀態機模式** (State Machine Pattern),確保處理流程的可追溯性、可恢復性與可觀測性。
+
+#### 7.3.1 狀態機架構圖 (State Machine Diagram)
+
+```mermaid
+stateDiagram-v2
+    [*] --> IDLE: Worker 啟動
+    IDLE --> RECEIVED: 接收 RabbitMQ 任務
+
+    RECEIVED --> LOCKED: 獲取音檔鎖成功
+    RECEIVED --> DUPLICATE: 音檔鎖已被持有
+    DUPLICATE --> [*]: ACK 訊息 (返回快取結果)
+
+    LOCKED --> MEMORY_GATE: 檢查是否需要記憶
+
+    MEMORY_GATE --> MEMORY_RETRIEVAL: Memory Gate = USE
+    MEMORY_GATE --> GUARDRAIL: Memory Gate = SKIP
+
+    MEMORY_RETRIEVAL --> GUARDRAIL: 檢索完成
+
+    GUARDRAIL --> GUARDRAIL_BLOCK: Guardrail Agent = BLOCK
+    GUARDRAIL --> STT: Guardrail Agent = OK
+
+    GUARDRAIL_BLOCK --> RESPONSE_READY: 生成婉拒回應
+    GUARDRAIL_BLOCK --> NOTIFY: 發送婉拒訊息
+
+    STT --> STT_FAILED: STT API 錯誤
+    STT --> LLM: STT 成功
+
+    LLM --> RAG: 需要檢索知識庫
+    LLM --> EMERGENCY_CHECK: 無需 RAG
+
+    RAG --> EMERGENCY_CHECK: 檢索完成
+
+    EMERGENCY_CHECK --> EMERGENCY_ALERT: 檢測到緊急情況
+    EMERGENCY_CHECK --> RESPONSE_READY: 正常情況
+
+    EMERGENCY_ALERT --> TTS: 發送通報 & 生成回應
+
+    RESPONSE_READY --> TTS: 準備語音合成
+
+    TTS --> TTS_FAILED: TTS API 錯誤
+    TTS --> MEMORY_LOG: TTS 成功
+
+    MEMORY_LOG --> SUMMARY_CHECK: 記錄對話
+
+    SUMMARY_CHECK --> SUMMARY_TRIGGER: 累積 5 輪對話
+    SUMMARY_CHECK --> NOTIFY: 未達門檻
+
+    SUMMARY_TRIGGER --> NOTIFY: LLM 壓縮摘要
+
+    NOTIFY --> COMPLETED: 發送 LINE 通知
+
+    STT_FAILED --> RETRY: retry_count < 3
+    TTS_FAILED --> RETRY: retry_count < 3
+    STT_FAILED --> FAILED: retry_count >= 3
+    TTS_FAILED --> FAILED: retry_count >= 3
+
+    RETRY --> [*]: NACK 訊息 (重新入隊)
+    FAILED --> [*]: 發送失敗通知 & ACK
+
+    COMPLETED --> IDLE: 釋放鎖 & ACK 訊息
+
+    note right of LOCKED
+        音檔級鎖 (180s TTL)
+        lock:audio:{user_id}#audio:{audio_id}
+    end note
+
+    note right of MEMORY_GATE
+        Memory Gate 決策
+        - 規則引擎 (打招呼 → SKIP)
+        - LLM 判斷器 (GPT-4o-mini)
+    end note
+
+    note right of GUARDRAIL
+        雙層安全檢查
+        1. Guardrail Agent (違法/危險內容)
+        2. Health Agent (醫療專業邊界)
+    end note
+
+    note right of EMERGENCY_CHECK
+        緊急情況判斷標準
+        - 自殺計畫 (有時間/方法)
+        - 生命危急症狀 (嚴重呼吸困難、胸痛)
+    end note
+
+    note right of SUMMARY_TRIGGER
+        滾動摘要機制
+        - 每 5 輪壓縮
+        - CAS 提交 (樂觀鎖)
+        - 節省 85% Token
+    end note
+```
+
+#### 7.3.2 狀態詳細說明 (State Descriptions)
+
+| 狀態 | 說明 | 預期停留時間 | 可觀測性指標 |
+|------|------|-------------|-------------|
+| **IDLE** | Worker 空閒,等待任務 | 不定 | - |
+| **RECEIVED** | 從 RabbitMQ 接收語音處理任務 | < 10ms | `worker_task_received_total` |
+| **LOCKED** | 成功獲取音檔級冪等鎖 | < 5ms | `audio_lock_acquired_total` |
+| **DUPLICATE** | 音檔鎖已被其他 Worker 持有 (重複任務) | < 5ms | `audio_lock_duplicate_total` |
+| **MEMORY_GATE** | 使用 Memory Gate 決策是否檢索記憶 | 50-100ms | `memory_gate_decision_duration_seconds` |
+| **MEMORY_RETRIEVAL** | 檢索 Redis 近期對話 + pgvector 語義記憶 | 100-200ms | `memory_retrieval_duration_seconds` |
+| **GUARDRAIL** | Guardrail Agent 安全檢查 (違法/危險內容) | 500-1000ms | `guardrail_check_duration_seconds` |
+| **GUARDRAIL_BLOCK** | 安全檢查判定為需攔截 | < 100ms | `guardrail_blocked_total` |
+| **STT** | 呼叫 OpenAI Whisper API 語音轉文字 | 2-5s | `stt_duration_seconds` |
+| **STT_FAILED** | STT API 呼叫失敗 (網路錯誤、API 限流等) | - | `stt_failed_total` |
+| **LLM** | 呼叫 GPT-4 Turbo 生成 AI 回應 | 5-15s | `llm_duration_seconds` |
+| **RAG** | 檢索 pgvector 知識庫 (衛教文章) | 200-500ms | `rag_retrieval_duration_seconds` |
+| **EMERGENCY_CHECK** | 檢查 LLM 回應是否觸發緊急通報 | < 100ms | `emergency_check_total` |
+| **EMERGENCY_ALERT** | 發送緊急通報 Email/Slack 給治療師 | 500-1000ms | `emergency_alert_sent_total` |
+| **RESPONSE_READY** | AI 回應文字已生成 | - | - |
+| **TTS** | 呼叫 OpenAI TTS API 文字轉語音 | 2-5s | `tts_duration_seconds` |
+| **TTS_FAILED** | TTS API 呼叫失敗 | - | `tts_failed_total` |
+| **MEMORY_LOG** | 記錄對話到 Redis + PostgreSQL | 50-100ms | `memory_log_duration_seconds` |
+| **SUMMARY_CHECK** | 檢查是否累積 5 輪對話 (觸發摘要) | < 10ms | `summary_check_total` |
+| **SUMMARY_TRIGGER** | 呼叫 LLM 壓縮歷史對話為摘要 | 2-5s | `summary_triggered_total` |
+| **NOTIFY** | 發送 LINE 推播通知給病患 | 500-1000ms | `line_notification_sent_total` |
+| **RETRY** | 任務失敗,準備重試 (NACK 訊息) | - | `task_retry_total` |
+| **FAILED** | 超過重試次數,任務失敗 | - | `task_failed_total` |
+| **COMPLETED** | 任務成功完成 | - | `task_completed_total` |
+
+**總處理時間 (端到端)**: 約 **10-20 秒** (含所有 API 呼叫與記憶操作)
+
+#### 7.3.3 關鍵轉換條件 (Key Transition Conditions)
+
+##### 7.3.3.1 冪等性檢查 (RECEIVED → LOCKED/DUPLICATE)
+
+```python
+# 音檔級鎖實作 (參考 V1 beloved_grandson 設計)
+lock_id = f"{user_id}#audio:{audio_id}"
+
+if acquire_audio_lock(lock_id, ttl_sec=180):
+    # 成功獲取鎖 → LOCKED 狀態
+    state = "LOCKED"
+else:
+    # 鎖已被持有 → DUPLICATE 狀態
+    cached_result = get_audio_result(user_id, audio_id)
+    if cached_result:
+        # 返回快取結果
+        return cached_result
+    else:
+        # 等待其他 Worker 完成
+        return "我正在處理你的語音,請稍等一下喔。"
+```
+
+**設計要點**:
+- ✅ 使用 Redis `SET NX EX` 原子操作保證冪等性
+- ✅ TTL 設為 180 秒 (涵蓋最壞情況處理時間)
+- ✅ 即使 Worker 崩潰,TTL 會自動釋放鎖
+
+##### 7.3.3.2 Memory Gate 決策 (MEMORY_GATE → MEMORY_RETRIEVAL/GUARDRAIL)
+
+```python
+# Memory Gate 決策邏輯 (參考 docs/ai/20_memory_management_design.md)
+decision = MemoryGateTool()._run(user_input)
+
+if decision == "USE":
+    # 檢索記憶 (Redis 近期 6 輪 + pgvector 語義相似)
+    state = "MEMORY_RETRIEVAL"
+    context = build_prompt_from_redis(user_id, k=6, current_input=user_input)
+    context += search_similar_conversations(user_id, user_input, top_k=3)
+elif decision == "SKIP":
+    # 跳過記憶檢索 (僅使用歷史摘要)
+    state = "GUARDRAIL"
+    context = get_summary(user_id)
+```
+
+**決策規則**:
+- ✅ 打招呼、閒聊 → SKIP (節省 50-100ms 延遲)
+- ✅ "上次你說..." → USE (需要對比歷史)
+- ✅ 症狀變化描述 → USE (需要趨勢分析)
+- ✅ 模糊情況 → 呼叫 GPT-4o-mini 快速判斷
+
+##### 7.3.3.3 Guardrail 安全檢查 (GUARDRAIL → GUARDRAIL_BLOCK/STT)
+
+```python
+# Guardrail Agent 安全檢查 (參考 V1 chat_pipeline.py)
+guard_result = CrewAI_Guardrail_Agent.run(user_input)
+
+if guard_result.startswith("BLOCK:"):
+    # 攔截危險內容
+    state = "GUARDRAIL_BLOCK"
+    block_reason = guard_result[6:].strip()
+
+    # 跳過 STT/LLM/RAG,直接生成婉拒回應
+    response = generate_polite_refusal(block_reason)
+    return response
+else:
+    # 通過安全檢查,進入 STT
+    state = "STT"
+```
+
+**攔截情境**:
+- 🚫 違法行為指導 (毒品、槍械、自殺方法)
+- 🚫 醫療劑量指示 ("吃幾顆藥")
+- 🚫 診斷建議 ("你得的是肺癌")
+- ✅ 允許情緒表達 ("我好想死" ≠ "我打算今晚跳樓")
+
+##### 7.3.3.4 緊急情況判斷 (EMERGENCY_CHECK → EMERGENCY_ALERT/RESPONSE_READY)
+
+```python
+# 緊急情況檢測 (參考 V1 Health Agent 設計)
+is_emergency, reason = check_emergency_signals(
+    user_input=user_input,
+    llm_response=llm_response
+)
+
+if is_emergency:
+    # 發送緊急通報
+    state = "EMERGENCY_ALERT"
+
+    # Email 給治療師
+    send_email_alert(
+        to=therapist_email,
+        subject=f"【緊急】病患 {patient_name} 觸發警報",
+        body=f"原因: {reason}\n原始訊息: {user_input}"
+    )
+
+    # Slack 通知 (如果已設定)
+    send_slack_alert(channel="#copd-alerts", message=f"🚨 緊急通報: {reason}")
+
+    # 記錄事件日誌
+    log_emergency_event(user_id, reason, user_input)
+
+    state = "TTS"
+else:
+    state = "RESPONSE_READY"
+```
+
+**緊急判斷標準** (僅依據**當前輸入**,禁止依賴歷史推測):
+
+| 類別 | 緊急情況範例 | 非緊急範例 |
+|------|-------------|-----------|
+| **自殺意圖** | "我打算今晚跳樓" (有時間+方法) | "我好累,活著好辛苦" (情緒表達) |
+| **自傷計畫** | "我準備了安眠藥 100 顆" (有準備) | "我想過要結束" (念頭無計畫) |
+| **呼吸危急** | "現在喘到快窒息,嘴唇發紫" | "今天走路會喘" |
+| **胸痛** | "胸口劇痛+冒冷汗+噁心" | "胸口有點悶" |
+| **意識改變** | "頭暈到快昏倒,講話不清楚" | "有點頭暈" |
+
+**關鍵原則**:
+- ✅ **逐字分析當前輸入**,不得依賴歷史對話或模型推測
+- ✅ **有計畫/時間點/準備動作** → 緊急
+- ✅ **生命危急症狀** (窒息、劇烈胸痛、意識障礙) → 緊急
+- ❌ **模糊求助或情緒低落** → 非緊急 (給予情緒支持)
+
+##### 7.3.3.5 滾動摘要觸發 (SUMMARY_CHECK → SUMMARY_TRIGGER/NOTIFY)
+
+```python
+# 檢查是否累積 5 輪對話 (參考 docs/ai/20_memory_management_design.md)
+start, chunk = peek_next_n(user_id, SUMMARY_CHUNK_SIZE=5)
+
+if start is not None and chunk:
+    # 累積足夠輪數,觸發 LLM 摘要
+    state = "SUMMARY_TRIGGER"
+
+    summary_text = summarize_chunk_with_llm(chunk)
+
+    # 使用 CAS (Compare-And-Swap) 提交摘要
+    success = commit_summary_chunk(
+        user_id=user_id,
+        expected_cursor=start,
+        advance=5,
+        add_text=summary_text
+    )
+
+    if success:
+        logger.info(f"Summary committed for user {user_id}, rounds {start}-{start+4}")
+    else:
+        logger.warning(f"Summary commit failed (CAS conflict), will retry next time")
+
+    state = "NOTIFY"
+else:
+    # 未達 5 輪門檻,直接發送通知
+    state = "NOTIFY"
+```
+
+**滾動摘要效益**:
+- 💰 **Token 節省**: 85% (1000 tokens → 150 tokens)
+- ⏱️ **延遲優化**: 減少 Prompt 長度 → 加快 LLM 推理
+- 🧠 **長期記憶**: 避免 LLM "Lost in the Middle" 問題
+
+##### 7.3.3.6 錯誤重試策略 (STT_FAILED/TTS_FAILED → RETRY/FAILED)
+
+```python
+# 錯誤處理與重試 (參考 ADR-005: RabbitMQ)
+if task['retry_count'] < MAX_RETRIES:
+    # NACK 訊息,RabbitMQ 將重新投遞
+    state = "RETRY"
+    ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
+
+    # 訊息會進入 DLX (Dead Letter Exchange) 並延遲投遞
+    # 指數退避: 30s → 60s → 120s
+else:
+    # 超過重試次數,發送失敗通知
+    state = "FAILED"
+
+    publish_line_notification(
+        user_id=user_id,
+        message_type="voice_error",
+        data={"error": "語音處理失敗,請稍後再試或改用文字輸入"}
+    )
+
+    # ACK 訊息 (避免無限重試)
+    ch.basic_ack(delivery_tag=method.delivery_tag)
+```
+
+**重試策略表**:
+
+| 重試次數 | 延遲時間 | 累計時間 | 動作 |
+|---------|---------|---------|------|
+| 0 | 0s | 0s | 首次處理 |
+| 1 | 30s | 30s | 第一次重試 |
+| 2 | 60s | 90s | 第二次重試 |
+| 3 | 120s | 210s | 第三次重試 |
+| >3 | - | - | 進入 DLQ,發送失敗通知 |
+
+#### 7.3.4 與其他子系統的整合 (Integration with Subsystems)
+
+```mermaid
+sequenceDiagram
+    participant RabbitMQ
+    participant Worker as AI Worker
+    participant Redis
+    participant PostgreSQL as PostgreSQL + pgvector
+    participant OpenAI as OpenAI APIs
+    participant LINE
+
+    RabbitMQ->>Worker: 語音處理任務
+    Worker->>Redis: 獲取音檔鎖 (SET NX)
+    Redis-->>Worker: 成功
+
+    Worker->>Redis: Memory Gate 決策
+    Redis-->>Worker: USE (需要記憶)
+
+    Worker->>Redis: 檢索近期 6 輪對話
+    Worker->>PostgreSQL: 檢索語義相似對話 (pgvector)
+    PostgreSQL-->>Worker: Top-3 相關對話
+
+    Worker->>OpenAI: STT (Whisper)
+    OpenAI-->>Worker: 轉錄文字
+
+    Worker->>Worker: Guardrail Agent 檢查
+    Worker->>OpenAI: LLM (GPT-4 Turbo)
+    OpenAI-->>Worker: AI 回應文字
+
+    Worker->>Worker: 緊急情況檢查
+    alt 緊急情況
+        Worker->>LINE: 發送通報 Email
+        Worker->>PostgreSQL: 記錄緊急事件
+    end
+
+    Worker->>OpenAI: TTS
+    OpenAI-->>Worker: 語音 URL
+
+    Worker->>Redis: 記錄對話歷史
+    Worker->>PostgreSQL: 記錄對話日誌
+
+    Worker->>Redis: 檢查摘要觸發 (5 輪)
+    alt 達到 5 輪
+        Worker->>OpenAI: 壓縮摘要 (GPT-4o-mini)
+        Worker->>Redis: CAS 提交摘要
+    end
+
+    Worker->>RabbitMQ: 發布 LINE 通知任務
+    Worker->>Redis: 釋放音檔鎖 (DEL)
+    Worker->>RabbitMQ: ACK 訊息
+
+    RabbitMQ->>LINE: LINE 推播通知
+    LINE-->>Worker: 發送成功
+```
+
+#### 7.3.5 可觀測性設計 (Observability Design)
+
+**Prometheus 指標** (Metrics):
+
+```python
+from prometheus_client import Counter, Histogram, Gauge
+
+# 1. 任務計數器
+task_received_total = Counter(
+    'ai_worker_task_received_total',
+    'Total tasks received from RabbitMQ'
+)
+
+task_completed_total = Counter(
+    'ai_worker_task_completed_total',
+    'Total tasks completed successfully'
+)
+
+task_failed_total = Counter(
+    'ai_worker_task_failed_total',
+    'Total tasks failed after retries',
+    ['failure_reason']  # 'stt_error', 'llm_error', 'tts_error'
+)
+
+# 2. 狀態持續時間
+state_duration_seconds = Histogram(
+    'ai_worker_state_duration_seconds',
+    'Time spent in each state',
+    ['state'],  # 'stt', 'llm', 'tts', 'memory_retrieval', etc.
+    buckets=[0.1, 0.5, 1.0, 2.0, 5.0, 10.0, 20.0, 30.0]
+)
+
+# 3. 端到端延遲
+pipeline_duration_seconds = Histogram(
+    'ai_worker_pipeline_duration_seconds',
+    'End-to-end pipeline latency',
+    buckets=[5.0, 10.0, 15.0, 20.0, 30.0, 60.0]
+)
+
+# 4. 冪等性檢查
+audio_lock_acquired_total = Counter(
+    'ai_worker_audio_lock_acquired_total',
+    'Audio locks successfully acquired'
+)
+
+audio_lock_duplicate_total = Counter(
+    'ai_worker_audio_lock_duplicate_total',
+    'Duplicate tasks skipped (lock already held)'
+)
+
+# 5. Memory Gate 決策
+memory_gate_decision_total = Counter(
+    'ai_worker_memory_gate_decision_total',
+    'Memory Gate decisions',
+    ['decision']  # 'USE', 'SKIP'
+)
+
+# 6. Guardrail 攔截
+guardrail_blocked_total = Counter(
+    'ai_worker_guardrail_blocked_total',
+    'Tasks blocked by Guardrail Agent',
+    ['block_reason']  # 'illegal_content', 'medical_advice', etc.
+)
+
+# 7. 緊急通報
+emergency_alert_sent_total = Counter(
+    'ai_worker_emergency_alert_sent_total',
+    'Emergency alerts triggered',
+    ['alert_type']  # 'suicide_risk', 'respiratory_crisis', etc.
+)
+
+# 8. 滾動摘要
+summary_triggered_total = Counter(
+    'ai_worker_summary_triggered_total',
+    'Rolling summaries triggered'
+)
+```
+
+**Grafana 儀表板面板** (Dashboard Panels):
+
+1. **任務吞吐量** (Task Throughput): `rate(task_completed_total[5m])`
+2. **失敗率** (Failure Rate): `rate(task_failed_total[5m]) / rate(task_received_total[5m])`
+3. **P95 延遲** (P95 Latency): `histogram_quantile(0.95, pipeline_duration_seconds)`
+4. **狀態時間分布** (State Duration Breakdown): Heatmap by state
+5. **Memory Gate 決策比例** (Memory Gate Decision Ratio): Pie chart
+6. **緊急通報趨勢** (Emergency Alert Trend): Time series
+
+**OpenTelemetry 分散式追蹤** (Distributed Tracing):
+
+```python
+from opentelemetry import trace
+
+tracer = trace.get_tracer(__name__)
+
+def process_voice_task(task_data):
+    """處理語音任務 (含分散式追蹤)"""
+    with tracer.start_as_current_span("ai_worker_pipeline") as span:
+        span.set_attribute("task_id", task_data['task_id'])
+        span.set_attribute("user_id", task_data['payload']['user_id'])
+        span.set_attribute("audio_duration_ms", task_data['payload']['audio_duration_ms'])
+
+        # STT
+        with tracer.start_as_current_span("stt"):
+            transcript = stt_service.transcribe(task_data['payload']['audio_url'])
+            span.set_attribute("transcript_length", len(transcript))
+
+        # LLM
+        with tracer.start_as_current_span("llm"):
+            response = llm_service.generate(user_id, transcript)
+            span.set_attribute("response_length", len(response))
+
+        # TTS
+        with tracer.start_as_current_span("tts"):
+            audio_url = tts_service.synthesize(response)
+
+        return audio_url
+```
+
+**Jaeger Trace 範例** (追蹤單一任務的完整鏈路):
+
+```
+Trace ID: a1b2c3d4-e5f6-7890-abcd-ef1234567890
+Duration: 12.3s
+
+├─ ai_worker_pipeline (12.3s)
+│  ├─ audio_lock_acquire (5ms)
+│  ├─ memory_gate_decision (80ms)
+│  ├─ memory_retrieval (150ms)
+│  │  ├─ redis_lrange (30ms)
+│  │  └─ pgvector_search (120ms)
+│  ├─ guardrail_check (800ms)
+│  │  └─ crewai_guardrail_agent (800ms)
+│  ├─ stt (3.2s)
+│  │  └─ openai_whisper_api (3.2s)
+│  ├─ llm (8.5s)
+│  │  ├─ rag_search (200ms)
+│  │  │  └─ pgvector_search (200ms)
+│  │  ├─ openai_gpt4_api (8.0s)
+│  │  └─ emergency_check (50ms)
+│  ├─ tts (2.8s)
+│  │  └─ openai_tts_api (2.8s)
+│  ├─ memory_log (80ms)
+│  │  ├─ redis_rpush (20ms)
+│  │  └─ postgresql_insert (60ms)
+│  ├─ summary_check (10ms)
+│  └─ notify_publish (500ms)
+│     └─ rabbitmq_publish (500ms)
+```
+
+#### 7.3.6 狀態持久化與恢復 (State Persistence & Recovery)
+
+**挑戰**: Worker 崩潰時,如何恢復未完成的任務?
+
+**解決方案**: 使用 **RabbitMQ 訊息持久化** + **Redis 狀態快照**
+
+```python
+# 狀態檢查點 (Checkpoint) 設計
+def checkpoint_state(task_id: str, state: str, data: Dict):
+    """記錄狀態檢查點到 Redis"""
+    r = get_redis()
+    key = f"checkpoint:{task_id}"
+    r.hset(key, mapping={
+        "state": state,
+        "data": json.dumps(data),
+        "timestamp": int(time.time())
+    })
+    r.expire(key, 3600)  # 1h TTL
+
+def recover_from_checkpoint(task_id: str) -> Optional[Dict]:
+    """從檢查點恢復狀態"""
+    r = get_redis()
+    key = f"checkpoint:{task_id}"
+    checkpoint = r.hgetall(key)
+    if not checkpoint:
+        return None
+
+    return {
+        "state": checkpoint['state'],
+        "data": json.loads(checkpoint['data']),
+        "timestamp": int(checkpoint['timestamp'])
+    }
+
+# Worker 啟動時恢復未完成任務
+def recover_incomplete_tasks():
+    """Worker 啟動時檢查是否有未完成任務"""
+    r = get_redis()
+    keys = r.keys("checkpoint:*")
+
+    for key in keys:
+        checkpoint = r.hgetall(key)
+        task_id = key.split(":")[1]
+
+        # 檢查任務是否已超時 (1 小時)
+        age = int(time.time()) - int(checkpoint['timestamp'])
+        if age > 3600:
+            logger.warning(f"Task {task_id} checkpoint expired, marking as failed")
+            r.delete(key)
+            continue
+
+        # 根據狀態決定恢復策略
+        state = checkpoint['state']
+        if state in ['STT', 'LLM', 'TTS']:
+            # 外部 API 呼叫中斷 → 重新開始該步驟
+            logger.info(f"Recovering task {task_id} from {state} state")
+            # 重新發布到 RabbitMQ (帶 retry_count+1)
+            republish_task(task_id, checkpoint['data'])
+        else:
+            # 其他狀態 → 標記為失敗
+            logger.warning(f"Task {task_id} in {state} state, cannot recover")
+            r.delete(key)
+```
+
+**恢復策略表**:
+
+| 狀態 | 恢復策略 | 資料損失風險 |
+|------|----------|-------------|
+| IDLE, RECEIVED | 無需恢復 | 無 |
+| LOCKED, MEMORY_GATE | 重新開始任務 | 無 |
+| STT, LLM, TTS | 從檢查點恢復,重新呼叫 API | 低 (可能重複呼叫 API) |
+| MEMORY_LOG, NOTIFY | 重新執行 (冪等操作) | 無 |
+| COMPLETED | 無需恢復 | 無 |
+
+#### 7.3.7 效能最佳化建議 (Performance Optimization)
+
+| 優化項目 | 目標 | 實作方式 | 預期效果 |
+|---------|------|----------|----------|
+| **STT 快取** | 減少重複轉錄 | 快取 audio_id → transcript | 節省 20% STT 成本 |
+| **LLM 快取** | 相同問題重用回應 | 快取 query hash → response | 節省 15% LLM 成本 |
+| **RAG 預熱** | 常見問題提前檢索 | 背景 Job 建立熱點索引 | P95 延遲 -30% |
+| **批次 Embedding** | 減少 API 呼叫次數 | 批次處理 10 筆對話 | 提升吞吐量 2× |
+| **並行處理** | 利用多核心 | asyncio 並行呼叫 API | 端到端延遲 -20% |
+| **TTS 串流** | 邊合成邊發送 | WebSocket 串流傳輸 | 首包延遲 -50% |
+
+**並行處理範例**:
+
+```python
+import asyncio
+
+async def process_voice_task_async(task_data):
+    """使用 asyncio 並行處理"""
+    # STT
+    transcript = await stt_service.transcribe_async(task_data['audio_url'])
+
+    # 並行: Memory Retrieval + RAG + Guardrail
+    memory, rag_context, guardrail_result = await asyncio.gather(
+        retrieve_memory_async(user_id, transcript),
+        search_rag_async(transcript),
+        guardrail_check_async(transcript)
+    )
+
+    # LLM (依賴前面結果,無法並行)
+    response = await llm_service.generate_async(transcript, memory, rag_context)
+
+    # TTS
+    audio_url = await tts_service.synthesize_async(response)
+
+    return audio_url
+```
 
 ---
 
