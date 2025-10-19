@@ -8,6 +8,7 @@
 
 ## 目錄 (Table of Contents)
 
+- [v4.2 (2025-10-20)](#v42-2025-10-20---sprint-1-task-33-fastapi-專案結構完成-🎉)
 - [v4.1 (2025-10-20)](#v41-2025-10-20---sprint-1-task-32-資料庫實作完成-🎉)
 - [v4.0 (2025-10-19)](#v40-2025-10-19---後端架構重構-breaking-change)
 - [v3.0.1 (2025-10-20)](#v301-2025-10-20---客戶需求理解修正-🔴-critical-fix)
@@ -20,6 +21,238 @@
 - [v2.2 (2025-10-18)](#v22-2025-10-18---開發流程管控完成)
 - [v2.1 (2025-10-18)](#v21-2025-10-18---專案管理流程重構)
 - [v2.0 (2025-10-18)](#v20-2025-10-18---架構重大調整)
+
+---
+
+## v4.2 (2025-10-20) - Sprint 1 Task 3.3 FastAPI 專案結構完成 🎉
+
+**標題**: FastAPI 專案結構建立與全域錯誤處理機制
+**階段**: Sprint 1 持續進行 (Task 3.3 完成)
+**Git Commit**: `f2f67a8` (Global Exception Handling Middleware)
+**工時**: 維持 1075h (Task 3.3 已包含在 Sprint 1 的 114h 中)
+
+### 🎯 任務完成清單
+
+完成 Sprint 1 的 Task 3.3 - FastAPI 專案結構,所有 8 個子任務全部完成:
+
+- ✅ **3.3.1** uv 專案初始化 (2h) - 2025-10-19
+- ✅ **3.3.2** Clean Architecture 目錄結構 (3h) - 2025-10-19
+- ✅ **3.3.3** FastAPI `main.py` 入口點 (2h) - 2025-10-19
+- ✅ **3.3.4** Database Session 管理 (3h) - 2025-10-19
+- ✅ **3.3.5** Pydantic Settings 配置加載 (2h) - 2025-10-19
+- ✅ **3.3.6** 全域錯誤處理 Middleware (2h) - 2025-10-20 🎯 **本次重點**
+- ✅ **3.3.7** CORS Middleware 配置 (1h) - 2025-10-19
+- ✅ **3.3.8** `/health` Endpoint 實作 (1h) - 2025-10-19
+
+**完成日期**: 2025-10-20
+
+---
+
+### 🏗️ Task 3.3.6 全域錯誤處理機制實作
+
+#### 三層例外架構設計
+
+**1. Domain Layer 例外** (`domain/exceptions/domain_exceptions.py` - 80 行)
+```python
+# 業務邏輯層例外
+- DomainException (基礎類別)
+- EntityNotFoundError (實體未找到)
+- EntityAlreadyExistsError (實體已存在)
+- InvalidEntityStateError (無效實體狀態)
+- BusinessRuleViolationError (業務規則違反)
+- AggregateInvariantViolationError (聚合不變量違反)
+```
+
+**2. Application Layer 例外** (`core/exceptions/application_exceptions.py` - 96 行)
+```python
+# 應用層例外
+- ApplicationException (基礎類別)
+- ValidationError (驗證錯誤,含欄位資訊)
+- ResourceNotFoundError (資源未找到)
+- UnauthorizedError (未授權 401)
+- ForbiddenError (禁止訪問 403)
+- ConflictError (資源衝突 409)
+- ExternalServiceError (外部服務錯誤 503)
+- InvalidOperationError (無效操作)
+```
+
+**3. HTTP Exception Handlers** (`core/exceptions/http_exceptions.py` - 280 行)
+- 18 個專用例外處理器
+- 統一 JSON 錯誤回應格式
+- 自動 timestamp 記錄 (ISO 8601)
+- Optional details 欄位支援
+
+#### 統一錯誤回應格式
+
+```json
+{
+  "error": {
+    "type": "ValidationError",
+    "message": "Validation error for field 'email': Invalid email format",
+    "timestamp": "2025-10-20T03:10:41.254Z",
+    "details": {
+      "field": "email",
+      "value": "not-an-email"
+    }
+  }
+}
+```
+
+#### HTTP 狀態碼映射
+
+| 狀態碼 | 例外類型 | 說明 |
+|--------|----------|------|
+| 400 | ValidationError, InvalidOperationError | 請求驗證失敗 |
+| 401 | UnauthorizedError | 未授權 (認證失敗) |
+| 403 | ForbiddenError | 禁止訪問 (權限不足) |
+| 404 | ResourceNotFoundError, EntityNotFoundError | 資源未找到 |
+| 409 | ConflictError, EntityAlreadyExistsError | 資源衝突 |
+| 422 | BusinessRuleViolationError, RequestValidationError | 業務邏輯錯誤 |
+| 500 | Generic Exception | 未預期錯誤 (catch-all) |
+| 503 | ExternalServiceError | 外部服務不可用 |
+
+---
+
+### 📦 交付物清單
+
+#### 程式碼檔案 (6 個)
+1. ✅ `domain/exceptions/domain_exceptions.py` - Domain 例外定義 (80 行)
+2. ✅ `domain/exceptions/__init__.py` - Domain 例外匯出 (19 行)
+3. ✅ `core/exceptions/application_exceptions.py` - Application 例外定義 (96 行)
+4. ✅ `core/exceptions/http_exceptions.py` - HTTP 處理器實作 (280 行)
+5. ✅ `core/exceptions/__init__.py` - 例外模組匯出 (68 行)
+6. ✅ `main.py` - 註冊 18 個全域例外處理器 (+52 行)
+
+**總代碼量**: 新增 595 行
+
+#### 測試驗證
+- ✅ FastAPI TestClient 整合測試 (5 個測試案例)
+- ✅ ValidationError 錯誤格式驗證
+- ✅ ResourceNotFoundError 404 回應驗證
+- ✅ RequestValidationError Pydantic 驗證
+- ✅ Health Check 端點正常運作
+
+---
+
+### 🧪 測試結果摘要
+
+**測試工具**: FastAPI TestClient
+**測試案例數**: 5
+**通過率**: 100%
+
+| 測試案例 | 預期狀態碼 | 實際結果 | 驗證項目 |
+|---------|-----------|---------|---------|
+| ValidationError | 400 | ✅ 通過 | 錯誤類型、詳細欄位資訊 |
+| ResourceNotFoundError | 404 | ✅ 通過 | 資源類型與 ID |
+| RequestValidationError | 422 | ✅ 通過 | Pydantic 驗證錯誤列表 |
+| 正常請求 | 200 | ✅ 通過 | 正常回應 |
+| Health Check | 200 | ✅ 通過 | 健康狀態檢查 |
+
+**關鍵驗證點**:
+- ✅ 統一 JSON 錯誤格式
+- ✅ 自動 timestamp (UTC ISO 8601)
+- ✅ Optional details 欄位
+- ✅ HTTP 狀態碼正確映射
+- ✅ 18 個例外處理器正常運作
+
+---
+
+### 📊 Sprint 1 進度更新
+
+| 任務模組 | 規劃工時 | 已完成 | 剩餘 | 進度 |
+|---------|---------|--------|------|------|
+| 3.1 Docker Compose 環境 | 20h | 20h | 0h | ✅ 100% |
+| 3.2 資料庫 Schema 實作 | 21h | 21h | 0h | ✅ 100% |
+| **3.3 FastAPI 專案結構** | **16h** | **16h** | **0h** | **✅ 100%** |
+| 3.4 認證授權系統 | 37h | 0h | 37h | ⬜ 0% |
+| 3.5 前端基礎架構 | 20h | 0h | 20h | ⬜ 0% |
+| **Sprint 1 總計** | **114h** | **57h** | **57h** | **50%** |
+
+**里程碑達成**:
+- ✅ 專案骨架 100% 完成
+- ✅ 資料庫環境就緒
+- ✅ FastAPI 應用結構完整
+- ✅ **全域錯誤處理機制運作正常** 🎯
+- 🎯 下一步: Task 3.4 認證授權系統 (37h)
+
+---
+
+### 🎓 技術亮點 (Technical Highlights)
+
+#### 1. Clean Architecture 例外分層
+- **Domain Layer**: 純業務邏輯例外,無外部依賴
+- **Application Layer**: Use Case 層例外,與 HTTP 解耦
+- **HTTP Layer**: FastAPI 特定處理器,統一回應格式
+
+#### 2. 依賴反轉實踐
+```python
+# Domain 層定義業務例外
+class BusinessRuleViolationError(DomainException):
+    pass
+
+# HTTP 層實作處理器 (依賴 Domain,但 Domain 不依賴 HTTP)
+async def business_rule_violation_handler(
+    request: Request, exc: BusinessRuleViolationError
+) -> JSONResponse:
+    return create_error_response(...)
+```
+
+#### 3. 可測試性設計
+- 例外類別可獨立測試 (不依賴 FastAPI)
+- HTTP 處理器使用 TestClient 測試
+- 統一格式便於前端錯誤處理
+
+---
+
+### 🔧 技術債務與未來改進
+
+#### 當前實作
+- ✅ 18 個例外處理器註冊
+- ✅ 統一 JSON 錯誤格式
+- ⚠️ 錯誤日誌使用 `print()` (臨時方案)
+
+#### 未來改進 (Phase 1 後)
+1. **結構化日誌**: 整合 `structlog` 替換 `print()`
+2. **錯誤監控**: 整合 Sentry 或類似服務
+3. **錯誤追蹤**: 新增 `trace_id` 支援分散式追蹤
+4. **多語言支援**: 錯誤訊息國際化 (i18n)
+
+---
+
+### 🎯 下一步行動
+
+**Task 3.4**: 認證授權系統 (37h)
+- 3.4.1 JWT Token 生成與驗證 (6h)
+- 3.4.2 密碼雜湊與驗證 (2h)
+- 3.4.3 LINE OAuth 認證流程 (8h)
+- 3.4.4 治療師 Email/Password 認證 (6h)
+- 3.4.5 認證 Middleware 與 Dependencies (4h)
+- 3.4.6 `/auth/login` 端點實作 (4h)
+- 3.4.7 `/auth/register` 端點實作 (4h)
+- 3.4.8 Token 黑名單機制 (Redis) (3h)
+- 3.4.9 `/auth/refresh` Token 刷新端點 (2h)
+
+**預計開始日期**: 2025-10-20
+**預計完成日期**: 2025-10-27 (Week 2)
+
+---
+
+### 📝 經驗教訓 (Lessons Learned)
+
+#### 做得好的地方
+1. **例外分層清晰**: Domain/Application/HTTP 三層職責明確
+2. **測試驅動**: 實作完成後立即測試驗證
+3. **統一格式**: 前端可依賴一致的錯誤回應結構
+4. **文檔完整**: 每個例外類別都有清晰的 docstring
+
+#### 需要改進的地方
+1. **日誌臨時方案**: 使用 print() 而非 structlog (待 Phase 1 後改進)
+2. **測試覆蓋**: 僅有基礎測試,需補充邊界情況測試
+
+#### 下次要嘗試的做法
+1. **自動化測試**: 建立 CI 流程自動執行例外處理測試
+2. **錯誤碼系統**: 新增錯誤碼 (E001, E002...) 方便問題追蹤
+3. **錯誤追蹤**: 整合 OpenTelemetry trace_id
 
 ---
 

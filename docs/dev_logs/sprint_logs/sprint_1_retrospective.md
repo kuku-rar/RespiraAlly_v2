@@ -249,6 +249,66 @@
 
 ---
 
+#### 2025-10-20 - Task 3.3 FastAPI 專案結構完成 ✅
+
+**完成任務**: Sprint 1 Task 3.3 - FastAPI 專案結構 (所有 8 個子任務)
+
+**主要成果**:
+1. ✅ uv 專案初始化 (3.3.1) - 2h
+2. ✅ Clean Architecture 目錄結構 (3.3.2) - 3h
+   - 4 層架構: api/application/domain/infrastructure
+   - 7 個 Bounded Context: auth/daily_log/patient/survey/risk/rag/notification
+3. ✅ FastAPI main.py 入口點 (3.3.3) - 2h
+   - Lifespan 事件管理
+   - API 文檔配置 (/api/docs, /api/redoc)
+4. ✅ Database Session 管理 (3.3.4) - 3h
+   - AsyncSession + async_sessionmaker
+   - get_db() dependency
+5. ✅ Pydantic Settings 配置加載 (3.3.5) - 2h
+   - 支援本地開發與 Zeabur 部署
+   - 環境變數自動解析
+6. ✅ **全域錯誤處理 Middleware (3.3.6) - 2h** 🎯
+   - 三層例外架構 (Domain/Application/HTTP)
+   - 18 個例外處理器註冊
+   - 統一 JSON 錯誤回應格式
+7. ✅ CORS Middleware 配置 (3.3.7) - 1h
+8. ✅ /health Endpoint 實作 (3.3.8) - 1h
+
+**技術突破**:
+- Clean Architecture 三層例外分層設計
+- 18 個全域例外處理器註冊成功
+- 統一錯誤回應格式 (type, message, timestamp, details)
+- FastAPI TestClient 測試驗證 100% 通過
+
+**交付物**:
+- ✅ `domain/exceptions/domain_exceptions.py` (80 行)
+- ✅ `core/exceptions/application_exceptions.py` (96 行)
+- ✅ `core/exceptions/http_exceptions.py` (280 行)
+- ✅ `main.py` 更新 (+52 行)
+- ✅ 測試驗證: 5 個測試案例全部通過
+
+**測試結果**:
+| 測試案例 | 狀態碼 | 結果 |
+|---------|--------|------|
+| ValidationError | 400 | ✅ |
+| ResourceNotFoundError | 404 | ✅ |
+| RequestValidationError | 422 | ✅ |
+| 正常請求 | 200 | ✅ |
+| Health Check | 200 | ✅ |
+
+**Git Commit**: `f2f67a8` - "feat(api): complete Task 3.3.6 - Global Exception Handling Middleware"
+
+**工時統計**:
+- 規劃工時: 16h (3.3.1~3.3.8)
+- 實際工時: 16h
+- 完成度: 100%
+
+**下一步**:
+- Task 3.4: 認證授權系統 (37h)
+- 預計開始: 2025-10-20 (下午)
+
+---
+
 ### Week 1 (2025-10-21 ~ 2025-10-27)
 
 #### 2025-10-21 (Day 1) - Sprint Planning
