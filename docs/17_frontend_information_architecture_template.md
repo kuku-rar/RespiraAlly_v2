@@ -1798,7 +1798,7 @@ const sortBy = '-latest_risk_score'; // 風險分數降序
 | **前端架構** | 12_frontend_architecture_specification.md | [./12_frontend_architecture_specification.md](./12_frontend_architecture_specification.md) |
 | **API 設計** | 06_api_design_specification.md | [./06_api_design_specification.md](./06_api_design_specification.md) |
 | **系統架構** | 05_architecture_and_design.md | [./05_architecture_and_design.md](./05_architecture_and_design.md) |
-| **資料庫設計** | DATABASE_SCHEMA_DESIGN.md | [./DATABASE_SCHEMA_DESIGN.md](./DATABASE_SCHEMA_DESIGN.md) |
+| **資料庫設計** | database/schema_design_v1.0.md | [./database/schema_design_v1.0.md](./database/schema_design_v1.0.md) |
 | **模組規格** | 07_module_specification_and_tests.md | [./07_module_specification_and_tests.md](./07_module_specification_and_tests.md) |
 
 ### 11.3 變更記錄

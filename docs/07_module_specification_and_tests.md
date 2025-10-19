@@ -158,7 +158,7 @@ def calculate_health_score(
 
 **對應架構文件**: [05_architecture_and_design.md - Section 5.3](./05_architecture_and_design.md#53-kpi-快取層與資料視圖設計)
 **架構說明**: 此模組負責計算與刷新病患 KPI 快取數據,為前端提供高效能查詢。
-**對應資料庫設計**: [DATABASE_SCHEMA_DESIGN.md - Section 4.5](./DATABASE_SCHEMA_DESIGN.md#45-patient_kpi_cache-kpi-快取表)
+**對應資料庫設計**: [database/schema_design_v1.0.md - Section 4.5](./database/schema_design_v1.0.md#45-patient_kpi_cache-kpi-快取表)
 
 ---
 

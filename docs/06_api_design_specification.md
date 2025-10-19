@@ -9,7 +9,7 @@
 
 **相關文檔:**
 - **系統架構:** [./05_architecture_and_design.md](./05_architecture_and_design.md) - 整體架構設計
-- **資料庫設計:** [./DATABASE_SCHEMA_DESIGN.md](./DATABASE_SCHEMA_DESIGN.md) - 資料庫結構與設計
+- **資料庫設計:** [./database/schema_design_v1.0.md](./database/schema_design_v1.0.md) - 資料庫結構與設計
 - **前端架構:** [./12_frontend_architecture_specification.md](./12_frontend_architecture_specification.md) - 前端技術棧與規範
 - **前端信息架構:** [./17_frontend_information_architecture_template.md](./17_frontend_information_architecture_template.md) - 前端頁面結構與路由
 - **OpenAPI 定義文件:** `(待建立)`
@@ -33,7 +33,7 @@
 - ❌ 前端頁面路由 (參考 17_frontend_information_architecture_template.md)
 - ❌ 前端狀態管理 (參考 12_frontend_architecture_specification.md)
 
-**架構說明**: 基於 [ARCHITECTURE_REVIEW.md](./ARCHITECTURE_REVIEW.md) 的建議，**MVP 階段 (Phase 0-2) 採用 Modular Monolith 架構**，所有業務模組（auth, patients, daily_logs, voice 等）運行在同一個 FastAPI 應用實例中。Phase 3 後可根據實際需求拆分為微服務。
+**架構說明**: 基於 [05_architecture_and_design.md](./05_architecture_and_design.md) 的建議，**MVP 階段 (Phase 0-2) 採用 Modular Monolith 架構**，所有業務模組（auth, patients, daily_logs, voice 等）運行在同一個 FastAPI 應用實例中。Phase 3 後可根據實際需求拆分為微服務。
 
 ### 1.2 快速入門
 *   **第 1 步: 獲取 Access Token**

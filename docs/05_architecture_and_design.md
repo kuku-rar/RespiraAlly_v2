@@ -106,8 +106,8 @@ graph LR
 #### 1.4.5 相關 ADR
 
 詳細決策過程參見：
-- [ADR-001: 選擇 Modular Monolith 而非微服務](./adr/001-modular-monolith-architecture.md)
-- [ADR-005: 使用 RabbitMQ 作為消息中間件](./adr/005-rabbitmq-message-queue.md)
+- [Modular Monolith 設計 (詳見 Section 4.1)](#41-modular-monolith-模組邊界劃分)
+- [ADR-005: 使用 RabbitMQ 作為消息中間件](./adr/ADR-005-rabbitmq-for-message-queue.md)
 
 ---
 
@@ -149,7 +149,7 @@ C4Context
 
 ### 2.2 Level 2: 容器圖 (Container Diagram)
 
-**🎯 MVP 策略變更說明**: 基於 [架構審視報告](./ARCHITECTURE_REVIEW.md) 的建議，**MVP 階段採用 Modular Monolith** 而非微服務架構，以降低複雜度、加速交付並便於除錯。未來可根據實際業務需求逐步拆分為微服務。
+**🎯 MVP 策略變更說明**: 基於 [架構審視報告](./05_architecture_and_design.md) 的建議，**MVP 階段採用 Modular Monolith** 而非微服務架構，以降低複雜度、加速交付並便於除錯。未來可根據實際業務需求逐步拆分為微服務。
 
 ```mermaid
 C4Container
@@ -1863,7 +1863,7 @@ graph TD
 
 #### 5.3.4 性能優化策略
 
-**索引設計** (參考 DATABASE_SCHEMA_DESIGN.md):
+**索引設計** (參考 database/schema_design_v1.0.md):
 ```sql
 -- patient_kpi_cache 主鍵索引
 CREATE INDEX idx_patient_kpi_patient_id ON patient_kpi_cache(patient_id);
@@ -2633,13 +2633,13 @@ async def process_voice_task_async(task_data):
 |--------|------|------|------|
 | **ADR-001** | 採用 FastAPI 而非 Flask | 已決定 | [ADR-001](./adr/ADR-001-fastapi-vs-flask.md) |
 | **ADR-002** | pgvector 作為初期向量庫 | 已決定 | [ADR-002](./adr/ADR-002-pgvector-for-vector-db.md) |
-| **ADR-003** | ~~MongoDB 儲存事件日誌~~ → PostgreSQL JSONB | 已變更 | ~~[ADR-003](./adr/ADR-003-mongodb-for-event-logs.md)~~ [DATABASE_SCHEMA_DESIGN.md](./DATABASE_SCHEMA_DESIGN.md) |
+| **ADR-003** | ~~MongoDB 儲存事件日誌~~ → PostgreSQL JSONB | 已變更 | ~~[ADR-003](./adr/ADR-003-mongodb-for-event-logs.md)~~ [database/schema_design_v1.0.md](./database/schema_design_v1.0.md) |
 | **ADR-004** | LINE 為唯一病患入口 | 已決定 | [ADR-004](./adr/ADR-004-line-as-patient-entrypoint.md) |
 | **ADR-005** | RabbitMQ 作為訊息佇列 (Phase 2) | 已決定 | [ADR-005](./adr/ADR-005-rabbitmq-for-message-queue.md) |
 | **ADR-006** | 三時段智慧提醒策略 | 已決定 | [ADR-006](./adr/ADR-006-reminder-strategy.md) |
 | **ADR-007** | 擬人化孫女口吻訊息 | 已決定 | [ADR-007](./adr/ADR-007-message-tone.md) |
 | **ADR-008** | 治療師登入失敗鎖定策略 | 已決定 | [ADR-008](./adr/ADR-008-login-lockout-policy.md) |
-| **ADR-009** | Modular Monolith 而非微服務 (MVP) | 已決定 | [ARCHITECTURE_REVIEW.md](./ARCHITECTURE_REVIEW.md) |
+| **ADR-009** | Modular Monolith 而非微服務 (MVP) | 已決定 | [05_architecture_and_design.md](./05_architecture_and_design.md) |
 
 ---
 
@@ -2979,7 +2979,7 @@ flowchart TD
 
 - **需求來源**: [02_product_requirements_document.md](./02_product_requirements_document.md) - 產品需求文件
 - **決策記錄**: [adr/](./adr/) - 架構決策記錄目錄
-- **資料庫設計**: [DATABASE_SCHEMA_DESIGN.md](./DATABASE_SCHEMA_DESIGN.md) - 完整資料庫設計文件
+- **資料庫設計**: [database/schema_design_v1.0.md](./database/schema_design_v1.0.md) - 完整資料庫設計文件
 - **API 設計**: [06_api_design_specification.md](./06_api_design_specification.md) - 後端 API 規範文件
 - **前端架構**: [12_frontend_architecture_specification.md](./12_frontend_architecture_specification.md) - 前端架構與技術棧規範
 - **前端信息架構**: [17_frontend_information_architecture_template.md](./17_frontend_information_architecture_template.md) - 前端頁面結構與用戶旅程

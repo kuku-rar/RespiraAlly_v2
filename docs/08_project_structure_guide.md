@@ -15,7 +15,7 @@
 *   確保團隊成員能夠快速定位代碼、配置文件和文檔。
 *   促進代碼的模塊化和關注點分離，與我們的 Clean Architecture 設計原則保持一致。
 
-**架構演進策略** (基於 [ARCHITECTURE_REVIEW.md](./ARCHITECTURE_REVIEW.md)):
+**架構演進策略** (基於 [05_architecture_and_design.md](./05_architecture_and_design.md)):
 - **Phase 0-2 (MVP)**: **Modular Monolith** - 所有業務模組運行在單一 FastAPI 應用中，透過 Clean Architecture 分層保持模組邊界清晰
 - **Phase 3+**: 根據實際需求與效能瓶頸，逐步拆分為微服務架構（若需要）
 

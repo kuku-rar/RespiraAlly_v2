@@ -1310,7 +1310,7 @@ psql -h localhost -U postgres -d respira_ally_restored -c "SELECT COUNT(*) FROM 
 ---
 
 **相關文檔**:
-- [ARCHITECTURE_REVIEW.md](./ARCHITECTURE_REVIEW.md) - 架構審視報告
+- [ARCHITECTURE_REVIEW.md](../05_architecture_and_design.md) - 架構審視報告
 - [05_architecture_and_design.md](./05_architecture_and_design.md) - 整體架構設計
 - [16_wbs_development_plan.md](../16_wbs_development_plan.md) - 開發計劃
 

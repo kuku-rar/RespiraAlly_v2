@@ -886,7 +886,7 @@ async def get_adherence_trend(
 ---
 
 **相關文件**:
-- [DATABASE_SCHEMA_DESIGN.md](./DATABASE_SCHEMA_DESIGN.md) - 資料庫完整設計文件
+- [DATABASE_SCHEMA_DESIGN.md](../database/schema_design_v1.0.md) - 資料庫完整設計文件
 - [06_api_design_specification.md](./06_api_design_specification.md) - API 規範文件
 - [Migration 002](../backend/alembic/versions/002_add_patient_health_fields.sql) - 病患健康欄位 Migration
 - [Migration 003](../backend/alembic/versions/003_enhance_kpi_cache_and_views.sql) - KPI 快取與視圖 Migration
