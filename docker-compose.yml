@@ -59,25 +59,6 @@ services:
     networks:
       - respirally-network
 
-  # MongoDB (for event logs)
-  mongodb:
-    image: mongo:7
-    container_name: respirally-mongodb
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: ${MONGODB_USER:-respirally}
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGODB_PASSWORD:-respirally_dev}
-    ports:
-      - "${MONGODB_PORT:-27017}:27017"
-    volumes:
-      - mongodb_data:/data/db
-    healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - respirally-network
-
   # Backend API (FastAPI)
   backend:
     build:
@@ -88,7 +69,6 @@ services:
       - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-respirally}:${POSTGRES_PASSWORD:-respirally_dev}@postgres:5432/${POSTGRES_DB:-respirally_db}
       - REDIS_HOST=redis
       - RABBITMQ_HOST=rabbitmq
-      - MONGODB_URL=mongodb://${MONGODB_USER:-respirally}:${MONGODB_PASSWORD:-respirally_dev}@mongodb:27017
     ports:
       - "8000:8000"
     volumes:
@@ -99,8 +79,6 @@ services:
       redis:
         condition: service_healthy
       rabbitmq:
-        condition: service_healthy
-      mongodb:
         condition: service_healthy
     command: uvicorn respira_ally.main:app --host 0.0.0.0 --port 8000 --reload
     networks:
@@ -156,7 +134,6 @@ volumes:
   postgres_data:
   redis_data:
   rabbitmq_data:
-  mongodb_data:
 
 networks:
   respirally-network:

@@ -15,7 +15,7 @@
 
 ## Ⅱ. 環境設定 (Initial Setup)
 
-在開始之前，請確保您的本機環境已安裝 `git`, `node` (v18+), `npm` (v9+), `python` (v3.11+), 和 `poetry`。
+在開始之前，請確保您的本機環境已安裝 `git`, `node` (v18+), `npm` (v9+), `python` (v3.11+), 和 `uv`。
 
 1.  **Clone 專案庫:**
     ```bash
@@ -24,10 +24,10 @@
     ```
 
 2.  **安裝後端 (Backend) 依賴:**
-    *   進入後端目錄並使用 Poetry 安裝。
+    *   進入後端目錄並使用 uv 安裝。
     ```bash
     cd backend
-    poetry install
+    uv sync
     ```
 
 3.  **安裝前端 (Frontend) 依賴:**
@@ -64,7 +64,7 @@
     *   在 `backend` 目錄下執行開發伺服器：
     ```bash
     cd backend
-    poetry run uvicorn src.respira_ally.main:app --reload
+    uv run uvicorn respira_ally.main:app --reload
     ```
 
 *   **前端儀表板 (Frontend Dashboard):**
@@ -89,13 +89,13 @@
     *   在 `backend` 目錄下執行：
     ```bash
     # 格式化
-    poetry run black .
+    uv run black .
     # Linting
-    poetry run ruff check . --fix
+    uv run ruff check . --fix
     # 型別檢查
-    poetry run mypy .
+    uv run mypy .
     # 單元測試
-    poetry run pytest
+    uv run pytest
     ```
 
 *   **前端 (Frontend - Dashboard & LIFF):**

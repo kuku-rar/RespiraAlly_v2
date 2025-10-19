@@ -28,20 +28,20 @@
 
 ```bash
 # 1. 代碼格式化
-poetry run black backend/
-poetry run ruff check backend/ --fix
+uv run black backend/
+uv run ruff check backend/ --fix
 
 # 2. 類型檢查
-poetry run mypy backend/
+uv run mypy backend/
 
 # 3. 測試執行
-poetry run pytest --cov=backend --cov-report=term-missing
+uv run pytest --cov=backend --cov-report=term-missing
 
 # 4. 依賴檢查
 pydeps backend/app --max-bacon=2 --no-output
 
 # 5. 安全掃描 (可選)
-poetry run bandit -r backend/
+uv run bandit -r backend/
 ```
 
 **自審檢查清單**:
@@ -447,7 +447,7 @@ class UserResponse(BaseModel):
 **檢查命令**:
 
 ```bash
-poetry run pytest --cov=backend --cov-report=html
+uv run pytest --cov=backend --cov-report=html
 # 查看 htmlcov/index.html
 ```
 

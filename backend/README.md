@@ -33,17 +33,14 @@ backend/
 ### Prerequisites
 
 - Python 3.11+
-- Poetry
+- uv
 - Docker & Docker Compose (for local development)
 
 ### Installation
 
 ```bash
 # Install dependencies
-poetry install
-
-# Activate virtual environment
-poetry shell
+uv sync
 
 # Copy environment file
 cp ../.env.example ../.env
@@ -60,14 +57,14 @@ docker-compose up -d postgres redis rabbitmq
 
 # Run migrations
 cd backend
-poetry run alembic upgrade head
+uv run alembic upgrade head
 ```
 
 ### Running the Application
 
 ```bash
 # Development mode with auto-reload
-poetry run uvicorn respira_ally.main:app --reload --host 0.0.0.0 --port 8000
+uv run uvicorn respira_ally.main:app --reload --host 0.0.0.0 --port 8000
 
 # Access API documentation
 # http://localhost:8000/docs (Swagger UI)
@@ -78,26 +75,26 @@ poetry run uvicorn respira_ally.main:app --reload --host 0.0.0.0 --port 8000
 
 ```bash
 # Run all tests with coverage
-poetry run pytest
+uv run pytest
 
 # Run specific test file
-poetry run pytest tests/unit/test_auth.py
+uv run pytest tests/unit/test_auth.py
 
 # Run with verbose output
-poetry run pytest -v
+uv run pytest -v
 ```
 
 ### Code Quality
 
 ```bash
 # Format code
-poetry run black src tests
+uv run black src tests
 
 # Lint code
-poetry run ruff check src tests
+uv run ruff check src tests
 
 # Type checking
-poetry run mypy src
+uv run mypy src
 ```
 
 ## API Endpoints
@@ -118,8 +115,8 @@ See `../.env.example` for all required environment variables.
 
 1. Create feature branch: `git checkout -b feature/your-feature`
 2. Make changes and write tests
-3. Run tests: `poetry run pytest`
-4. Format and lint: `poetry run black . && poetry run ruff check .`
+3. Run tests: `uv run pytest`
+4. Format and lint: `uv run black . && uv run ruff check .`
 5. Commit with conventional commits: `git commit -m "feat(api): add new endpoint"`
 6. Push and create PR
 

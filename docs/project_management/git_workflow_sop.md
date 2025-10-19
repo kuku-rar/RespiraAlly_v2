@@ -191,10 +191,10 @@ git rebase --continue
 # 1. 執行所有品質檢查 (見 01_development_workflow.md §Ⅲ.3)
 # 後端
 cd backend
-poetry run black .
-poetry run ruff check . --fix
-poetry run mypy .
-poetry run pytest
+uv run black .
+uv run ruff check . --fix
+uv run mypy .
+uv run pytest
 
 # 前端
 cd frontend/dashboard
@@ -353,7 +353,7 @@ git checkout -b hotfix/RA-999-critical-auth-bypass
 # ... (編輯程式碼) ...
 
 # 3. 測試修復
-poetry run pytest tests/test_auth.py -v
+uv run pytest tests/test_auth.py -v
 
 # 4. 提交修復
 git add backend/src/auth/jwt.py
@@ -451,7 +451,7 @@ git merge main
 ```bash
 # 1. 查看 GitHub Actions 錯誤訊息
 # 2. 本地重現錯誤
-poetry run pytest  # 或其他失敗的檢查
+uv run pytest  # 或其他失敗的檢查
 
 # 3. 修復後重新提交
 git add <fixed-files>

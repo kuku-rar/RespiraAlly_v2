@@ -193,7 +193,7 @@ For detailed progress tracking, see [WBS Development Plan](docs/16_wbs_developme
 
 - **Python**: 3.11+
 - **Node.js**: 18.17+
-- **Poetry**: Latest version
+- **uv**: Latest version
 - **Docker**: Latest version
 - **Docker Compose**: Latest version
 
@@ -224,9 +224,9 @@ docker-compose up -d
 
 ```bash
 cd backend
-poetry install
-poetry run alembic upgrade head
-poetry run uvicorn respira_ally.main:app --reload
+uv sync
+uv run alembic upgrade head
+uv run uvicorn respira_ally.main:app --reload
 ```
 
 5. **Set up frontend (Dashboard)**
@@ -321,10 +321,10 @@ test(auth): add JWT token validation tests
 ```bash
 # Backend
 cd backend
-poetry run black src tests           # Format
-poetry run ruff check src tests      # Lint
-poetry run mypy src                  # Type check
-poetry run pytest                    # Test
+uv run black src tests           # Format
+uv run ruff check src tests      # Lint
+uv run mypy src                  # Type check
+uv run pytest                    # Test
 
 # Frontend Dashboard
 cd frontend/dashboard

@@ -101,8 +101,8 @@ backend/
 │               └── patient_repository.py
 │
 ├── tests/                # 測試代碼 (結構與 src/ 對應)
-├── pyproject.toml        # Python 專案定義、依賴 (Poetry)
-└── poetry.lock
+├── pyproject.toml        # Python 專案定義、依賴 (uv)
+└── uv.lock
 ```
 
 ### 4.2 `frontend/` - 前端原始碼

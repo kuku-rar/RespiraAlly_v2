@@ -192,7 +192,7 @@ RespiraAlly V2.0 是一個創新的數位健康管理平台，旨在支援慢性
 
 - **Python**: 3.11+
 - **Node.js**: 18.17+
-- **Poetry**: 最新版本
+- **uv**: 最新版本
 - **Docker**: 最新版本
 - **Docker Compose**: 最新版本
 
@@ -223,9 +223,9 @@ docker-compose up -d
 
 ```bash
 cd backend
-poetry install
-poetry run alembic upgrade head
-poetry run uvicorn respira_ally.main:app --reload
+uv sync
+uv run alembic upgrade head
+uv run uvicorn respira_ally.main:app --reload
 ```
 
 5. **設定前端 (儀表板)**
@@ -320,10 +320,10 @@ test(auth): 新增 JWT 權杖驗證測試
 ```bash
 # 後端
 cd backend
-poetry run black src tests           # 格式化
-poetry run ruff check src tests      # 程式碼檢查
-poetry run mypy src                  # 型別檢查
-poetry run pytest                    # 測試
+uv run black src tests           # 格式化
+uv run ruff check src tests      # 程式碼檢查
+uv run mypy src                  # 型別檢查
+uv run pytest                    # 測試
 
 # 前端儀表板
 cd frontend/dashboard

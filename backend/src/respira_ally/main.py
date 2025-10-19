@@ -1,42 +1,55 @@
-"""FastAPI application entry point."""
+"""
+RespiraAlly V2.0 - FastAPI Application Entry Point
+
+Modular Monolith Architecture with Clean Architecture principles
+Based on 7 Bounded Contexts (DDD Strategic Design)
+"""
+from contextlib import asynccontextmanager
+from typing import AsyncGenerator
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-import structlog
+from fastapi.responses import JSONResponse
 
+from respira_ally.api.v1.routers import (
+    auth,
+    daily_log,
+    notification,
+    patient,
+    rag,
+    risk,
+    survey,
+)
 from respira_ally.core.config import settings
+from respira_ally.infrastructure.database.session import engine
 
-# Configure structured logging
-structlog.configure(
-    processors=[
-        structlog.stdlib.filter_by_level,
-        structlog.stdlib.add_logger_name,
-        structlog.stdlib.add_log_level,
-        structlog.stdlib.PositionalArgumentsFormatter(),
-        structlog.processors.TimeStamper(fmt="iso"),
-        structlog.processors.StackInfoRenderer(),
-        structlog.processors.format_exc_info,
-        structlog.processors.UnicodeDecoder(),
-        structlog.processors.JSONRenderer(),
-    ],
-    wrapper_class=structlog.stdlib.BoundLogger,
-    logger_factory=structlog.stdlib.LoggerFactory(),
-    cache_logger_on_first_use=True,
-)
 
-logger = structlog.get_logger()
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+    """Application lifespan events"""
+    # Startup
+    print("🚀 Starting RespiraAlly V2.0...")
+    print(f"📋 Environment: {settings.ENVIRONMENT}")
+    print(f"🗄️  Database: {settings.DATABASE_URL.split('@')[1] if '@' in settings.DATABASE_URL else 'N/A'}")
 
-# Create FastAPI application
+    yield
+
+    # Shutdown
+    print("🛑 Shutting down RespiraAlly V2.0...")
+    await engine.dispose()
+
+
 app = FastAPI(
-    title=settings.PROJECT_NAME,
-    version=settings.PROJECT_VERSION,
-    description="RespiraAlly V2.0 - COPD Patient Healthcare Platform API",
-    docs_url="/docs",
-    redoc_url="/redoc",
-    openapi_url="/openapi.json",
+    title="RespiraAlly V2.0 API",
+    description="COPD Patient Healthcare Platform - Modular Monolith with Clean Architecture",
+    version="2.0.0",
+    lifespan=lifespan,
+    docs_url="/api/docs",
+    redoc_url="/api/redoc",
+    openapi_url="/api/openapi.json",
 )
 
-# Configure CORS
+# CORS Middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
@@ -46,36 +59,36 @@ app.add_middleware(
 )
 
 
-@app.get("/")
-async def root() -> dict[str, str]:
-    """Root endpoint - Health check."""
-    return {
-        "status": "healthy",
-        "service": "RespiraAlly Backend API",
-        "version": settings.PROJECT_VERSION,
-    }
+# Health Check Endpoint
+@app.get("/health", tags=["Health"])
+async def health_check() -> JSONResponse:
+    """Health check endpoint"""
+    return JSONResponse(
+        content={
+            "status": "healthy",
+            "version": "2.0.0",
+            "environment": settings.ENVIRONMENT,
+        }
+    )
 
 
-@app.get("/health")
-async def health_check() -> dict[str, str]:
-    """Health check endpoint for monitoring."""
-    return {"status": "ok"}
+# Include API Routers (7 Bounded Contexts)
+app.include_router(auth.router, prefix="/api/v1/auth", tags=["Auth"])
+app.include_router(patient.router, prefix="/api/v1/patients", tags=["Patients"])
+app.include_router(daily_log.router, prefix="/api/v1/daily-logs", tags=["Daily Logs"])
+app.include_router(survey.router, prefix="/api/v1/surveys", tags=["Surveys"])
+app.include_router(risk.router, prefix="/api/v1/risk", tags=["Risk"])
+app.include_router(rag.router, prefix="/api/v1/rag", tags=["RAG"])
+app.include_router(notification.router, prefix="/api/v1/notifications", tags=["Notifications"])
 
 
-@app.on_event("startup")
-async def startup_event() -> None:
-    """Application startup event handler."""
-    logger.info("application_startup", version=settings.PROJECT_VERSION)
+if __name__ == "__main__":
+    import uvicorn
 
-
-@app.on_event("shutdown")
-async def shutdown_event() -> None:
-    """Application shutdown event handler."""
-    logger.info("application_shutdown")
-
-
-# Import and include API routers (will be uncommented as they are implemented)
-# from respira_ally.api.v1 import auth, patients, daily_logs
-# app.include_router(auth.router, prefix="/api/v1/auth", tags=["authentication"])
-# app.include_router(patients.router, prefix="/api/v1/patients", tags=["patients"])
-# app.include_router(daily_logs.router, prefix="/api/v1/daily-logs", tags=["daily-logs"])
+    uvicorn.run(
+        "respira_ally.main:app",
+        host="0.0.0.0",
+        port=8000,
+        reload=True,
+        log_level="info",
+    )

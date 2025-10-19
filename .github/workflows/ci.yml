@@ -1,0 +1,165 @@
+name: CI - Quality Gates
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+# Quality Gates: All checks must pass
+# - Backend: Black (format), Ruff (lint), Mypy (types), Pytest (tests, coverage >= 80%)
+# - Frontend: Prettier (format), ESLint (lint), TypeScript (types), Jest (tests), Build
+# Failure = PR cannot be merged
+
+jobs:
+  # Backend Tests
+  backend-test:
+    name: Backend Tests
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: pgvector/pgvector:pg15
+        env:
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: test_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install uv
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: Install dependencies
+        working-directory: backend
+        run: |
+          uv sync
+
+      - name: 📝 Format check (Black)
+        working-directory: backend
+        run: uv run black --check src tests
+
+      - name: 🔍 Lint (Ruff)
+        working-directory: backend
+        run: uv run ruff check src tests
+
+      - name: 🔷 Type check (Mypy)
+        working-directory: backend
+        run: uv run mypy src
+
+      - name: ✅ Run tests (Pytest) + Coverage
+        working-directory: backend
+        env:
+          DATABASE_URL: postgresql+asyncpg://test_user:test_password@localhost:5432/test_db
+          REDIS_HOST: localhost
+          SECRET_KEY: test-secret-key-for-ci
+        run: |
+          uv run pytest --cov=src --cov-report=xml --cov-report=term-missing --cov-fail-under=80
+
+      - name: Upload coverage reports
+        uses: codecov/codecov-action@v3
+        with:
+          file: backend/coverage.xml
+          flags: backend
+
+  # Frontend Dashboard Tests
+  dashboard-test:
+    name: Dashboard Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: frontend/dashboard/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend/dashboard
+        run: npm ci
+
+      - name: 📝 Format check (Prettier)
+        working-directory: frontend/dashboard
+        run: npx prettier --check "**/*.{ts,tsx,js,jsx,json,md}"
+
+      - name: 🔍 Lint (ESLint)
+        working-directory: frontend/dashboard
+        run: npm run lint
+
+      - name: 🔷 Type check (TypeScript)
+        working-directory: frontend/dashboard
+        run: npm run type-check
+
+      - name: ✅ Run tests (Jest)
+        working-directory: frontend/dashboard
+        run: npm test
+
+      - name: 🏗️ Build (Next.js)
+        working-directory: frontend/dashboard
+        run: npm run build
+
+  # Frontend LIFF Tests
+  liff-test:
+    name: LIFF Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: frontend/liff/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend/liff
+        run: npm ci
+
+      - name: 📝 Format check (Prettier)
+        working-directory: frontend/liff
+        run: npx prettier --check "src/**/*.{ts,tsx,js,jsx,json,css}"
+
+      - name: 🔍 Lint (ESLint)
+        working-directory: frontend/liff
+        run: npm run lint
+
+      - name: 🔷 Type check (TypeScript)
+        working-directory: frontend/liff
+        run: npm run type-check
+
+      - name: 🏗️ Build (Vite)
+        working-directory: frontend/liff
+        run: npm run build
