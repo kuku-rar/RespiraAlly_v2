@@ -6,16 +6,18 @@ services:
     image: pgvector/pgvector:pg15
     container_name: respirally-postgres
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-respirally}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-respirally_dev}
-      POSTGRES_DB: ${POSTGRES_DB:-respirally_db}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_INITDB_ARGS: "--auth-host=md5"  # Use MD5 for password authentication
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "15432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init.sql
+      # FIXME: WSL mount issue - temporarily disabled, will run manually
+      - ./database/init-db.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-respirally}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
       interval: 10s
       timeout: 5s
       retries: 5

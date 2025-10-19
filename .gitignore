@@ -303,6 +303,7 @@ tags
 ## 保留目錄結構的檔案
 .docs/history/
 VibeCoding_Workflow_Templates/
+.github
 # 確保空目錄被保留但不包含內容
 
 ## AI 工具暫存目錄

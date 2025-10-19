@@ -1,10 +1,16 @@
 """
 Application Configuration
 Using Pydantic Settings for environment variable management
-"""
-from typing import List
 
-from pydantic import Field, PostgresDsn, field_validator
+Supports both local development and Zeabur deployment:
+- Local: Uses individual env vars (REDIS_HOST, REDIS_PORT, etc.)
+- Zeabur: Parses auto-injected URLs (DATABASE_URL, REDIS_URL)
+"""
+import os
+from typing import List
+from urllib.parse import urlparse
+
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -25,17 +31,42 @@ class Settings(BaseSettings):
 
     # Database (PostgreSQL + pgvector)
     DATABASE_URL: str = Field(
-        ..., description="PostgreSQL connection string with asyncpg driver"
+        default="postgresql+asyncpg://respirally:respirally_dev@localhost:5432/respirally_db",
+        description="PostgreSQL connection string with asyncpg driver"
     )
     DB_POOL_SIZE: int = Field(default=10, description="Database connection pool size")
     DB_MAX_OVERFLOW: int = Field(default=20, description="Max overflow connections")
     DB_ECHO: bool = Field(default=False, description="SQLAlchemy echo SQL queries")
+
+    @field_validator("DATABASE_URL")
+    @classmethod
+    def ensure_asyncpg_driver(cls, v: str) -> str:
+        """Ensure DATABASE_URL uses asyncpg driver (for Zeabur compatibility)"""
+        if v.startswith("postgresql://"):
+            # Zeabur injects postgresql:// but we need postgresql+asyncpg://
+            return v.replace("postgresql://", "postgresql+asyncpg://", 1)
+        return v
 
     # Redis
     REDIS_HOST: str = Field(default="localhost", description="Redis host")
     REDIS_PORT: int = Field(default=6379, description="Redis port")
     REDIS_DB: int = Field(default=0, description="Redis database number")
     REDIS_PASSWORD: str | None = Field(default=None, description="Redis password")
+
+    def __init__(self, **kwargs):
+        """Parse REDIS_URL if present (Zeabur auto-injection)"""
+        super().__init__(**kwargs)
+
+        # If REDIS_URL is provided (Zeabur), parse it to extract host/port
+        redis_url = os.getenv("REDIS_URL")
+        if redis_url:
+            parsed = urlparse(redis_url)
+            if parsed.hostname:
+                self.REDIS_HOST = parsed.hostname
+            if parsed.port:
+                self.REDIS_PORT = parsed.port
+            if parsed.password:
+                self.REDIS_PASSWORD = parsed.password
 
     # RabbitMQ (Phase 2)
     RABBITMQ_HOST: str = Field(default="localhost", description="RabbitMQ host")
@@ -54,10 +85,18 @@ class Settings(BaseSettings):
     )
 
     # CORS
-    CORS_ORIGINS: List[str] = Field(
-        default=["http://localhost:3000", "http://localhost:5173"],
-        description="Allowed CORS origins",
+    CORS_ORIGINS: str = Field(
+        default="http://localhost:3000,http://localhost:5173",
+        description="Allowed CORS origins (comma-separated)",
     )
+
+    @field_validator("CORS_ORIGINS")
+    @classmethod
+    def parse_cors_origins(cls, v: str) -> list[str]:
+        """Parse comma-separated CORS origins"""
+        if isinstance(v, str):
+            return [origin.strip() for origin in v.split(",") if origin.strip()]
+        return v
 
     # LINE Platform
     LINE_CHANNEL_ACCESS_TOKEN: str = Field(..., description="LINE Messaging API access token")

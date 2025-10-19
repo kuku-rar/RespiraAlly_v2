@@ -16,9 +16,14 @@ from respira_ally.core.config import settings
 from respira_ally.infrastructure.database.session import Base
 
 # Import all models here for autogenerate to detect them
-# from respira_ally.infrastructure.database.models.patient import PatientModel
-# from respira_ally.infrastructure.database.models.daily_log import DailyLogModel
-# ... (import more models as they are created)
+from respira_ally.infrastructure.database.models import (
+    UserModel,
+    PatientProfileModel,
+    TherapistProfileModel,
+    DailyLogModel,
+    SurveyResponseModel,
+    EventLogModel,
+)
 
 # Alembic Config object
 config = context.config
