@@ -2,12 +2,13 @@
 
 **專案**: RespiraAlly V2.0 - COPD Patient Healthcare Platform
 **維護者**: TaskMaster Hub / Claude Code AI
-**最後更新**: 2025-10-20
+**最後更新**: 2025-10-19
 
 ---
 
 ## 目錄 (Table of Contents)
 
+- [v4.0 (2025-10-19)](#v40-2025-10-19---後端架構重構-breaking-change)
 - [v3.0.1 (2025-10-20)](#v301-2025-10-20---客戶需求理解修正-🔴-critical-fix)
 - [v3.0 (2025-10-19)](#v30-2025-10-19---客戶新需求整合完成)
 - [v2.9 (2025-10-20)](#v29-2025-10-20---jwt-認證設計--索引策略規劃完成)
@@ -18,6 +19,576 @@
 - [v2.2 (2025-10-18)](#v22-2025-10-18---開發流程管控完成)
 - [v2.1 (2025-10-18)](#v21-2025-10-18---專案管理流程重構)
 - [v2.0 (2025-10-18)](#v20-2025-10-18---架構重大調整)
+
+---
+
+## v4.0 (2025-10-19) - 後端架構重構 🚀 BREAKING CHANGE
+
+**標題**: Clean Architecture 實作 + Poetry → uv 遷移
+**階段**: Sprint 0 完成 (架構基礎建立)
+**Git Commit**: `02bfde8` (206 files, +5991/-273 lines)
+**工時**: 維持 1075h (基礎建設投資)
+
+### 🚨 BREAKING CHANGE 說明
+
+本次更新是專案架構的**完全重建**，包含：
+1. **依賴管理工具變更**: Poetry → uv (v0.9.3)
+2. **架構模式變更**: 扁平結構 → Clean Architecture (4 層分層)
+3. **模組組織變更**: 功能導向 → DDD 界限上下文 (7 個上下文)
+4. **開發工作流變更**: 所有文檔、CI/CD、開發指令全面更新
+
+**影響範圍**:
+- ❌ 舊有 Poetry 指令全部失效
+- ❌ 舊有目錄結構全部重組
+- ✅ 新的 uv 工作流生效
+- ✅ Clean Architecture 模組結構生效
+
+---
+
+### 🏗️ 架構重建 (Architecture Rebuild)
+
+#### Clean Architecture 四層分層
+
+完整實作了 Clean Architecture 模式，建立 4 個明確分離的層次：
+
+```
+┌─────────────────────────────────────────────┐
+│  表現層 (Presentation Layer)                │  ← API Controllers, GraphQL, gRPC
+│  - REST API (FastAPI)                       │
+│  - API Routers (7 個上下文路由)             │
+└───────────────────┬─────────────────────────┘
+                    │
+┌───────────────────▼─────────────────────────┐
+│  應用層 (Application Layer)                 │  ← Use Cases, DTOs
+│  - Use Cases (業務流程編排)                 │
+│  - Schemas (請求/回應模型)                  │
+└───────────────────┬─────────────────────────┘
+                    │
+┌───────────────────▼─────────────────────────┐
+│  領域層 (Domain Layer) 🔴 核心              │  ← Pure Business Logic
+│  - Entities (實體)                          │
+│  - Value Objects (值物件)                   │
+│  - Domain Services (領域服務)               │
+│  - Domain Events (領域事件)                 │
+│  - Repository Interfaces (介面定義)         │
+└───────────────────┬─────────────────────────┘
+                    │
+┌───────────────────▼─────────────────────────┐
+│  基礎設施層 (Infrastructure Layer)          │  ← External Dependencies
+│  - Database Models (SQLAlchemy)             │
+│  - Repository Implementations               │
+│  - External APIs (LINE, OpenAI)             │
+│  - Message Queue (RabbitMQ)                 │
+│  - Cache (Redis)                            │
+└─────────────────────────────────────────────┘
+```
+
+**依賴規則**: 外層依賴內層，領域層無外部依賴（純業務邏輯）
+
+---
+
+#### DDD 戰略設計 - 7 個界限上下文
+
+基於 DDD 戰略設計，建立 7 個明確的界限上下文 (Bounded Contexts)：
+
+| 上下文 | 類型 | 職責 | 核心聚合 |
+|--------|------|------|---------|
+| **Daily Log Context** | 🔴 Core Domain | 每日健康日誌記錄與分析 | DailyLog, Adherence |
+| **Risk Context** | 🔴 Core Domain | 風險評分與警報管理 | RiskScore, Alert |
+| **Patient Context** | 🔵 Supporting | 患者資料管理 | Patient, MedicalHistory |
+| **Survey Context** | 🔵 Supporting | 量表評估 (CAT/mMRC) | SurveyResponse, Score |
+| **RAG Context** | 🔵 Supporting | AI 知識庫問答 | Document, Query |
+| **Auth Context** | 🟢 Generic | 認證授權 | User, Session |
+| **Notification Context** | 🟢 Generic | 通知與提醒 | Notification, Schedule |
+
+**上下文關係**:
+- Daily Log ←→ Risk (雙向依賴，事件驅動)
+- Daily Log → Patient (單向依賴)
+- Survey → Patient (單向依賴)
+- Risk → Notification (事件發布)
+
+---
+
+### 📦 依賴管理: Poetry → uv
+
+#### 遷移理由
+
+**為什麼選擇 uv**:
+1. **速度**: 比 Poetry 快 10-100x (Rust 實作)
+2. **標準化**: 完全符合 PEP 621 標準
+3. **簡潔**: 更簡單的 CLI 介面
+4. **兼容性**: 與現有 pip/venv 生態系統無縫整合
+
+**Poetry 的問題**:
+- 依賴解析慢 (複雜專案需數分鐘)
+- pyproject.toml 格式非標準
+- 虛擬環境管理複雜
+
+#### 遷移內容
+
+1. **套件管理工具**:
+   - ❌ 移除: `poetry install`, `poetry add`, `poetry run`
+   - ✅ 新增: `uv sync`, `uv add`, `uv run`
+
+2. **pyproject.toml 格式轉換**:
+   ```toml
+   # Before (Poetry 專有格式)
+   [tool.poetry.dependencies]
+   python = "^3.11"
+   fastapi = "^0.115.0"
+
+   # After (PEP 621 標準)
+   [project]
+   requires-python = ">=3.11"
+   dependencies = [
+       "fastapi>=0.115.0",
+   ]
+   ```
+
+3. **鎖定檔案**:
+   - ❌ 移除: `poetry.lock`
+   - ✅ 新增: `uv.lock` (585 KB, 100+ packages)
+
+4. **依賴修正**:
+   - ❌ 移除: `httpx-mock` (不支援 pytest-asyncio)
+   - ✅ 新增: `pytest-httpx` (正確的測試依賴)
+
+---
+
+### 📁 模組結構 (200+ 新檔案)
+
+完整的模組結構已建立，包含所有 7 個界限上下文：
+
+```
+backend/src/respira_ally/
+├── api/v1/routers/          # 表現層 (7 個路由檔案)
+│   ├── auth.py
+│   ├── daily_log.py
+│   ├── patient.py
+│   ├── survey.py
+│   ├── risk.py
+│   ├── rag.py
+│   └── notification.py
+│
+├── application/             # 應用層 (7 個上下文)
+│   ├── auth/
+│   │   ├── schemas/         # DTOs
+│   │   └── use_cases/       # 用例
+│   ├── daily_log/
+│   ├── patient/
+│   ├── survey/
+│   ├── risk/
+│   ├── rag/
+│   └── notification/
+│
+├── domain/                  # 領域層 (純業務邏輯)
+│   ├── entities/            # 實體 (8 個)
+│   ├── value_objects/       # 值物件 (7 個)
+│   ├── services/            # 領域服務 (5 個)
+│   ├── events/              # 領域事件 (7 個上下文)
+│   ├── repositories/        # Repository 介面 (8 個)
+│   └── exceptions/          # 領域異常
+│
+└── infrastructure/          # 基礎設施層
+    ├── database/
+    │   ├── models/          # SQLAlchemy Models (12 個)
+    │   └── session.py       # DB Session 管理
+    ├── repositories/        # Repository 實作 (8 個)
+    ├── external_apis/
+    │   ├── line/            # LINE Messaging API
+    │   └── openai/          # OpenAI API
+    ├── message_queue/
+    │   ├── publishers/      # Event Publishers
+    │   └── consumers/       # Event Consumers
+    └── cache/               # Redis Cache
+```
+
+**統計數據**:
+- **總檔案數**: 200+ (全部為空檔案框架)
+- **目錄結構**: 4 層 × 7 上下文 = 完整模組化
+- **Repository 模式**: 8 個介面 + 8 個實作
+- **Use Cases**: 7 個上下文，每個 3-5 個用例
+- **Domain Events**: 7 個上下文事件定義
+
+---
+
+### 🧪 測試基礎設施
+
+建立完整的測試結構，遵循測試金字塔原則：
+
+```
+backend/tests/
+├── unit/                    # 單元測試 (最多)
+│   ├── domain/
+│   │   ├── entities/        # 實體測試
+│   │   ├── services/        # 領域服務測試
+│   │   └── value_objects/   # 值物件測試
+│   └── application/         # 應用層測試
+│       ├── auth/
+│       ├── daily_log/
+│       └── ...
+│
+├── integration/             # 整合測試 (中等)
+│   ├── api/                 # API 整合測試
+│   ├── database/            # 資料庫整合測試
+│   └── external_apis/       # 外部 API 整合測試
+│
+├── e2e/                     # 端到端測試 (最少)
+│   └── test_patient_journey.py
+│
+├── fixtures/                # 測試 Fixtures
+│   ├── patient_fixtures.py
+│   └── daily_log_fixtures.py
+│
+└── conftest.py              # Pytest 全域配置
+```
+
+**測試配置** (pytest.ini):
+- 覆蓋率報告: `--cov=src --cov-report=html`
+- 非同步支援: `pytest-asyncio`
+- HTTP Mock: `pytest-httpx`
+- 資料庫測試: `pytest-postgresql`
+
+---
+
+### ⚙️ 配置檔案完善
+
+#### 1. 環境變數範本 (backend/.env.example)
+
+完整的 86 行環境變數範本，涵蓋所有子系統：
+
+```bash
+# 應用基本設定
+APP_NAME=RespiraAlly
+APP_ENV=development
+DEBUG=true
+LOG_LEVEL=INFO
+
+# 資料庫配置
+DATABASE_URL=postgresql+asyncpg://user:pass@localhost:5432/respira_ally
+DB_POOL_SIZE=20
+DB_MAX_OVERFLOW=10
+
+# Redis 配置
+REDIS_URL=redis://localhost:6379/0
+CACHE_TTL=3600
+
+# JWT 認證
+JWT_SECRET_KEY=your-secret-key-here
+JWT_ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=30
+REFRESH_TOKEN_EXPIRE_DAYS=7
+
+# LINE Messaging API
+LINE_CHANNEL_ACCESS_TOKEN=your-token
+LINE_CHANNEL_SECRET=your-secret
+
+# OpenAI API
+OPENAI_API_KEY=sk-...
+OPENAI_MODEL=gpt-4
+EMBEDDING_MODEL=text-embedding-3-small
+
+# RabbitMQ
+RABBITMQ_URL=amqp://guest:guest@localhost:5672/
+
+# CORS
+CORS_ORIGINS=["http://localhost:3000"]
+```
+
+#### 2. 資料庫遷移配置 (alembic.ini + alembic/env.py)
+
+- **Alembic 設定**: 支援非同步 PostgreSQL
+- **Migration 環境**: 自動載入環境變數
+- **版本控制**: 準備好進行 Schema 遷移
+
+#### 3. Docker Compose 簡化
+
+```yaml
+# Before: PostgreSQL + MongoDB + Redis + RabbitMQ
+services:
+  postgres:
+    ...
+  mongodb:    # ❌ 已移除
+    ...
+  redis:
+    ...
+  rabbitmq:
+    ...
+
+# After: PostgreSQL + Redis + RabbitMQ (單一資料庫策略)
+services:
+  postgres:
+    image: postgres:15
+    ...
+  redis:
+    image: redis:7-alpine
+    ...
+  rabbitmq:
+    image: rabbitmq:3-management
+    ...
+```
+
+**理由**: 採用 PostgreSQL 單一資料庫策略 (ADR-002)，移除 MongoDB
+
+---
+
+### 📝 文檔更新 (9 檔案, 55 處引用)
+
+所有開發文檔已同步更新以反映新架構：
+
+| 文檔 | 更新內容 | 變更規模 |
+|------|---------|---------|
+| **README.md** | 安裝指令: `poetry install` → `uv sync` | 3 處 |
+| **README.zh-TW.md** | 同步繁中版本 | 3 處 |
+| **backend/README.md** | 完全重寫,反映新架構 | 全文重寫 |
+| **docs/01_development_workflow.md** | 所有開發指令更新 | 12 處 |
+| **docs/08_project_structure_guide.md** | 專案結構圖更新 | 完整更新 |
+| **docs/10_class_relationships_and_module_design.md** | **新增** UML 類別圖與模組設計 | 1807 行新增 |
+| **docs/11_code_review_and_refactoring_guide.md** | QA 指令更新 | 4 處 |
+| **docs/16_wbs_development_plan.md** | Sprint 1 任務更新 | Sprint 計畫調整 |
+| **docs/project_management/git_workflow_sop.md** | Git 工作流指令更新 | 6 處 |
+
+**新增文檔**:
+- `docs/10_class_relationships_and_module_design.md` (1807 行)
+  - 完整的 UML 類別圖
+  - 7 個界限上下文的詳細設計
+  - Repository 模式實作指南
+  - Domain Events 設計
+
+---
+
+### 🔧 CI/CD 流程更新
+
+#### GitHub Actions 工作流 (.github/workflows/ci.yml)
+
+完整重寫 CI/CD 流程以支援 uv：
+
+```yaml
+# Before (Poetry)
+- name: Install dependencies
+  run: |
+    pip install poetry
+    poetry install
+
+- name: Run tests
+  run: poetry run pytest
+
+# After (uv)
+- name: Set up uv
+  run: |
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+    echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+- name: Install dependencies
+  run: uv sync --all-extras --dev
+
+- name: Run tests
+  run: uv run pytest tests/ --cov=src --cov-report=xml
+```
+
+**CI/CD 流程**:
+1. ✅ Linting (Ruff)
+2. ✅ Type Checking (Mypy)
+3. ✅ Unit Tests (Pytest)
+4. ✅ Integration Tests
+5. ✅ Coverage Report (Codecov)
+
+---
+
+### 📊 變更統計
+
+#### Git 統計
+
+```bash
+206 files changed
+5991 insertions(+)
+273 deletions(-)
+```
+
+#### 檔案分布
+
+| 分類 | 新增檔案數 | 說明 |
+|------|-----------|------|
+| **Domain Layer** | ~60 | Entities, Value Objects, Services, Events |
+| **Application Layer** | ~50 | Use Cases, Schemas |
+| **Infrastructure Layer** | ~50 | Repositories, APIs, DB Models |
+| **API Layer** | ~10 | Routers, Controllers |
+| **Tests** | ~30 | Unit, Integration, E2E, Fixtures |
+| **配置檔案** | ~6 | .env.example, alembic.ini, pytest.ini |
+
+#### 程式碼規模
+
+- **Python 檔案**: 150+ (大多為空框架)
+- **配置檔案**: 6
+- **文檔檔案**: 9 更新 + 1 新增
+- **測試檔案**: 30+
+
+---
+
+### 🎯 里程碑達成
+
+- ✅ **Clean Architecture 實作完成**: 4 層架構清晰分離
+- ✅ **DDD 界限上下文建立**: 7 個上下文完整框架
+- ✅ **Poetry → uv 遷移完成**: 所有依賴、文檔、CI/CD 已更新
+- ✅ **測試基礎設施建立**: 單元/整合/E2E 測試結構完成
+- ✅ **文檔同步完成**: 9 個文檔 + 1 新增文檔已更新
+- 🎯 **下一步**: Sprint 1 開始 - 實作 Auth Context (用戶認證功能)
+
+---
+
+### 🔄 開發工作流變更
+
+#### 舊工作流 (Poetry)
+```bash
+# 安裝依賴
+poetry install
+
+# 新增套件
+poetry add fastapi
+
+# 執行應用
+poetry run uvicorn main:app
+
+# 執行測試
+poetry run pytest
+```
+
+#### 新工作流 (uv)
+```bash
+# 安裝依賴
+uv sync
+
+# 新增套件
+uv add fastapi
+
+# 執行應用
+uv run uvicorn src.respira_ally.main:app
+
+# 執行測試
+uv run pytest tests/
+```
+
+**注意事項**:
+- ⚠️ 所有團隊成員需重新安裝開發環境
+- ⚠️ CI/CD Pipeline 已自動更新
+- ⚠️ 舊有的 `poetry.lock` 已被 `uv.lock` 取代
+
+---
+
+### 📦 交付物清單
+
+#### 程式碼結構
+- ✅ Clean Architecture 4 層結構
+- ✅ 7 個界限上下文完整框架
+- ✅ 200+ 模組檔案 (空框架)
+- ✅ Repository 模式介面與實作
+- ✅ Domain Events 定義
+
+#### 配置與工具
+- ✅ uv 套件管理配置 (pyproject.toml)
+- ✅ 依賴鎖定檔案 (uv.lock)
+- ✅ 環境變數範本 (.env.example)
+- ✅ 資料庫遷移配置 (Alembic)
+- ✅ Docker Compose 簡化配置
+- ✅ GitHub Actions CI/CD 更新
+
+#### 測試基礎設施
+- ✅ 單元測試結構 (unit/)
+- ✅ 整合測試結構 (integration/)
+- ✅ E2E 測試結構 (e2e/)
+- ✅ 測試 Fixtures (fixtures/)
+- ✅ Pytest 配置 (conftest.py)
+
+#### 文檔
+- ✅ README 更新 (中英文)
+- ✅ Backend README 完全重寫
+- ✅ 開發工作流指南更新
+- ✅ 專案結構指南更新
+- ✅ **新增**: UML 類別圖與模組設計 (1807 行)
+- ✅ 程式碼審查指南更新
+- ✅ WBS 開發計劃更新
+- ✅ Git 工作流程 SOP 更新
+
+---
+
+### 📚 技術決策記錄
+
+本次架構重構涉及多個重大技術決策，詳見相關 ADR：
+
+- **ADR-002**: 資料庫選型 (PostgreSQL 單一資料庫策略)
+- **ADR-003**: 訊息佇列選型 (RabbitMQ vs Kafka)
+- **ADR-005**: API 風格 (REST + 保留 GraphQL 可能性)
+- **待建立**: ADR-010 - 套件管理工具選型 (Poetry → uv)
+- **待建立**: ADR-011 - Clean Architecture 分層設計
+
+---
+
+### 🔍 Linus 式回顧 (Good Taste Review)
+
+#### ✅ 做對的事情
+
+1. **消除特殊情況**:
+   - 統一用 PostgreSQL，不再需要處理多資料庫切換邏輯
+   - Repository 模式統一數據存取，消除散落各處的 DB 查詢
+
+2. **數據結構優先**:
+   - 先設計 Domain Entities 和 Value Objects
+   - 再圍繞數據結構建立 Use Cases
+   - 符合 "Bad programmers worry about code, good programmers worry about data structures"
+
+3. **依賴反轉**:
+   - 領域層定義介面，基礎設施層實作
+   - 業務邏輯完全不依賴外部框架
+   - 符合 "向後相容" 精神：業務邏輯穩定，技術可替換
+
+4. **簡潔至上**:
+   - uv 比 Poetry 快 10-100x，CLI 更簡單
+   - 去除 MongoDB，單一資料庫策略
+   - 測試結構清晰：unit/integration/e2e 金字塔
+
+#### ⚠️ 需要持續關注的風險
+
+1. **過度設計風險**:
+   - 200+ 空檔案框架，實際開發中可能發現不需要這麼多
+   - **緩解**: Sprint 1 實作時驗證架構合理性，勇於刪減
+
+2. **學習曲線**:
+   - Clean Architecture 對團隊可能陌生
+   - **緩解**: 提供完整文檔 (10_class_relationships_and_module_design.md)
+
+3. **遷移成本**:
+   - 所有團隊成員需重新設定環境
+   - **緩解**: 提供一鍵安裝腳本，更新所有文檔
+
+#### 🎯 下一步驗證點
+
+在 Sprint 1 實作第一個功能 (Auth Context) 時，驗證：
+1. Use Case 層是否真的簡化了業務邏輯？
+2. Repository 模式是否帶來實際好處？
+3. 7 個上下文的邊界是否清晰？
+4. 測試是否容易撰寫？
+
+**如果發現過度設計，立刻簡化，拒絕理論正確但實際複雜的方案。**
+
+---
+
+### 📝 教訓總結 (Lessons Learned)
+
+1. **架構重構要一次到位**:
+   - 分階段遷移會導致新舊並存，增加複雜度
+   - 本次一次性完成 Poetry→uv + Clean Architecture，避免過渡期混亂
+
+2. **文檔同步是第一優先**:
+   - 更新 9 個文檔 + 55 處引用，確保團隊不會用錯誤指令
+   - 如果文檔不同步，團隊會浪費時間 Debug 環境問題
+
+3. **空框架 vs 完整實作**:
+   - 選擇建立空框架而非完整實作，給團隊清晰方向但保留彈性
+   - 避免過早實作後續可能大改的程式碼
+
+4. **CI/CD 必須同步更新**:
+   - 否則 PR 會失敗，阻塞開發流程
+   - 本次同步更新 GitHub Actions，確保 CI 通過
 
 ---
 
