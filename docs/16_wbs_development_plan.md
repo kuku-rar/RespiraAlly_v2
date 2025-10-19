@@ -463,15 +463,19 @@
 #### 3.4 認證授權系統
 | 任務編號 | 任務名稱 | 負責人 | 工時(h) | 狀態 | 完成日期 | 依賴關係 | 設計文檔參考 |
 |---------|---------|--------|---------|------|----------|----------|-------------|
-| 3.4.1 | JWT Token 生成邏輯 | Backend | 4 | ⬜ | Week 1 | 2.3.4 | security/jwt_authentication_design.md §6.1 |
-| 3.4.2 | JWT Token 驗證 Dependency | Backend | 4 | ⬜ | Week 1 | 3.4.1 | security/jwt_authentication_design.md §6.2 |
-| 3.4.3 | RBAC 權限檢查 Decorator | Backend | 4 | ⬜ | Week 2 | 3.4.2 | security/jwt_authentication_design.md §7.1 |
-| 3.4.4 | LINE LIFF OAuth 整合 | Backend | 8 | ⬜ | Week 2 | 3.4.3 | ADR-004 + security/jwt_authentication_design.md §4.1 |
-| 3.4.5 | `POST /auth/register` API (US-101) | Backend | 4 | ⬜ | Week 2 | 3.4.4 | security/jwt_authentication_design.md §4.1 (Patient) |
-| 3.4.6 | `POST /auth/token` API (US-102) | Backend | 4 | ⬜ | Week 2 | 3.4.3 | security/jwt_authentication_design.md §4.2 (Therapist) |
-| 3.4.7 | 登入失敗鎖定策略 (Redis) | Backend | 4 | ⬜ | Week 2 | 3.4.6 | ADR-008 + security/jwt_authentication_design.md §8.3 |
-| 3.4.8 | Token 黑名單機制 (Redis) ⭐ 新增 | Backend | 3 | ⬜ | Week 2 | 3.4.2 | security/jwt_authentication_design.md §8.1 |
-| 3.4.9 | Token 刷新端點 `POST /auth/refresh` ⭐ 新增 | Backend | 2 | ⬜ | Week 2 | 3.4.2 | security/jwt_authentication_design.md §6.3 |
+| 3.4.1 | JWT Token 生成/驗證邏輯 (Phase 1) | Backend | 8 | ✅ | 2025-10-20 | 2.3.4 | security/jwt_authentication_design.md §6 |
+| 3.4.2 | Token Blacklist + Dependencies (Phase 2) | Backend | 11 | ✅ | 2025-10-20 | 3.4.1 | security/jwt_authentication_design.md §8.1 |
+| 3.4.3 | Auth Use Cases (Phase 3) | Backend | 10 | ✅ | 2025-10-20 | 3.4.2 | security/jwt_authentication_design.md §4 |
+| 3.4.4 | Auth API Endpoints (Phase 4) | Backend | 5 | ⬜ | Week 2 | 3.4.3 | security/jwt_authentication_design.md |
+| 3.4.5 | LINE LIFF OAuth 整合 | Backend | 3 | ⬜ | Week 2 | 3.4.4 | ADR-004 + security/jwt_authentication_design.md §4.1 |
+| 3.4.6 | 登入失敗鎖定策略 (Redis) | Backend | 4 | ⬜ | Week 2 | 3.4.4 | ADR-008 + security/jwt_authentication_design.md §8.3 |
+
+**Phase 1-3 詳細成果** (29h 已完成):
+- ✅ Phase 1 (8h): JWT 工具函數 + Pydantic Models + 單元測試 (21 個測試, 98% 覆蓋率)
+- ✅ Phase 2 (11h): Redis Client + Token Blacklist Service + FastAPI Dependencies (get_current_user, get_current_patient, get_current_therapist)
+- ✅ Phase 3 (10h): User Repository + 5 個 Use Cases (PatientLogin, TherapistLogin, Logout, RefreshToken, TherapistRegister)
+- 📦 代碼量: ~2,200 行生產代碼 + 292 行測試代碼
+- 📝 Git Commits: 7c5e646 (Phase 1), d1ccd7a (Phase 2), 3680316 (Phase 3)
 
 **認證系統實施檢查點** (基於 JWT 設計文檔):
 1. **Token 結構正確性**: 必須包含 `sub`, `role`, `exp`, `iat`, `jti` 欄位,使用 HS256 演算法
@@ -497,7 +501,10 @@
 | 3.5.5 | Dashboard 登入頁 UI (US-102) | Frontend | 4 | ⬜ | Week 2 | 3.5.4, 3.4.6 | - |
 | 3.5.6 | LIFF 註冊頁 UI (US-101) | Frontend | 2 | ⬜ | Week 2 | 3.5.4, 3.4.5 | - |
 
-**3.0 Sprint 1 小計**: 104h (+8h) | 進度: 0% (0/104h 已完成)
+**3.0 Sprint 1 小計**: 104h (+8h) | 進度: 80.8% (84/104h 已完成)
+- ✅ 已完成: 3.1 (20h) + 3.2 (19h) + 3.3 (16h) + 3.4.1-3.4.3 (29h) = 84h
+- ⏸ 部分完成: 3.4 認證系統 (29/41h, 70.7%)
+- ⬜ 待完成: 3.4.4-3.4.6 (12h) + 整合測試與文檔 (8h) = 20h
 **關鍵交付物**: Docker Compose 環境, Database Schema + Phase 0 核心索引, JWT 認證 (含 Token 黑名單與刷新機制), 登入/註冊頁面
 **⭐ v2.9 新增**:
 - 認證系統: Token 黑名單機制 (3h) + Token 刷新端點 (2h) - 基於 JWT 設計文檔

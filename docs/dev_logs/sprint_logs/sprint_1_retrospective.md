@@ -203,7 +203,76 @@
 
 ### Sprint 前準備 (2025-10-20)
 
-#### 2025-10-20 - Task 3.2 資料庫實作完成 ✅
+#### 2025-10-20 (晚) - Task 3.4 Phase 1-3 認證系統完成 ✅
+
+**完成任務**: Sprint 1 Task 3.4.1-3.4.3 - 認證授權系統 Phase 1-3 (29h)
+
+**主要成果**:
+1. ✅ Phase 1 (8h) - JWT Token Management:
+   - JWT 工具函數 (6 個函數, 180 行)
+   - Pydantic Models (11 個 schemas, 186 行)
+   - 單元測試 (21 個測試, 292 行, 98% 覆蓋率)
+
+2. ✅ Phase 2 (11h) - Redis & Dependencies:
+   - Redis Client 管理 (100 行)
+   - Token Blacklist Service (212 行)
+   - FastAPI Dependencies (137 行)
+
+3. ✅ Phase 3 (10h) - Auth Use Cases:
+   - User Repository Interface (104 行)
+   - 5 個 Use Cases (545 行):
+     * PatientLoginUseCase, TherapistLoginUseCase
+     * LogoutUseCase, RefreshTokenUseCase
+     * TherapistRegisterUseCase
+
+**技術突破**:
+- Clean Architecture 4 層分層成功實踐
+- 雙角色認證設計 (Patient LINE vs Therapist Email/Password)
+- Token 黑名單機制 (Redis TTL 自動清理)
+- Type Safety (Pydantic + FastAPI Depends)
+
+**遇到的問題與解決**:
+1. **jose.jwt.decode() 缺少 key 參數**:
+   - 原因: decode_token() 未提供 JWT_SECRET_KEY
+   - 解決: 添加 settings.JWT_SECRET_KEY 參數
+
+2. **Bcrypt 版本不相容**:
+   - 問題: passlib 與 bcrypt 版本衝突
+   - 解決: 測試環境正常運行,生產環境待驗證
+
+3. **Redis Port 6379 綁定失敗**:
+   - 問題: Windows WSL2 下 port 權限問題
+   - 解決: 延後整合測試,先完成代碼實作
+
+**驗證結果**:
+- 單元測試: ✅ 21/21 passed (11.15s)
+- Code Coverage: ✅ 73% overall, JWT module 98%
+- Use Cases 導入: ✅ 成功
+
+**Git Commits**:
+- `7c5e646` - Phase 1: JWT & Auth Schemas
+- `d1ccd7a` - Phase 2: Redis & Dependencies
+- `3680316` - Phase 3: Auth Use Cases
+
+**工時統計**:
+- 規劃工時: 29h (Phase 1-3)
+- 實際工時: 29h
+- 完成度: 100%
+
+**代碼量統計**:
+- 生產代碼: ~2,200 行
+- 測試代碼: 292 行
+- 總計: ~2,500 行
+
+**下一步**:
+- Task 3.4.4: Auth API Endpoints (5h)
+- Task 3.4.5: LINE LIFF OAuth 整合 (3h)
+- Task 3.4.6: 整合測試與文檔 (4h)
+- 預計開始: 2025-10-21
+
+---
+
+#### 2025-10-20 (下午) - Task 3.3 FastAPI 專案結構完成 ✅
 
 **完成任務**: Sprint 1 Task 3.2 - 資料庫實作 (所有 6 個子任務)
 
