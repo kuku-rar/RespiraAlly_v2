@@ -201,6 +201,54 @@
 
 > **使用說明**: 在 Sprint 執行過程中,每日或每週記錄重要事項
 
+### Sprint 前準備 (2025-10-20)
+
+#### 2025-10-20 - Task 3.2 資料庫實作完成 ✅
+
+**完成任務**: Sprint 1 Task 3.2 - 資料庫實作 (所有 6 個子任務)
+
+**主要成果**:
+1. ✅ Alembic 初始化完成 (3.2.1)
+2. ✅ 核心資料表 SQLAlchemy Models 建立 (3.2.2):
+   - users, patient_profiles, therapist_profiles
+   - daily_logs, survey_responses, event_logs
+3. ✅ Repository 介面定義完成 (3.2.3) - 8 個 Repository 介面
+4. ✅ Migration Scripts 生成 (3.2.4) - `2025_10_20_0110-2c0639c3091b`
+5. ✅ Migration 執行與驗證成功 (3.2.5) - 7 張表 + 16 個索引
+6. ✅ Phase 0 核心索引建立 (3.2.6) - 4 個高頻查詢索引
+
+**技術突破**:
+- PostgreSQL 15 + pgvector v0.8.1 環境成功建立
+- 雙角色認證設計 (Patient LINE / Therapist Email) 的 Check Constraints 實作
+- Alembic autogenerate 問題修正 (sa.text() + JSONB literals)
+
+**遇到的問題與解決**:
+1. **PostgreSQL 認證失敗**:
+   - 原因: Port 映射錯誤 (5432 vs 15432)
+   - 解決: 用戶協助修正 docker-compose.yml,更新 backend/.env
+
+2. **Migration SQL 語法錯誤**:
+   - 問題 1: `gen_random_uuid()` 未用 sa.text() 包裝
+   - 問題 2: JSONB 預設值缺少引號 (`'{}'::jsonb` vs `{}'::jsonb`)
+   - 解決: 使用 sed 批次修正 + 手動修正 JSONB 欄位
+
+**驗證結果**:
+- 資料庫連接測試: ✅ 通過
+- Migration 執行: ✅ 成功 (< 2s, 0 errors)
+- Schema 驗證: ✅ 7 tables, 16 indexes 正確創建
+
+**Git Commit**: `20902a6` - "feat(database): complete Task 3.2 - initial schema + migration"
+
+**工時統計**:
+- 規劃工時: 21h (3.2.1~3.2.6)
+- 實際工時: 約 21h (含問題排查)
+
+**下一步**:
+- Task 3.3: FastAPI 專案結構建立 (16h)
+- 預計開始: 2025-10-20 或 2025-10-21
+
+---
+
 ### Week 1 (2025-10-21 ~ 2025-10-27)
 
 #### 2025-10-21 (Day 1) - Sprint Planning

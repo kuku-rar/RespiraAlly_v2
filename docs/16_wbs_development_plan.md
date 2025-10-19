@@ -423,12 +423,12 @@
 #### 3.2 資料庫 Schema 實作
 | 任務編號 | 任務名稱 | 負責人 | 工時(h) | 狀態 | 完成日期 | 依賴關係 | 設計文檔參考 |
 |---------|---------|--------|---------|------|----------|----------|-------------|
-| 3.2.1 | Alembic 初始化 | Backend | 2 | ⬜ | Week 1 | 2.2.4 | database/schema_design_v1.0.md |
-| 3.2.2 | 核心表 Migration (users, profiles) | Backend | 4 | ⬜ | Week 1 | 3.2.1 | database/schema_design_v1.0.md §2.1-2.2 |
-| 3.2.3 | 業務表 Migration (daily_logs, surveys) | Backend | 4 | ⬜ | Week 1 | 3.2.2 | database/schema_design_v1.0.md §2.3-2.4 |
-| 3.2.4 | 事件表 Migration (event_logs JSONB) | Backend | 2 | ⬜ | Week 1 | 3.2.3 | database/schema_design_v1.0.md §2.10 |
-| 3.2.5 | SQLAlchemy Models 定義 | Backend | 4 | ⬜ | Week 1 | 3.2.4 | database/schema_design_v1.0.md |
-| 3.2.6 | Phase 0 核心索引建立 ⭐ 新增 | Backend | 3 | ⬜ | Week 1 | 3.2.5 | database/index_strategy_planning.md §5.1 |
+| 3.2.1 | Alembic 初始化 | Backend | 2 | ✅ | 2025-10-20 | 2.2.4 | database/schema_design_v1.0.md |
+| 3.2.2 | 核心表 Migration (users, profiles) | Backend | 4 | ✅ | 2025-10-20 | 3.2.1 | database/schema_design_v1.0.md §2.1-2.2 |
+| 3.2.3 | 業務表 Migration (daily_logs, surveys) | Backend | 4 | ✅ | 2025-10-20 | 3.2.2 | database/schema_design_v1.0.md §2.3-2.4 |
+| 3.2.4 | 事件表 Migration (event_logs JSONB) | Backend | 2 | ✅ | 2025-10-20 | 3.2.3 | database/schema_design_v1.0.md §2.10 |
+| 3.2.5 | SQLAlchemy Models 定義 | Backend | 4 | ✅ | 2025-10-20 | 3.2.4 | database/schema_design_v1.0.md |
+| 3.2.6 | Phase 0 核心索引建立 ⭐ 新增 | Backend | 3 | ✅ | 2025-10-20 | 3.2.5 | database/index_strategy_planning.md §5.1 |
 
 **關鍵變更**: 使用 PostgreSQL `event_logs` 表 (JSONB) 替代 MongoDB。
 

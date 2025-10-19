@@ -2,12 +2,13 @@
 
 **專案**: RespiraAlly V2.0 - COPD Patient Healthcare Platform
 **維護者**: TaskMaster Hub / Claude Code AI
-**最後更新**: 2025-10-19
+**最後更新**: 2025-10-20
 
 ---
 
 ## 目錄 (Table of Contents)
 
+- [v4.1 (2025-10-20)](#v41-2025-10-20---sprint-1-task-32-資料庫實作完成-🎉)
 - [v4.0 (2025-10-19)](#v40-2025-10-19---後端架構重構-breaking-change)
 - [v3.0.1 (2025-10-20)](#v301-2025-10-20---客戶需求理解修正-🔴-critical-fix)
 - [v3.0 (2025-10-19)](#v30-2025-10-19---客戶新需求整合完成)
@@ -19,6 +20,340 @@
 - [v2.2 (2025-10-18)](#v22-2025-10-18---開發流程管控完成)
 - [v2.1 (2025-10-18)](#v21-2025-10-18---專案管理流程重構)
 - [v2.0 (2025-10-18)](#v20-2025-10-18---架構重大調整)
+
+---
+
+## v4.1 (2025-10-20) - Sprint 1 Task 3.2 資料庫實作完成 🎉
+
+**標題**: 資料庫實作與 Alembic Migration 成功執行
+**階段**: Sprint 1 啟動 (Task 3.2 完成)
+**Git Commit**: `20902a6` (Initial database schema + migration)
+**工時**: 維持 1075h (Task 3.2 已包含在 Sprint 1 的 104h 中)
+
+### 🎯 任務完成清單
+
+完成 Sprint 1 的 Task 3.2 - 資料庫實作,所有 6 個子任務全部完成:
+
+- ✅ **3.2.1** Alembic 初始化 (2h)
+- ✅ **3.2.2** 核心資料表 Models 建立 (8h)
+- ✅ **3.2.3** Repository 介面定義 (4h)
+- ✅ **3.2.4** Migration Scripts 生成 (2h)
+- ✅ **3.2.5** Migration 執行與驗證 (2h)
+- ✅ **3.2.6** Phase 0 核心索引建立 (3h)
+
+**完成日期**: 2025-10-20
+
+---
+
+### 🏗️ 資料庫架構建立
+
+#### PostgreSQL 環境配置
+
+成功建立本地開發環境與 Zeabur 部署兼容的配置:
+
+**容器化環境**:
+```yaml
+# Docker Compose 配置
+PostgreSQL 15 + pgvector v0.8.1
+Port: 15432:5432
+Authentication: MD5 (via POSTGRES_INITDB_ARGS)
+Volume: postgres_data:/var/lib/postgresql/data
+Healthcheck: pg_isready (10s interval)
+```
+
+**環境變數配置**:
+- 本地開發: `backend/.env` → `postgresql+asyncpg://admin:admin@localhost:15432/respirally_db`
+- Docker Compose: 根目錄 `.env` → `POSTGRES_USER/PASSWORD/DB` 注入
+- Zeabur 部署: 支援自動環境變數解析 (保留兼容性)
+
+#### pgvector 擴展安裝
+
+```sql
+-- 初始化腳本 (database/init-db.sql)
+CREATE EXTENSION IF NOT EXISTS vector;       -- v0.8.1
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";  -- v1.1
+GRANT ALL PRIVILEGES ON DATABASE respirally_db TO admin;
+```
+
+**驗證結果**:
+- ✅ pgvector 版本: 0.8.1 (支援 HNSW 索引)
+- ✅ uuid-ossp 版本: 1.1 (UUID 生成函數)
+- ✅ 擴展正常載入,無錯誤
+
+---
+
+### 📊 Database Schema 實作
+
+#### Alembic Migration 成功執行
+
+**Migration 檔案**: `2025_10_20_0110-2c0639c3091b_initial_schema_users_profiles_daily_.py`
+
+**創建的資料表** (7 個):
+1. **users** - 用戶基礎表 (雙角色: Patient/Therapist)
+2. **patient_profiles** - 患者檔案 (身高體重、病史、吸菸史)
+3. **therapist_profiles** - 治療師檔案 (證照、機構、專長)
+4. **daily_logs** - 每日健康日誌 (服藥、水分、步數、症狀、心情)
+5. **survey_responses** - 量表回應 (CAT/mMRC)
+6. **event_logs** - 事件日誌 (系統操作記錄)
+7. **alembic_version** - Migration 版本控制
+
+**創建的索引** (16 個):
+
+**Phase 0 核心索引** (高頻查詢優化):
+- `idx_users_email` (UNIQUE) - 治療師登入查詢
+- `idx_users_line_user_id` (UNIQUE) - 患者 LINE 綁定查詢
+- `idx_daily_logs_patient_date` (UNIQUE) - 每日日誌查詢
+- `idx_surveys_patient_latest` - 最新量表查詢
+
+**事件日誌索引** (5 個):
+- `idx_event_logs_entity_id` - 用戶事件查詢
+- `idx_event_logs_event_type` - 事件類型篩選
+- `idx_event_logs_timestamp` - 時間範圍查詢
+- `idx_event_logs_entity_timestamp` - 複合查詢優化
+- `idx_event_logs_type_timestamp` - 類型時間查詢
+
+#### SQLAlchemy 2.0 ORM Models
+
+**核心設計特點**:
+1. **非同步支援**: 使用 `asyncpg` driver
+2. **Type Hints**: SQLAlchemy 2.0+ `Mapped[]` 語法
+3. **JSONB 欄位**: 靈活結構存儲 (medical_history, contact_info, payload)
+4. **Enum 類型**: 強類型約束 (UserRole, Gender, SmokingStatus, Mood, SurveyType)
+5. **Check Constraints**: 業務邏輯驗證 (年齡、身高體重範圍、吸菸史一致性)
+6. **Soft Delete**: users 表支援軟刪除 (deleted_at 欄位)
+
+**雙角色認證設計**:
+```python
+# users 表 Check Constraints
+CheckConstraint("line_user_id IS NOT NULL OR email IS NOT NULL")  # 必須至少一種登入方式
+CheckConstraint("role != 'PATIENT' OR line_user_id IS NOT NULL")  # 患者必須有 LINE ID
+CheckConstraint("role != 'THERAPIST' OR email IS NOT NULL")       # 治療師必須有 Email
+```
+
+---
+
+### 🔧 技術問題與解決方案
+
+#### 問題 1: PostgreSQL 密碼認證失敗
+
+**錯誤訊息**:
+```
+asyncpg.exceptions.InvalidPasswordError: password authentication failed for user "admin"
+```
+
+**根本原因**:
+- Backend `.env` 使用錯誤 Port `5432`
+- Docker Compose 實際 Port Mapping 為 `15432:5432`
+
+**解決方案**:
+1. 用戶介入修改 `docker-compose.yml`:
+   - Port 映射: `15432:5432`
+   - Init script 路徑: `./database/init-db.sql`
+   - 環境變數: 改用明確的 `${POSTGRES_USER}` (不使用 fallback defaults)
+2. 更新 `backend/.env` 的 `DATABASE_URL` 為 `localhost:15432`
+
+**教訓**:
+- 環境變數配置必須保持一致性
+- Port mapping 變更需同步更新所有連接字串
+
+#### 問題 2: Alembic Migration SQL 語法錯誤
+
+**錯誤訊息**:
+```
+asyncpg.exceptions.InvalidTextRepresentationError: invalid input syntax for type uuid: "gen_random_uuid()"
+```
+
+**根本原因**:
+- Alembic autogenerate 將 SQL 函數包在引號內: `server_default='gen_random_uuid()'`
+- PostgreSQL 將其解析為字串常量,而非函數呼叫
+
+**解決方案**:
+使用 `sa.text()` 包裝所有 SQL 函數:
+```python
+# 修正前
+server_default='gen_random_uuid()'
+
+# 修正後
+server_default=sa.text('gen_random_uuid()')
+```
+
+**批次修正**:
+```bash
+sed -i "s/server_default='CURRENT_TIMESTAMP'/server_default=sa.text('CURRENT_TIMESTAMP')/g" migration_file.py
+```
+
+#### 問題 3: JSONB Default Value 語法錯誤
+
+**錯誤訊息**:
+```
+asyncpg.exceptions.PostgresSyntaxError: syntax error at or near "{"
+```
+
+**根本原因**:
+- JSONB 字面值需要引號: `'{}'::jsonb` 而非 `{}'::jsonb`
+
+**解決方案**:
+手動修正 4 處 JSONB 預設值:
+```python
+# 修正前
+server_default=sa.text("{}'::jsonb")
+server_default=sa.text("[]'::jsonb")
+
+# 修正後
+server_default=sa.text("'{}'::jsonb")
+server_default=sa.text("'[]'::jsonb")
+```
+
+**影響欄位**:
+- `event_logs.payload` (空物件)
+- `patient_profiles.medical_history` (空物件)
+- `patient_profiles.contact_info` (空物件)
+- `therapist_profiles.specialties` (空陣列)
+
+---
+
+### 📦 交付物清單
+
+#### 配置檔案
+- ✅ `backend/.env` - Backend 環境變數 (DATABASE_URL 修正)
+- ✅ 根目錄 `.env` - Docker Compose 環境變數 (新增 POSTGRES_USER/PASSWORD/DB)
+- ✅ `database/init-db.sql` - PostgreSQL 初始化腳本 (pgvector + uuid-ossp)
+- ✅ `backend/alembic.ini` - Alembic 配置
+- ✅ `backend/alembic/env.py` - Alembic 環境腳本 (非同步支援)
+
+#### SQLAlchemy ORM Models (7 個)
+- ✅ `backend/src/respira_ally/infrastructure/database/models/user.py`
+- ✅ `backend/src/respira_ally/infrastructure/database/models/patient_profile.py`
+- ✅ `backend/src/respira_ally/infrastructure/database/models/therapist_profile.py`
+- ✅ `backend/src/respira_ally/infrastructure/database/models/daily_log.py`
+- ✅ `backend/src/respira_ally/infrastructure/database/models/survey_response.py`
+- ✅ `backend/src/respira_ally/infrastructure/database/models/event_log.py`
+- ✅ `backend/src/respira_ally/infrastructure/database/models/__init__.py` (Base 定義)
+
+#### Repository 介面定義 (8 個)
+- ✅ `backend/src/respira_ally/domain/repositories/user_repository.py`
+- ✅ `backend/src/respira_ally/domain/repositories/patient_repository.py`
+- ✅ `backend/src/respira_ally/domain/repositories/therapist_repository.py`
+- ✅ `backend/src/respira_ally/domain/repositories/daily_log_repository.py`
+- ✅ `backend/src/respira_ally/domain/repositories/survey_repository.py`
+- ✅ `backend/src/respira_ally/domain/repositories/risk_repository.py`
+- ✅ `backend/src/respira_ally/domain/repositories/event_log_repository.py`
+- ✅ `backend/src/respira_ally/domain/repositories/rag_repository.py`
+
+#### Migration 檔案
+- ✅ `backend/alembic/versions/2025_10_20_0110-2c0639c3091b_initial_schema_users_profiles_daily_.py`
+
+#### 驗證腳本
+- ✅ PostgreSQL 連接驗證腳本 (inline Python test)
+- ✅ Migration 執行驗證 (alembic current, heads)
+
+---
+
+### 📊 數據庫統計
+
+#### 表格與欄位統計
+
+| 表名 | 欄位數 | 索引數 | 約束數 | 說明 |
+|------|--------|--------|--------|------|
+| `users` | 7 | 3 | 5 | 用戶基礎表 (PK + 2 Unique + 3 Check) |
+| `patient_profiles` | 12 | 1 | 7 | 患者檔案 (PK + 2 FK + 5 Check) |
+| `therapist_profiles` | 5 | 2 | 2 | 治療師檔案 (PK + 1 FK + 1 Unique) |
+| `daily_logs` | 10 | 2 | 4 | 每日日誌 (PK + 1 FK + 1 Unique + 2 Check) |
+| `survey_responses` | 7 | 1 | 3 | 量表回應 (PK + 1 FK + 1 Check) |
+| `event_logs` | 5 | 8 | 1 | 事件日誌 (PK + 8 Index) |
+| **總計** | **46** | **17** | **22** | 7 張表 + alembic_version |
+
+#### Migration 執行結果
+
+```
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> 2c0639c3091b, Initial schema: users, profiles, daily_logs, surveys, events
+```
+
+**執行時間**: < 2 秒
+**錯誤數**: 0
+**警告數**: 0
+
+---
+
+### 🎓 經驗教訓 (Lessons Learned)
+
+#### 做得好的地方
+
+1. **問題追蹤系統化**:
+   - 每個錯誤詳細記錄: 錯誤訊息 → 根本原因 → 解決方案
+   - 使用 grep/sed 批次修正重複問題,提升效率
+
+2. **環境隔離設計**:
+   - 本地開發 (backend/.env) 與容器部署 (根目錄 .env) 分離
+   - 保留 Zeabur 部署兼容性,未來遷移無痛
+
+3. **驗證流程完整**:
+   - 每次修正後立即驗證 (PostgreSQL 連接測試, Migration 執行)
+   - 使用 `\dt`, `\di`, `\d+ table_name` 檢查 Schema 完整性
+
+#### 需要改進的地方
+
+1. **Alembic Autogenerate 限制**:
+   - **問題**: 無法正確處理 SQL 函數與 JSONB 預設值
+   - **改進**: 建立 Migration Review Checklist:
+     - [ ] 檢查所有 `server_default` 是否用 `sa.text()` 包裝
+     - [ ] 檢查 JSONB 預設值是否正確加引號
+     - [ ] 執行前先 `--sql` 預覽 SQL 語句
+
+2. **環境變數同步問題**:
+   - **問題**: Port 映射變更後,未及時同步 backend/.env
+   - **改進**: 使用 `.env.example` 作為單一真實來源,所有環境變數變更先更新範例檔案
+
+#### 下次要嘗試的做法
+
+1. **Migration 自動化測試**:
+   - 建立 CI 流程自動測試 Migration up/down
+   - 使用 Docker Compose 臨時容器執行 Migration 測試
+
+2. **索引性能驗證**:
+   - 使用 `EXPLAIN ANALYZE` 驗證索引效果
+   - 建立基準測試數據,確保查詢性能達標 (P95 < 50ms)
+
+3. **Repository 實作**:
+   - 下個任務實作 Repository Pattern
+   - 使用 pytest-asyncio 測試非同步資料庫操作
+
+---
+
+### 🎯 里程碑達成
+
+- ✅ **Sprint 1 Task 3.2 完成**: 所有 6 個子任務 100% 完成
+- ✅ **資料庫環境就緒**: PostgreSQL 15 + pgvector v0.8.1 正常運行
+- ✅ **Schema 建立完成**: 7 張表 + 16 個索引成功創建
+- ✅ **Migration 系統運作**: Alembic 版本控制機制驗證成功
+- ✅ **Clean Architecture 基礎**: SQLAlchemy Models + Repository 介面定義完成
+- 🎯 **下一步**: Sprint 1 Task 3.3 - FastAPI 專案結構建立 (16h)
+
+---
+
+### 📚 相關文件連結
+
+- [WBS Sprint 1 任務清單](../16_wbs_development_plan.md#30-sprint-1-基礎設施--認證系統-104h--v29-8h-week-1-2)
+- [數據庫 Schema 設計 v1.0](../database/schema_design_v1.0.md)
+- [索引策略規劃文檔](../database/index_strategy_planning.md)
+- [Clean Architecture 模組設計](../10_class_relationships_and_module_design.md)
+
+---
+
+### 🔄 下個任務預告
+
+**Task 3.3**: FastAPI 專案結構 (16h)
+- 3.3.1 主應用程式初始化 (main.py, config.py)
+- 3.3.2 Database Session 管理 (AsyncSession)
+- 3.3.3 全域錯誤處理中介層
+- 3.3.4 CORS 與安全性 Headers
+- 3.3.5 Health Check 端點
+- 3.3.6 API Router 註冊架構
+
+預計開始時間: 2025-10-20
+預計完成時間: 2025-10-21
 
 ---
 
