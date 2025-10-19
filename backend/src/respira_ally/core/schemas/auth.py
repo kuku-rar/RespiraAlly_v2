@@ -144,3 +144,17 @@ class LogoutRequest(BaseModel):
     revoke_all_tokens: bool = Field(
         default=False, description="Revoke all tokens for this user (logout from all devices)"
     )
+
+
+# ============================================================================
+# Registration Schemas
+# ============================================================================
+
+class TherapistRegisterRequest(BaseModel):
+    """
+    Therapist Registration Request
+    Patients auto-register via LINE, so only therapists need manual registration
+    """
+    email: EmailStr = Field(..., description="Therapist email address")
+    password: str = Field(..., min_length=8, max_length=128, description="Password (min 8 characters)")
+    full_name: str = Field(..., min_length=2, max_length=100, description="Full name")
