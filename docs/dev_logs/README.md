@@ -8,13 +8,67 @@
 
 ## 📚 文件索引
 
+### 📂 資料夾結構
+
+```
+dev_logs/
+├── CHANGELOG.md              # 完整開發日誌 (v2.0-v2.9)
+├── README.md                 # 本文件 (索引與維護指南)
+├── sprint_logs/              # Sprint 回顧日誌
+│   ├── SPRINT_TEMPLATE.md    # Sprint 日誌模板
+│   └── sprint_1_retrospective.md  # Sprint 1 回顧 (預建立)
+├── meetings/                 # 會議記錄
+│   └── MEETING_TEMPLATE.md   # 會議記錄模板
+├── decisions/                # 開發決策日誌
+│   └── DECISION_TEMPLATE.md  # 決策記錄模板
+└── scripts/                  # 自動化腳本
+    ├── README.md             # 腳本使用說明
+    └── generate_changelog.sh # CHANGELOG 自動生成腳本
+```
+
 ### 核心文件
 
 1. **[CHANGELOG.md](./CHANGELOG.md)** - 完整開發日誌
-   - 所有版本的詳細變更記錄
+   - 所有版本的詳細變更記錄 (v2.0 - v2.9)
    - 架構決策變更追蹤
    - 工時調整與進度更新
    - 交付物清單
+
+### Sprint 日誌
+
+2. **[sprint_logs/SPRINT_TEMPLATE.md](./sprint_logs/SPRINT_TEMPLATE.md)** - Sprint 回顧模板
+   - Sprint 概覽與目標達成狀況
+   - 完成/未完成任務清單
+   - 指標與數據統計
+   - 經驗教訓與改進建議
+
+3. **[sprint_logs/sprint_1_retrospective.md](./sprint_logs/sprint_1_retrospective.md)** - Sprint 1 回顧
+   - 預建立的 Sprint 1 日誌
+   - 在 Sprint 執行過程中持續更新
+   - Sprint 結束時完成填寫
+
+### 會議記錄
+
+4. **[meetings/MEETING_TEMPLATE.md](./meetings/MEETING_TEMPLATE.md)** - 會議記錄模板
+   - 適用於各類會議 (Planning, Review, Retro, Daily Standup, Technical Discussion)
+   - 議程、決策、行動項記錄
+   - 阻塞與風險追蹤
+
+### 開發決策
+
+5. **[decisions/DECISION_TEMPLATE.md](./decisions/DECISION_TEMPLATE.md)** - 開發決策模板
+   - 日常開發決策記錄 (非正式 ADR)
+   - 方案比較與選擇理由
+   - 實施計劃與成功標準
+   - 風險與緩解措施
+
+### 自動化腳本
+
+6. **[scripts/generate_changelog.sh](./scripts/generate_changelog.sh)** - CHANGELOG 自動生成
+   - 從 git commits 生成 CHANGELOG 草稿
+   - 統計 commits、文件變更、代碼增刪
+   - 提取可能的重要決策
+   - 使用說明: [scripts/README.md](./scripts/README.md)
 
 ---
 
@@ -63,20 +117,29 @@ grep -i "index" CHANGELOG.md
 
 ## 🔄 維護流程
 
-### 新增版本記錄
+### 新增版本記錄 (CHANGELOG)
 
-1. **編輯 CHANGELOG.md**:
+1. **使用自動化腳本生成草稿** (推薦):
+   ```bash
+   # 生成最近 7 天的變更草稿
+   ./docs/dev_logs/scripts/generate_changelog.sh v2.10
+
+   # 查看草稿
+   cat docs/dev_logs/scripts/temp_changelog.md
+   ```
+
+2. **手動編輯 CHANGELOG.md**:
    ```bash
    cd docs/dev_logs
    vim CHANGELOG.md
    ```
 
-2. **在目錄後新增版本**:
+3. **在目錄後新增版本**:
    - 使用一致的格式
    - 保持時間倒序 (最新在上)
    - 更新目錄索引
 
-3. **記錄必要資訊**:
+4. **記錄必要資訊**:
    - 版本號與日期
    - 階段與進度百分比
    - 工時變化 (+XXh)
@@ -84,15 +147,101 @@ grep -i "index" CHANGELOG.md
    - 進度統計表格
    - 交付物列表
 
-4. **提交到 Git**:
+5. **提交到 Git**:
    ```bash
    git add docs/dev_logs/CHANGELOG.md
    git commit -m "docs(changelog): add vX.X release notes"
    ```
 
+### 記錄 Sprint 回顧
+
+1. **Sprint 開始時**:
+   ```bash
+   # 如果尚未建立,複製模板
+   cp docs/dev_logs/sprint_logs/SPRINT_TEMPLATE.md \
+      docs/dev_logs/sprint_logs/sprint_X_retrospective.md
+
+   # 填寫基本資訊
+   vim docs/dev_logs/sprint_logs/sprint_X_retrospective.md
+   ```
+
+2. **Sprint 執行過程中**:
+   - 在 "Sprint 執行日誌" 區塊記錄每日/每週重要事項
+   - 遇到問題時記錄在 "遇到的問題" 區塊
+
+3. **Sprint 結束時**:
+   - 完成所有待更新區塊
+   - 填寫完成/未完成任務清單
+   - 記錄指標與數據
+   - 在 Review/Retro 會議中討論並記錄經驗教訓
+
+4. **提交到 Git**:
+   ```bash
+   git add docs/dev_logs/sprint_logs/sprint_X_retrospective.md
+   git commit -m "docs(sprint): complete sprint X retrospective"
+   ```
+
+### 記錄會議
+
+1. **會議前**:
+   ```bash
+   # 複製模板
+   cp docs/dev_logs/meetings/MEETING_TEMPLATE.md \
+      docs/dev_logs/meetings/sprint_X_planning.md
+
+   # 填寫會議基本資訊與議程
+   vim docs/dev_logs/meetings/sprint_X_planning.md
+   ```
+
+2. **會議中**:
+   - 記錄討論內容
+   - 記錄決策
+   - 記錄行動項
+
+3. **會議後**:
+   - 審核會議記錄
+   - 分發給參與者
+   - 追蹤行動項執行
+
+4. **提交到 Git**:
+   ```bash
+   git add docs/dev_logs/meetings/sprint_X_planning.md
+   git commit -m "docs(meeting): add sprint X planning notes"
+   ```
+
+### 記錄開發決策
+
+1. **遇到需要決策的問題時**:
+   ```bash
+   # 複製模板
+   cp docs/dev_logs/decisions/DECISION_TEMPLATE.md \
+      docs/dev_logs/decisions/DD-001_use_redis_for_cache.md
+
+   # 填寫決策記錄
+   vim docs/dev_logs/decisions/DD-001_use_redis_for_cache.md
+   ```
+
+2. **決策流程**:
+   - 提議階段: 狀態設為 📋 提議
+   - 討論階段: 記錄不同方案與觀點,狀態設為 ⏳ 討論中
+   - 決策階段: 記錄最終決策與理由,狀態設為 ✅ 已接受
+   - 實施階段: 追蹤行動項執行
+   - 回顧階段: 定期回顧決策是否達到預期
+
+3. **決策編號規則**:
+   - 格式: `DD-XXX` (Development Decision)
+   - 從 DD-001 開始遞增
+   - 範例: DD-001, DD-002, DD-003
+
+4. **提交到 Git**:
+   ```bash
+   git add docs/dev_logs/decisions/DD-XXX_*.md
+   git commit -m "docs(decision): add DD-XXX [決策標題]"
+   ```
+
 ### 更新索引
 
-如果新增其他日誌文件 (如 Sprint 日誌、會議記錄等),請更新本 README.md 的文件索引。
+如果新增其他日誌文件,請更新本 README.md 的文件索引。
 
 ---
 
