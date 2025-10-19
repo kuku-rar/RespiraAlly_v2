@@ -158,62 +158,45 @@
 - ⬜ 未開始 (Not Started)
 
 **⚠️ 重要架構決策變更記錄:**
-- **v2.9 更新 (2025-10-20 12:21)** ✅ **JWT 認證設計 + 索引策略規劃完成 - Sprint 1 準備就緒**:
-  - ✅ **完成 2.3.4 JWT 認證授權設計**: 雙角色認證流程、Token 結構、安全強化機制 (4h)
-  - ✅ **完成 2.2.4 索引策略規劃**: Phase 0-2 核心索引、查詢模式分析、性能優化策略 (4h)
-  - ✅ **完整設計文檔**:
-    - `security/jwt_authentication_design.md` (60 頁) - HS256、8h/30d Token、Redis 黑名單、降級策略
-    - `database/index_strategy_planning.md` (65 頁) - B-Tree/GIN/IVFFlat、複合索引、覆蓋索引、部分索引
-  - ✅ **Sprint 1 任務細化**: 新增 3 個實施任務 (8h):
-    - 3.4.8 Token 黑名單機制 (3h) - Redis TTL 自動過期
-    - 3.4.9 Token 刷新端點 (2h) - Access Token 刷新流程
-    - 3.2.6 Phase 0 核心索引 (3h) - 極高頻查詢索引
-  - ✅ **實施檢查點建立**: 認證系統 6 項、數據庫 4 項品質標準
-  - ✅ **更新進度統計**: 系統架構 78.4% → 91.4%, 整體進度 10.8% → 12.4%, Sprint 0 進度 55.3% → 60.6%
-  - ✅ **總工時調整**: 995h (+8h), Sprint 1: 104h (+8h)
 
-- **v2.5 更新 (2025-10-18 22:15)** ✅ **AI 處理日誌設計完成 + Sprint 0 準備就緒**:
-  - ✅ **完成 2.2.5 AI 處理日誌表設計**: Migration 004, Schema v2.1, 詳細設計文檔 (4h)
-  - ✅ **單一表格設計**: `ai_processing_logs` 支持 STT/LLM/TTS/RAG 全流程追蹤
-  - ✅ **JSONB 靈活性**: input_data/output_data 支持不同階段的專屬 schema
-  - ✅ **7 個優化索引**: 含 GIN 索引支持 JSONB 複雜查詢，去重、成本分析、錯誤監控
-  - ✅ **成本監控視圖**: ai_daily_cost_summary, ai_user_usage_30d 自動統計
-  - ✅ **完整文檔**: 21_ai_processing_logs_design.md (1200+ 行), schema_design_v1.0.md 更新至 v2.1
-  - ✅ **更新進度統計**: 系統架構 55.4% → 57.8%, 整體進度 8.0% → 8.4%, Sprint 0 進度 39.7% → 41.7%
+> **📋 完整變更日誌**: 請參閱 [開發日誌 CHANGELOG](./dev_logs/CHANGELOG.md)
 
-- **v2.4 更新 (2025-10-18 13:59)** ✅ **DDD 戰略設計完成 + Sprint 0 接近完成**:
-  - ✅ **完成 2.5.1-2.5.3 DDD 戰略設計任務**: 界限上下文映射、統一語言定義、聚合根設計 (8h)
-  - ✅ **7 個界限上下文定義**: 2 核心域 + 3 支撐子域 + 2 通用子域，包含詳細職責與依賴關係
-  - ✅ **40+ 領域術語標準化**: 涵蓋所有上下文的中英文對照、定義、反例說明
-  - ✅ **7 個聚合設計**: Patient, DailyLog, SurveyResponse, RiskScore, Alert, EducationalDocument, User 聚合，包含不變量與邊界
-  - ✅ **架構文檔更新**: 05_architecture_and_design.md §3 完整 DDD 設計內容 (420+ 行)
-  - ✅ **更新進度統計**: 系統架構 48% → 55.4%, 整體進度 7.2% → 8.0%, Sprint 0 進度 35.7% → 39.7%
+### 最近更新 (Recent Updates)
 
-- **v2.3 更新 (2025-10-18 11:12)** ✅ **Git Hooks 修復完成 + 開發環境就緒**:
-  - ✅ **修復 Git Hooks CRLF 問題**: 修復 Windows CRLF 導致 hooks 無法執行的問題
-  - ✅ **npm 依賴安裝**: 安裝 175 packages (commitlint@18.6.1, husky@8.0.3)
-  - ✅ **驗證測試通過**: Invalid messages 攔截 ✅, Valid messages 通過 ✅
-  - ✅ **建立防護機制**: 更新 .gitattributes 強制 .husky/** 使用 LF
-  - ✅ **開發環境完全就緒**: 所有開發流程基礎設施已可用
+#### v2.9 (2025-10-20) - JWT 認證設計 + 索引策略規劃完成 ✅
+- **階段**: Sprint 0 收尾 (60.6%)
+- **工時**: +8h (總計 995h)
+- **核心成就**:
+  - ✅ JWT 認證授權設計完成 (4h) - `security/jwt_authentication_design.md` (60 頁)
+  - ✅ 索引策略規劃完成 (4h) - `database/index_strategy_planning.md` (65 頁)
+  - ✅ Sprint 1 任務細化 (+8h): Token 黑名單、刷新端點、Phase 0 核心索引
+  - ✅ 實施檢查點建立: 認證系統 6 項、數據庫 4 項品質標準
+- **進度**: 系統架構 78.4% → 91.4%, 整體進度 10.8% → 12.4%
+- **里程碑**: 🚀 Sprint 1 準備就緒
 
-- **v2.2 更新 (2025-10-18 10:23)** ✅ **開發流程管控完成 + 文檔結構優化**:
-  - ✅ **完成 1.4.1-1.4.4 開發流程管控任務**: Git Workflow SOP, PR Review SLA, CI Quality Gates, Conventional Commits Hook
-  - ✅ **建立專案管理文檔資料夾** `docs/project_management/`: 集中管理流程文檔, 建立 README 索引
-  - ✅ **更新進度統計**: 專案管理 9.2% → 19.5%, 整體進度 6.3% → 7.2%, Sprint 0 進度 31% → 35.7%
-  - ✅ **交付 10 個文件**: 流程文檔 × 3, PR/CI 配置 × 2, commitlint 配置 × 4, WBS 更新 × 1
+#### v2.8 (2025-10-19) - 架構文件邏輯結構優化 ✅
+- 應用 Linus "Good Taste" 原則重構架構文檔
+- 事件驅動架構整合為系統通信機制
 
-- **v2.1 更新 (2025-10-18 10:00)** ⭐ **專案管理流程重構**:
-  - ✅ **修正 1.0 專案管理工時低估**: 16h → 87h (+71h, +444%)
-  - ✅ **新增 1.4 開發流程管控章節**: 整合 01_development_workflow.md，建立 Git/PR/CI 管控機制
-  - ✅ **修正 Daily Standup 工時**: 2h → 20h (0.25h/天 × 80 工作天)
-  - ✅ **修正 Sprint 儀式工時**: 4h → 32h (Planning + Review/Retro × 8 sprints)
-  - ✅ **重新計算工時統計**: 912h → 983h (+71h)
+#### v2.5 (2025-10-18) - AI 處理日誌設計完成 ✅
+- AI 處理日誌表設計 (4h) - `ai_processing_logs` 支持 STT/LLM/TTS/RAG
+- 7 個優化索引 + 成本監控視圖
 
-- **v2.0 更新 (2025-10-18)**:
-  - ✅ 移除所有 MongoDB 相關任務 - 改用 PostgreSQL JSONB 替代
-  - ✅ 微服務架構 → Modular Monolith (MVP Phase 0-2)
-  - ✅ 新增前端架構設計階段 (2.4)
-  - ✅ 重新計算工時統計 (936h → 912h)
+#### v2.4 (2025-10-18) - DDD 戰略設計完成 ✅
+- 7 個界限上下文定義 (2 核心域 + 3 支撐子域 + 2 通用子域)
+- 40+ 領域術語標準化
+- 7 個聚合設計
+
+### 歷史版本
+
+| 版本 | 日期 | 主要成就 | 工時變化 |
+|------|------|----------|----------|
+| v2.3 | 2025-10-18 | Git Hooks 修復完成 + 開發環境就緒 | - |
+| v2.2 | 2025-10-18 | 開發流程管控完成 + 文檔結構優化 | - |
+| v2.1 | 2025-10-18 | 專案管理流程重構 | +71h |
+| v2.0 | 2025-10-18 | 架構重大調整 (MongoDB→PG, 微服務→Modular Monolith) | -24h |
+
+**📖 查看完整變更詳情**: [dev_logs/CHANGELOG.md](./dev_logs/CHANGELOG.md)
 
 ---
 
