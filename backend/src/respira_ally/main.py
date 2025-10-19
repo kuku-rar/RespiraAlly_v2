@@ -8,6 +8,7 @@ from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
 from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
@@ -21,6 +22,42 @@ from respira_ally.api.v1.routers import (
     survey,
 )
 from respira_ally.core.config import settings
+from respira_ally.core.exceptions.application_exceptions import (
+    ApplicationException,
+    ConflictError,
+    ExternalServiceError,
+    ForbiddenError,
+    InvalidOperationError,
+    ResourceNotFoundError,
+    UnauthorizedError,
+    ValidationError,
+)
+from respira_ally.core.exceptions.http_exceptions import (
+    aggregate_invariant_violation_handler,
+    application_exception_handler,
+    business_rule_violation_handler,
+    conflict_error_handler,
+    domain_exception_handler,
+    entity_already_exists_handler,
+    entity_not_found_handler,
+    external_service_error_handler,
+    forbidden_error_handler,
+    generic_exception_handler,
+    invalid_entity_state_handler,
+    invalid_operation_error_handler,
+    request_validation_error_handler,
+    resource_not_found_handler,
+    unauthorized_error_handler,
+    validation_error_handler,
+)
+from respira_ally.domain.exceptions.domain_exceptions import (
+    AggregateInvariantViolationError,
+    BusinessRuleViolationError,
+    DomainException,
+    EntityAlreadyExistsError,
+    EntityNotFoundError,
+    InvalidEntityStateError,
+)
 from respira_ally.infrastructure.database.session import engine
 
 
@@ -57,6 +94,38 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# ============================================================================
+# Global Exception Handlers
+# ============================================================================
+# Register exception handlers in order of specificity (most specific first)
+
+# Application Layer Exceptions
+app.add_exception_handler(ValidationError, validation_error_handler)
+app.add_exception_handler(ResourceNotFoundError, resource_not_found_handler)
+app.add_exception_handler(UnauthorizedError, unauthorized_error_handler)
+app.add_exception_handler(ForbiddenError, forbidden_error_handler)
+app.add_exception_handler(ConflictError, conflict_error_handler)
+app.add_exception_handler(ExternalServiceError, external_service_error_handler)
+app.add_exception_handler(InvalidOperationError, invalid_operation_error_handler)
+app.add_exception_handler(ApplicationException, application_exception_handler)
+
+# Domain Layer Exceptions
+app.add_exception_handler(EntityNotFoundError, entity_not_found_handler)
+app.add_exception_handler(EntityAlreadyExistsError, entity_already_exists_handler)
+app.add_exception_handler(InvalidEntityStateError, invalid_entity_state_handler)
+app.add_exception_handler(BusinessRuleViolationError, business_rule_violation_handler)
+app.add_exception_handler(
+    AggregateInvariantViolationError, aggregate_invariant_violation_handler
+)
+app.add_exception_handler(DomainException, domain_exception_handler)
+
+# FastAPI Built-in Exceptions
+app.add_exception_handler(RequestValidationError, request_validation_error_handler)
+
+# Catch-all for unhandled exceptions
+app.add_exception_handler(Exception, generic_exception_handler)
 
 
 # Health Check Endpoint
