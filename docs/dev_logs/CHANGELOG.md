@@ -8,6 +8,7 @@
 
 ## 目錄 (Table of Contents)
 
+- [v4.4 (2025-10-20)](#v44-2025-10-20---sprint-1-task-34-認證系統-phase-4-完成-🎉)
 - [v4.3 (2025-10-20)](#v43-2025-10-20---sprint-1-task-34-認證系統-phase-1-3-完成-🎉)
 - [v4.2 (2025-10-20)](#v42-2025-10-20---sprint-1-task-33-fastapi-專案結構完成-🎉)
 - [v4.1 (2025-10-20)](#v41-2025-10-20---sprint-1-task-32-資料庫實作完成-🎉)
@@ -22,6 +23,127 @@
 - [v2.2 (2025-10-18)](#v22-2025-10-18---開發流程管控完成)
 - [v2.1 (2025-10-18)](#v21-2025-10-18---專案管理流程重構)
 - [v2.0 (2025-10-18)](#v20-2025-10-18---架構重大調整)
+
+---
+
+## v4.4 (2025-10-20) - Sprint 1 Task 3.4 認證系統 Phase 4 完成 🎉
+
+**標題**: Auth API Endpoints 完整實作 - UserRepository + Auth Router
+**階段**: Sprint 1 持續進行 (Task 3.4.1-3.4.4 完成, 82.9%)
+**Git Commit**: `ea4697d` (Phase 4: Auth API Endpoints implementation)
+**工時**: 5h (累計 Sprint 1: 89/104h, 85.6% 完成)
+
+### 🎯 任務完成清單
+
+完成 Sprint 1 的 Task 3.4.4 Phase 4 - Auth API Endpoints 實作:
+
+#### Phase 4: API Endpoints & Repository (5h) ✅
+
+**1. UserRepositoryImpl** (Infrastructure Layer - 170 行):
+- ✅ SQLAlchemy 2.0+ AsyncSession 實作
+- ✅ find_by_id() - UUID 查詢
+- ✅ find_by_line_user_id() - LINE User ID 查詢（病患）
+- ✅ find_by_email() - Email 查詢（治療師）
+- ✅ create_patient() - 建立病患用戶
+- ✅ create_therapist() - 建立治療師用戶
+- ✅ update_last_login() - 更新最後登入時間
+- ✅ is_active() - 檢查帳號狀態（軟刪除支援）
+
+**2. Auth Router** (API Layer - 264 行):
+- ✅ POST /api/v1/auth/patient/login - 病患 LINE 登入（自動註冊）
+- ✅ POST /api/v1/auth/therapist/login - 治療師帳密登入
+- ✅ POST /api/v1/auth/therapist/register - 治療師註冊
+- ✅ POST /api/v1/auth/logout - 登出（Token 撤銷）
+- ✅ POST /api/v1/auth/refresh - 刷新 Token
+
+**3. Request/Response Schemas**:
+- ✅ TherapistRegisterRequest schema (email, password, full_name)
+
+**4. Dependency Injection**:
+- ✅ get_user_repository() - UserRepository 注入
+- ✅ get_patient_login_use_case() - PatientLoginUseCase 注入
+- ✅ get_therapist_login_use_case() - TherapistLoginUseCase 注入
+- ✅ get_therapist_register_use_case() - TherapistRegisterUseCase 注入
+- ✅ get_logout_use_case() - LogoutUseCase 注入
+- ✅ get_refresh_token_use_case() - RefreshTokenUseCase 注入
+
+### 📊 代碼統計
+
+| 項目 | 數量 | 說明 |
+|------|------|------|
+| **新增/修改檔案** | 4 個 | auth.py, user_repository_impl.py, auth.py (schemas), __init__.py |
+| **Production Code** | ~445 行 | auth.py (264) + user_repository_impl.py (170) + schemas (11) |
+| **API Endpoints** | 5 個 | Patient/Therapist Login, Register, Logout, Refresh |
+| **Repository Methods** | 7 個 | CRUD operations for User model |
+| **OpenAPI 文檔** | 自動生成 | ✅ 12 total endpoints (5 auth) |
+
+### 🏗️ 架構亮點
+
+#### Clean Architecture 4-Layer 實作
+```
+API Layer (auth.py)
+    ↓ Depends()
+Application Layer (Use Cases)
+    ↓ Repository Interface
+Domain Layer (UserRepository interface)
+    ↑ implements
+Infrastructure Layer (UserRepositoryImpl)
+```
+
+#### 特色功能
+- **Dependency Injection**: FastAPI Depends() 完整整合
+- **雙認證流程**:
+  - Patient: LINE OAuth → auto-register → JWT
+  - Therapist: Email/Password → bcrypt verify → JWT
+- **統一錯誤處理**: UnauthorizedError → 401, ConflictError → 409
+- **OpenAPI 文檔**: 自動生成完整 API 文檔（Swagger UI + ReDoc）
+
+### ✅ 驗證測試
+
+```bash
+✅ UserRepositoryImpl imported successfully
+✅ UserRepositoryImpl is subclass of UserRepository: True
+✅ Auth router imported successfully
+✅ Router has 5 routes
+✅ FastAPI app imported successfully
+✅ OpenAPI Schema Generated
+✅ Total endpoints: 12 (5 auth endpoints)
+```
+
+**OpenAPI Endpoints 驗證**:
+- POST /api/v1/auth/patient/login → 200 (Summary: Patient Login LINE OAuth)
+- POST /api/v1/auth/therapist/login → 200 (Summary: Therapist Login Email+Password)
+- POST /api/v1/auth/therapist/register → 201 (Summary: Therapist Registration)
+- POST /api/v1/auth/logout → 204 (Summary: Logout Token Revoke)
+- POST /api/v1/auth/refresh → 200 (Summary: Refresh Access Token)
+
+### 📈 累積成果 (Phase 1-4 總計)
+
+| Phase | 工時 | 內容 | 狀態 |
+|-------|------|------|------|
+| Phase 1 | 8h | JWT Token Management + Unit Tests | ✅ |
+| Phase 2 | 11h | Redis Blacklist + FastAPI Dependencies | ✅ |
+| Phase 3 | 10h | User Repository Interface + 5 Use Cases | ✅ |
+| Phase 4 | 5h | UserRepositoryImpl + Auth Router (5 endpoints) | ✅ |
+| **總計** | **34h** | **認證系統核心功能完成** | **✅** |
+
+**總代碼量**: ~2,645 行生產代碼 + 292 行測試代碼
+
+### 🔜 Next Steps
+
+**待完成任務** (Sprint 1 剩餘 15h):
+- ⬜ Task 3.4.5: LINE LIFF OAuth 整合 (3h)
+- ⬜ Task 3.4.6: 登入失敗鎖定策略 (4h)
+- ⬜ Task 3.5: 前端基礎架構 (20h)
+
+**Sprint 1 整體進度**: 85.6% (89/104h)
+
+### 🎓 Lessons Learned
+
+1. **Repository Pattern 價值**: Interface 定義在 domain layer，實作在 infrastructure layer，完美實現依賴反轉
+2. **FastAPI Dependency Injection**: Depends() 機制讓依賴注入變得非常簡潔優雅
+3. **Clean Architecture 分層**: 嚴格分層讓每個 layer 職責清晰，可測試性高
+4. **OpenAPI 自動文檔**: FastAPI 的自動文檔生成大幅降低 API 文檔維護成本
 
 ---
 

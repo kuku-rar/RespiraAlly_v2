@@ -2,8 +2,8 @@
 
 ---
 
-**文件版本 (Document Version):** `v3.0.2` ✅ 模組與類別設計完成 - Sprint 0 系統架構 100% 完成
-**最後更新 (Last Updated):** `2025-10-20 17:05`
+**文件版本 (Document Version):** `v3.0.3` ✅ Task 3.4.4 完成 - Sprint 1 認證系統 Phase 1-4 完成 (85.6%)
+**最後更新 (Last Updated):** `2025-10-20 22:30`
 **主要作者 (Lead Author):** `TaskMaster Hub / Claude Code AI`
 **審核者 (Reviewers):** `Technical Lead, Product Manager, Architecture Team, Client Stakeholders`
 **狀態 (Status):** `執行中 - Sprint 0 進度 83.9% (專案管理 19.5% + 系統架構 100% ✅) + 客戶需求整合完成 (資料準確性 10h + CAT 無障礙 TTS 24h + 營養評估 56h = 90h)`
@@ -30,8 +30,8 @@
 | **專案名稱** | RespiraAlly V2.0 - COPD Patient Healthcare Platform |
 | **專案經理** | TaskMaster Hub (AI-Powered Project Coordination) |
 | **技術主導** | Backend Lead, Frontend Lead, AI/ML Specialist |
-| **專案狀態** | 執行中 (In Progress) - 目前進度: ~16.3% 完成 (Sprint 0 進度 83.9% - 系統架構 100% ✅) + 新需求整合 |
-| **文件版本** | v3.0.2 ⭐ 模組與類別設計完成 - Sprint 0 系統架構 100% 完成 |
+| **專案狀態** | 執行中 (In Progress) - 目前進度: ~24.3% 完成 (Sprint 0 完成 83.9% + Sprint 1 進行中 85.6%) |
+| **文件版本** | v3.0.3 ⭐ Task 3.4.4 完成 - Sprint 1 認證系統 Phase 1-4 完成 (85.6%) |
 | **最後更新** | 2025-10-20 17:05 |
 
 ### ⏱️ 專案時程規劃
@@ -39,7 +39,7 @@
 | 項目 | 日期/時間 |
 |------|----------|
 | **總工期** | 16 週 (8 Sprints × 14 days) (2025-10-21 ～ 2026-02-12) |
-| **目前進度** | ~16.3% 完成 (~180h/1107h，Sprint 0 架構設計 100% 完成 ✅) |
+| **目前進度** | ~24.3% 完成 (~269h/1107h，Sprint 0 完成 ✅ + Sprint 1 進行中 85.6%) |
 | **當前階段** | Sprint 0 收尾 (60.6%) + 客戶需求整合完成 - CR-001 資料驗證 (10h) + CR-002 CAT 無障礙 TTS (24h) + CR-003 營養評估 (56h) = 90h 已納入 Sprint 2-3 |
 | **預計交付** | 2026-Q1 (V2.0 MVP Release) |
 
@@ -466,16 +466,17 @@
 | 3.4.1 | JWT Token 生成/驗證邏輯 (Phase 1) | Backend | 8 | ✅ | 2025-10-20 | 2.3.4 | security/jwt_authentication_design.md §6 |
 | 3.4.2 | Token Blacklist + Dependencies (Phase 2) | Backend | 11 | ✅ | 2025-10-20 | 3.4.1 | security/jwt_authentication_design.md §8.1 |
 | 3.4.3 | Auth Use Cases (Phase 3) | Backend | 10 | ✅ | 2025-10-20 | 3.4.2 | security/jwt_authentication_design.md §4 |
-| 3.4.4 | Auth API Endpoints (Phase 4) | Backend | 5 | ⬜ | Week 2 | 3.4.3 | security/jwt_authentication_design.md |
+| 3.4.4 | Auth API Endpoints (Phase 4) | Backend | 5 | ✅ | 2025-10-20 | 3.4.3 | security/jwt_authentication_design.md |
 | 3.4.5 | LINE LIFF OAuth 整合 | Backend | 3 | ⬜ | Week 2 | 3.4.4 | ADR-004 + security/jwt_authentication_design.md §4.1 |
 | 3.4.6 | 登入失敗鎖定策略 (Redis) | Backend | 4 | ⬜ | Week 2 | 3.4.4 | ADR-008 + security/jwt_authentication_design.md §8.3 |
 
-**Phase 1-3 詳細成果** (29h 已完成):
+**Phase 1-4 詳細成果** (34h 已完成):
 - ✅ Phase 1 (8h): JWT 工具函數 + Pydantic Models + 單元測試 (21 個測試, 98% 覆蓋率)
 - ✅ Phase 2 (11h): Redis Client + Token Blacklist Service + FastAPI Dependencies (get_current_user, get_current_patient, get_current_therapist)
-- ✅ Phase 3 (10h): User Repository + 5 個 Use Cases (PatientLogin, TherapistLogin, Logout, RefreshToken, TherapistRegister)
-- 📦 代碼量: ~2,200 行生產代碼 + 292 行測試代碼
-- 📝 Git Commits: 7c5e646 (Phase 1), d1ccd7a (Phase 2), 3680316 (Phase 3)
+- ✅ Phase 3 (10h): User Repository Interface + 5 個 Use Cases (PatientLogin, TherapistLogin, Logout, RefreshToken, TherapistRegister)
+- ✅ Phase 4 (5h): UserRepositoryImpl (Infrastructure) + Auth Router (5 個 API Endpoints) + OpenAPI 文檔自動生成
+- 📦 代碼量: ~2,645 行生產代碼 (新增 445 行) + 292 行測試代碼
+- 📝 Git Commits: 7c5e646 (Phase 1), d1ccd7a (Phase 2), 3680316 (Phase 3), ea4697d (Phase 4)
 
 **認證系統實施檢查點** (基於 JWT 設計文檔):
 1. **Token 結構正確性**: 必須包含 `sub`, `role`, `exp`, `iat`, `jti` 欄位,使用 HS256 演算法
@@ -501,10 +502,10 @@
 | 3.5.5 | Dashboard 登入頁 UI (US-102) | Frontend | 4 | ⬜ | Week 2 | 3.5.4, 3.4.6 | - |
 | 3.5.6 | LIFF 註冊頁 UI (US-101) | Frontend | 2 | ⬜ | Week 2 | 3.5.4, 3.4.5 | - |
 
-**3.0 Sprint 1 小計**: 104h (+8h) | 進度: 80.8% (84/104h 已完成)
-- ✅ 已完成: 3.1 (20h) + 3.2 (19h) + 3.3 (16h) + 3.4.1-3.4.3 (29h) = 84h
-- ⏸ 部分完成: 3.4 認證系統 (29/41h, 70.7%)
-- ⬜ 待完成: 3.4.4-3.4.6 (12h) + 整合測試與文檔 (8h) = 20h
+**3.0 Sprint 1 小計**: 104h (+8h) | 進度: 85.6% (89/104h 已完成)
+- ✅ 已完成: 3.1 (20h) + 3.2 (19h) + 3.3 (16h) + 3.4.1-3.4.4 (34h) = 89h
+- ⏸ 部分完成: 3.4 認證系統 (34/41h, 82.9%)
+- ⬜ 待完成: 3.4.5-3.4.6 (7h) + 3.5 前端基礎 (20h) - 整合測試與文檔 (8h) = 15h
 **關鍵交付物**: Docker Compose 環境, Database Schema + Phase 0 核心索引, JWT 認證 (含 Token 黑名單與刷新機制), 登入/註冊頁面
 **⭐ v2.9 新增**:
 - 認證系統: Token 黑名單機制 (3h) + Token 刷新端點 (2h) - 基於 JWT 設計文檔
@@ -671,7 +672,7 @@
 |---------|--------|--------|------|------|
 | 1.0 專案管理 ⭐ | 87h (+71h) | 17h | 19.5% | 🔄 |
 | 2.0 系統架構 ⭐ | 148h (+36h) | 148h | 100% | ✅ |
-| 3.0 Sprint 1 | 104h (+8h) | 0h | 0% | ⬜ |
+| 3.0 Sprint 1 ⭐ | 104h (+8h) | 89h | 85.6% | 🔄 |
 | 4.0 Sprint 2 ⭐ | 122h (+10h) | 0h | 0% | ⬜ |
 | 5.0 Sprint 3 ⭐ | 176h (+80h) | 0h | 0% | ⬜ |
 | 6.0 Sprint 4 | 104h | 0h | 0% | ⬜ |
@@ -680,7 +681,7 @@
 | 9.0 Sprint 7 | 72h | 0h | 0% | ⬜ |
 | 10.0 Sprint 8 | 96h | 0h | 0% | ⬜ |
 | 11.0 測試品保 | 80h | 0h | 0% | ⬜ |
-| **總計** | **1107h** (+122h) | **180h** | **~16.3%** | **🔄** |
+| **總計** | **1107h** (+122h) | **269h** | **~24.3%** | **🔄** |
 
 ### 📅 Sprint 進度分析
 
