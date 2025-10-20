@@ -29,7 +29,7 @@ services:
     image: redis:7-alpine
     container_name: respirally-redis
     ports:
-      - "${REDIS_PORT:-6379}:6379"
+      - "16379:6379"  # Use 16379 to avoid port conflict
     volumes:
       - redis_data:/data
     command: redis-server --appendonly yes
