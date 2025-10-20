@@ -9,14 +9,15 @@ license = {text = "MIT"}
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "fastapi>=0.109.0",
-    "uvicorn[standard]>=0.27.0",
-    "sqlalchemy>=2.0.25",
-    "alembic>=1.13.1",
-    "pydantic[email]>=2.5.3",
-    "pydantic-settings>=2.1.0",
+    "fastapi>=0.109.0,<0.111.0",  # Lock to 0.109-0.110 series
+    "uvicorn[standard]>=0.27.0,<0.28.0",
+    "sqlalchemy>=2.0.25,<2.1.0",  # Lock to 2.0 series
+    "alembic>=1.13.1,<1.14.0",
+    "pydantic[email]>=2.5.3,<2.6.0",  # Lock to 2.5 series
+    "pydantic-settings>=2.1.0,<2.2.0",
     "python-jose[cryptography]>=3.3.0",
-    "passlib[bcrypt]>=1.7.4",
+    "passlib[bcrypt]==1.7.4",  # Exact version for stability
+    "bcrypt==4.3.0",  # Exact version to avoid breaking changes
     "python-multipart>=0.0.6",
     "asyncpg>=0.29.0",
     "redis[hiredis]>=5.0.1",
