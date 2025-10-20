@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
-from sqlalchemy import CheckConstraint, DateTime, Enum, String
+from sqlalchemy import CheckConstraint, DateTime, Enum, String, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from respira_ally.infrastructure.database.session import Base
@@ -30,7 +30,7 @@ class UserModel(Base):
     user_id: Mapped[UUID] = mapped_column(
         primary_key=True,
         default=uuid4,
-        server_default="gen_random_uuid()"
+        server_default=text("gen_random_uuid()")
     )
 
     # Authentication Fields
@@ -63,12 +63,12 @@ class UserModel(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
-        server_default="CURRENT_TIMESTAMP"
+        server_default=text("CURRENT_TIMESTAMP")
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
-        server_default="CURRENT_TIMESTAMP",
+        server_default=text("CURRENT_TIMESTAMP"),
         onupdate=datetime.utcnow
     )
     deleted_at: Mapped[datetime | None] = mapped_column(

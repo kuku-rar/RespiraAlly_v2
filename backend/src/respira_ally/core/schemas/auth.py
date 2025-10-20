@@ -12,8 +12,8 @@ from pydantic import BaseModel, EmailStr, Field
 
 class UserRole(str, Enum):
     """User role enumeration"""
-    PATIENT = "patient"
-    THERAPIST = "therapist"
+    PATIENT = "PATIENT"
+    THERAPIST = "THERAPIST"
 
 
 # ============================================================================

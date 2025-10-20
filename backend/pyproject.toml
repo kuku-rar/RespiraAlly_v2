@@ -75,3 +75,8 @@ asyncio_mode = "auto"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/respira_ally"]
+
+[dependency-groups]
+dev = [
+    "faker>=37.11.0",
+]

@@ -12,6 +12,7 @@ from respira_ally.core.exceptions.application_exceptions import (
 from respira_ally.core.schemas.auth import LoginResponse, UserInfo, UserRole
 from respira_ally.core.security.jwt import create_access_token, create_refresh_token
 from respira_ally.domain.repositories.user_repository import UserRepository
+from respira_ally.infrastructure.cache.login_lockout_service import login_lockout_service
 
 # Password hashing context (bcrypt)
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -128,7 +129,7 @@ class TherapistLoginUseCase:
 
         Raises:
             ValidationError: If email or password is invalid
-            UnauthorizedError: If credentials are incorrect
+            UnauthorizedError: If credentials are incorrect or account is locked
         """
         # Validate input
         if not email or len(email) == 0:
@@ -139,26 +140,53 @@ class TherapistLoginUseCase:
                 field="password", message="Password must be at least 8 characters"
             )
 
+        # Check if account is locked out
+        is_locked, remaining_seconds = await login_lockout_service.is_locked_out(email)
+        if is_locked:
+            remaining_minutes = (remaining_seconds or 0) // 60 + 1
+            raise UnauthorizedError(
+                f"Account temporarily locked due to multiple failed login attempts. "
+                f"Please try again in {remaining_minutes} minutes."
+            )
+
         # Find therapist by email
         user = await self.user_repository.find_by_email(email)
 
         if user is None:
+            # Record failed attempt even if user doesn't exist (prevent user enumeration timing attacks)
+            await login_lockout_service.record_failed_attempt(email)
             raise UnauthorizedError("Invalid email or password")
 
         # Verify role
         if user.role != "THERAPIST":
+            await login_lockout_service.record_failed_attempt(email)
             raise UnauthorizedError("Invalid email or password")
 
         # Verify password
         if not user.hashed_password:
+            await login_lockout_service.record_failed_attempt(email)
             raise UnauthorizedError("Invalid account configuration")
 
         if not pwd_context.verify(password, user.hashed_password):
+            # Record failed attempt and check if now locked
+            is_now_locked, fail_count = await login_lockout_service.record_failed_attempt(email)
+
+            if is_now_locked:
+                # Account just got locked
+                lockout_info = login_lockout_service.get_lockout_info(fail_count)
+                lockout_duration = lockout_info.get("next_lockout_duration", 15)
+                raise UnauthorizedError(
+                    f"Too many failed login attempts. Account locked for {lockout_duration} minutes."
+                )
+
             raise UnauthorizedError("Invalid email or password")
 
         # Check if account is active
         if user.deleted_at is not None:
             raise UnauthorizedError("Account has been deactivated")
+
+        # ✅ Successful login - Clear failed attempts
+        await login_lockout_service.clear_failed_attempts(email)
 
         # Update last login
         await self.user_repository.update_last_login(user.user_id)

@@ -6,11 +6,13 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import Depends, Header
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from respira_ally.core.exceptions.application_exceptions import ForbiddenError, UnauthorizedError
 from respira_ally.core.schemas.auth import TokenData, UserRole
 from respira_ally.core.security.jwt import verify_token
 from respira_ally.infrastructure.cache.token_blacklist_service import token_blacklist_service
+from respira_ally.infrastructure.database.session import get_db
 
 
 def get_token_from_header(authorization: str | None = Header(None)) -> str:
@@ -139,3 +141,70 @@ async def get_authenticated_user(
             return {"user_id": user.user_id, "role": user.role}
     """
     return current_user
+
+
+# ============================================================================
+# Application Services Dependencies
+# ============================================================================
+
+async def get_patient_service(
+    db: Annotated[AsyncSession, Depends(get_db)]
+):
+    """
+    Dependency injection for PatientService
+
+    Provides PatientService instance with PatientRepository injected.
+
+    Args:
+        db: Database session from FastAPI dependency
+
+    Returns:
+        PatientService instance
+
+    Usage:
+        @router.post("/patients")
+        async def create_patient(
+            patient_service: Annotated[PatientService, Depends(get_patient_service)]
+        ):
+            return await patient_service.create_patient(...)
+    """
+    from respira_ally.application.patient.patient_service import PatientService
+    from respira_ally.infrastructure.repositories.patient_repository_impl import (
+        PatientRepositoryImpl,
+    )
+
+    patient_repo = PatientRepositoryImpl(db)
+    return PatientService(patient_repo)
+
+
+async def get_daily_log_service(
+    db: Annotated[AsyncSession, Depends(get_db)]
+):
+    """
+    Dependency injection for DailyLogService
+
+    Provides DailyLogService instance with DailyLogRepository and EventPublisher injected.
+
+    Args:
+        db: Database session from FastAPI dependency
+
+    Returns:
+        DailyLogService instance
+
+    Usage:
+        @router.post("/daily-logs")
+        async def create_log(
+            service: Annotated[DailyLogService, Depends(get_daily_log_service)]
+        ):
+            return await service.create_daily_log(...)
+    """
+    from respira_ally.application.daily_log.daily_log_service import DailyLogService
+    from respira_ally.infrastructure.repositories.daily_log_repository_impl import (
+        DailyLogRepositoryImpl,
+    )
+    from respira_ally.infrastructure.message_queue.in_memory_event_bus import get_event_bus
+
+    daily_log_repo = DailyLogRepositoryImpl(db)
+    event_publisher = get_event_bus()  # Use in-memory event bus for now
+
+    return DailyLogService(daily_log_repo, event_publisher)

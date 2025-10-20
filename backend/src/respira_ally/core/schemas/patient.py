@@ -54,6 +54,34 @@ class PatientUpdate(BaseModel):
     therapist_id: UUID | None = None
 
 
+class PatientQueryFilters(BaseModel):
+    """
+    Patient Query Filters
+    Optional filters for patient list endpoint
+    """
+    # Search
+    search: str | None = Field(None, description="Search by name or phone (case-insensitive)")
+
+    # Gender filter
+    gender: Literal["MALE", "FEMALE", "OTHER"] | None = Field(None, description="Filter by gender")
+
+    # BMI range filter
+    min_bmi: Decimal | None = Field(None, ge=0, le=100, description="Minimum BMI")
+    max_bmi: Decimal | None = Field(None, ge=0, le=100, description="Maximum BMI")
+
+    # Age range filter
+    min_age: int | None = Field(None, ge=0, le=150, description="Minimum age")
+    max_age: int | None = Field(None, ge=0, le=150, description="Maximum age")
+
+    # Sorting
+    sort_by: Literal["name", "birth_date", "bmi", "created_at"] | None = Field(
+        "created_at", description="Sort field (default: created_at)"
+    )
+    sort_order: Literal["asc", "desc"] | None = Field(
+        "desc", description="Sort order (default: desc)"
+    )
+
+
 # ============================================================================
 # Response Schemas
 # ============================================================================

@@ -94,12 +94,12 @@ export class APIClient {
     return response.data
   }
 
-  async post<T = unknown, D = Record<string, unknown>>(url: string, data?: D, config?: AxiosRequestConfig): Promise<T> {
+  async post<T = unknown>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
     const response = await axiosInstance.post<T>(url, data, config)
     return response.data
   }
 
-  async put<T = unknown, D = Record<string, unknown>>(url: string, data?: D, config?: AxiosRequestConfig): Promise<T> {
+  async put<T = unknown>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
     const response = await axiosInstance.put<T>(url, data, config)
     return response.data
   }
@@ -109,7 +109,7 @@ export class APIClient {
     return response.data
   }
 
-  async patch<T = unknown, D = Record<string, unknown>>(url: string, data?: D, config?: AxiosRequestConfig): Promise<T> {
+  async patch<T = unknown>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
     const response = await axiosInstance.patch<T>(url, data, config)
     return response.data
   }
