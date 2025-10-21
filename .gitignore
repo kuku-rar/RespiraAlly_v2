@@ -309,7 +309,10 @@ VibeCoding_Workflow_Templates/
 # 確保空目錄被保留但不包含內容
 
 ## AI 工具暫存目錄
-# .gemini/
+.gemini/
+
+## Next.js 自動生成檔案
+**/next-env.d.ts
 
 ## 動態生成的索引檔案
 VibeCoding_Workflow_Templates/INDEX.md
