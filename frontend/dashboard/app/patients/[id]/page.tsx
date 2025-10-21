@@ -194,7 +194,17 @@ export default function PatientDetailPage() {
             📊 健康時間軸
           </h3>
           <p className="text-lg text-gray-600">
-            即將推出：顯示病患的健康數據趨勢圖（血氧、心率、血壓等）
+            即將推出：顯示病患的健康數據趨勢圖（SpO2、CAT、mMRC）
+          </p>
+          <p className="text-sm text-gray-500 mt-2">
+            Related Issue: <a
+              href="https://github.com/kuku-rar/RespiraAlly_v2/issues/5"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 hover:underline"
+            >
+              #5 feat(kpi): add patient health timeline chart
+            </a>
           </p>
         </div>
 
