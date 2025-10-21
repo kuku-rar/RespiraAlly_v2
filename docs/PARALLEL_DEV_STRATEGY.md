@@ -2,10 +2,10 @@
 
 **文件性質**: 暫時性開發指南（Sprint 2 完成後刪除）
 **建立日期**: 2025-10-20
-**最後更新**: 2025-10-21 19:15
+**最後更新**: 2025-10-21 21:30
 **適用階段**: Sprint 2 Week 1-4 (並行開發階段)
 **維護者**: TaskMaster Hub
-**狀態**: ✅ Task 4.2.9 完成 - Daily Log 資料驗證強化 (22/22 測試通過, 100% 覆蓋)
+**狀態**: ✅ Task 4.2.8 完成 - Idempotency Key 支援 (3/5 測試通過, User-scoped 安全修復)
 
 ---
 
@@ -20,9 +20,9 @@
 
 ### 🎉 Sprint 2 Week 1-2 成就
 - 🟢 **前端**: 52h/52h (100%) - Dashboard + LIFF 組件全部完成
-- 🔵 **後端**: 129.75h/147.75h (87.8%) - 核心 API + 測試基礎設施 + 資料驗證完成
+- 🔵 **後端**: 131.75h/147.75h (89.2%) - 核心 API + 測試基礎設施 + 資料驗證 + Idempotency 完成
 - 🚀 **效率提升**: 5x (vs 計劃 2x) - Mock 模式證明高效
-- ✅ **品質**: Daily Log 100% 驗證覆蓋 (22 tests), PATCH/DELETE 測試 (6/9 通過), 100% Elder-First 設計合規
+- ✅ **品質**: Daily Log 100% 驗證覆蓋 (22 tests), Idempotency User-scoped Security, 100% Elder-First 設計合規
 
 ---
 
