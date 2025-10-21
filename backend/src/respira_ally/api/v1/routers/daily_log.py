@@ -17,11 +17,14 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from respira_ally.application.daily_log.daily_log_service import DailyLogService
+from respira_ally.infrastructure.cache import IdempotencyService
 from respira_ally.core.dependencies import (
     get_current_patient,
     get_current_therapist,
     get_current_user,
     get_daily_log_service,
+    get_idempotency_key,
+    get_idempotency_service,
 )
 from respira_ally.core.schemas.auth import TokenData, UserRole
 from respira_ally.core.schemas.daily_log import (
@@ -45,6 +48,8 @@ async def create_or_update_daily_log(
     data: DailyLogCreate,
     service: Annotated[DailyLogService, Depends(get_daily_log_service)],
     current_user: Annotated[TokenData, Depends(get_current_patient)],
+    idempotency_key: Annotated[str | None, Depends(get_idempotency_key)] = None,
+    idempotency_service: Annotated[IdempotencyService, Depends(get_idempotency_service)] = None,
 ):
     """
     Create or update daily log (upsert operation)
@@ -55,10 +60,23 @@ async def create_or_update_daily_log(
     - If log exists for the date → updates it
     - If log doesn't exist → creates new one
 
+    **Idempotency**: Optional Idempotency-Key header
+    - Prevents duplicate requests (cached for 24 hours)
+    - If same key is used again → returns cached response
+
     **Returns**:
     - 201: Daily log created/updated successfully
     - 400: Validation error
     """
+    # Check idempotency key (if provided) - user-scoped for security
+    if idempotency_key and idempotency_service:
+        cached_response = await idempotency_service.get_cached_response(
+            idempotency_key, user_id=str(current_user.user_id)
+        )
+        if cached_response:
+            # Return cached response (idempotent request)
+            return DailyLogResponse(**cached_response)
+
     # Patients can only create logs for themselves
     if data.patient_id != current_user.user_id:
         raise HTTPException(
@@ -68,6 +86,14 @@ async def create_or_update_daily_log(
 
     try:
         response, was_created = await service.create_or_update_daily_log(data)
+
+        # Cache response for idempotency (if key provided) - user-scoped for security
+        if idempotency_key and idempotency_service:
+            response_dict = response.model_dump(mode="json")
+            await idempotency_service.cache_response(
+                idempotency_key, response_dict, user_id=str(current_user.user_id)
+            )
+
         return response
     except ValueError as e:
         raise HTTPException(

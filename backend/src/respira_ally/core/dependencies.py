@@ -2,7 +2,7 @@
 FastAPI Dependencies
 Authentication and authorization dependencies for route protection
 """
-from typing import Annotated
+from typing import Annotated, Any
 from uuid import UUID
 
 from fastapi import Depends, Header
@@ -12,6 +12,7 @@ from respira_ally.core.exceptions.application_exceptions import ForbiddenError, 
 from respira_ally.core.schemas.auth import TokenData, UserRole
 from respira_ally.core.security.jwt import verify_token
 from respira_ally.infrastructure.cache.token_blacklist_service import token_blacklist_service
+from respira_ally.infrastructure.cache.redis_client import get_redis
 from respira_ally.infrastructure.database.session import get_db
 
 
@@ -208,3 +209,54 @@ async def get_daily_log_service(
     event_publisher = get_event_bus()  # Use in-memory event bus for now
 
     return DailyLogService(daily_log_repo, event_publisher)
+
+
+def get_idempotency_key(idempotency_key: str | None = Header(None, alias="Idempotency-Key")) -> str | None:
+    """
+    Extract Idempotency-Key from request header (optional)
+
+    Args:
+        idempotency_key: Idempotency-Key header value (UUID recommended)
+
+    Returns:
+        Idempotency key string or None if not provided
+
+    Usage:
+        @router.post("/resource")
+        async def create_resource(
+            key: Annotated[str | None, Depends(get_idempotency_key)]
+        ):
+            if key:
+                # Handle idempotency
+                ...
+    """
+    return idempotency_key
+
+
+async def get_idempotency_service(
+    redis: Annotated[Any, Depends(get_redis)]
+):
+    """
+    Dependency injection for IdempotencyService
+
+    Provides IdempotencyService instance with Redis client injected.
+
+    Args:
+        redis: Redis client from FastAPI dependency
+
+    Returns:
+        IdempotencyService instance
+
+    Usage:
+        @router.post("/resource")
+        async def create_resource(
+            idempotency: Annotated[IdempotencyService, Depends(get_idempotency_service)],
+            key: Annotated[str | None, Depends(get_idempotency_key)]
+        ):
+            if key:
+                cached = await idempotency.get_cached_response(key)
+                if cached:
+                    return cached
+    """
+    from respira_ally.infrastructure.cache import IdempotencyService
+    return IdempotencyService(redis)

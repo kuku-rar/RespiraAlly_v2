@@ -11,6 +11,7 @@ from respira_ally.infrastructure.cache.token_blacklist_service import (
     TokenBlacklistService,
     token_blacklist_service,
 )
+from respira_ally.infrastructure.cache.idempotency_service import IdempotencyService
 
 __all__ = [
     "RedisClient",
@@ -18,4 +19,5 @@ __all__ = [
     "get_redis",
     "TokenBlacklistService",
     "token_blacklist_service",
+    "IdempotencyService",
 ]
