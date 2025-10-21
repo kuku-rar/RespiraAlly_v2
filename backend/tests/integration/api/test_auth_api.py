@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from respira_ally.infrastructure.database.models.user import UserModel
-from respira_ally.core.security.password import hash_password
+from respira_ally.application.auth.use_cases import hash_password
 
 
 # ============================================================================

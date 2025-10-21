@@ -14,13 +14,14 @@ from fastapi.testclient import TestClient
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.pool import NullPool
+from sqlalchemy import text
 
 from respira_ally.infrastructure.database.session import Base
 from respira_ally.infrastructure.database.models.user import UserModel
 from respira_ally.infrastructure.database.models.therapist_profile import TherapistProfileModel
 from respira_ally.infrastructure.database.models.patient_profile import PatientProfileModel
 from respira_ally.core.security.jwt import create_access_token
-from respira_ally.core.security.password import hash_password
+from respira_ally.application.auth.use_cases import hash_password
 from respira_ally.main import app
 
 
@@ -28,7 +29,7 @@ from respira_ally.main import app
 # Test Database Configuration
 # ============================================================================
 
-TEST_DATABASE_URL = "postgresql+asyncpg://test_user:test_password@localhost:5432/respira_ally_test"
+TEST_DATABASE_URL = "postgresql+asyncpg://admin:admin@localhost:15432/respirally_db"
 
 
 # ============================================================================
@@ -65,9 +66,11 @@ async def db_session() -> AsyncGenerator[AsyncSession, None]:
         poolclass=NullPool,  # Disable connection pooling for tests
     )
 
-    # Create all tables
+    # Create all tables (use CASCADE for DROP)
     async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
+        # Use raw SQL with CASCADE to avoid enum type dependency issues
+        await conn.execute(text("DROP SCHEMA IF EXISTS public CASCADE"))
+        await conn.execute(text("CREATE SCHEMA public"))
         await conn.run_sync(Base.metadata.create_all)
 
     # Create session factory
@@ -88,9 +91,10 @@ async def db_session() -> AsyncGenerator[AsyncSession, None]:
         finally:
             await session.close()
 
-    # Drop all tables after test
+    # Drop all tables after test (use CASCADE)
     async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
+        await conn.execute(text("DROP SCHEMA IF EXISTS public CASCADE"))
+        await conn.execute(text("CREATE SCHEMA public"))
 
     await engine.dispose()
 
@@ -140,10 +144,9 @@ async def therapist_user(db_session: AsyncSession) -> UserModel:
     # Create therapist profile
     therapist_profile = TherapistProfileModel(
         user_id=user.user_id,
-        full_name="Dr. Test Therapist",
-        specialization="COPD Specialist",
+        name="Dr. Test Therapist",
+        institution="Test Hospital",
         license_number="LIC123456",
-        contact_info={},
     )
     db_session.add(therapist_profile)
     await db_session.commit()
@@ -207,10 +210,10 @@ async def other_patient_user(db_session: AsyncSession, therapist_user: UserModel
 
     other_therapist_profile = TherapistProfileModel(
         user_id=other_therapist.user_id,
-        full_name="Dr. Other Therapist",
-        specialization="COPD Specialist",
+        name="Dr. Other Therapist",
+        institution="萬芳醫院",
         license_number="LIC789012",
-        contact_info={},
+        specialties=["胸腔內科"],
     )
     db_session.add(other_therapist_profile)
     await db_session.flush()
