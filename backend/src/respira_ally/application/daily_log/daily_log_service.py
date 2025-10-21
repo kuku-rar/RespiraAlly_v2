@@ -71,7 +71,7 @@ class DailyLogService:
             log_date=daily_log.log_date,
             medication_taken=daily_log.medication_taken,
             water_intake_ml=daily_log.water_intake_ml,
-            steps_count=daily_log.steps_count,
+            exercise_minutes=daily_log.exercise_minutes,
             symptoms=daily_log.symptoms,
             mood=daily_log.mood,
             created_at=daily_log.created_at,
@@ -115,7 +115,7 @@ class DailyLogService:
             log_date=data.log_date,
             medication_taken=data.medication_taken,
             water_intake_ml=data.water_intake_ml,
-            steps_count=data.steps_count,
+            exercise_minutes=data.exercise_minutes,
             symptoms=data.symptoms,
             mood=data.mood,
         )
@@ -158,7 +158,7 @@ class DailyLogService:
                 log_date=updated_log.log_date,
                 medication_taken=updated_log.medication_taken,
                 water_intake_ml=updated_log.water_intake_ml,
-                steps_count=updated_log.steps_count,
+                exercise_minutes=updated_log.exercise_minutes,
                 symptoms=updated_log.symptoms,
                 mood=updated_log.mood,
                 is_first_log_today=False,  # It's an update
@@ -176,7 +176,7 @@ class DailyLogService:
                 log_date=response.log_date,
                 medication_taken=response.medication_taken,
                 water_intake_ml=response.water_intake_ml,
-                steps_count=response.steps_count,
+                exercise_minutes=response.exercise_minutes,
                 symptoms=response.symptoms,
                 mood=response.mood,
                 is_first_log_today=True,  # It's a new log
@@ -191,7 +191,7 @@ class DailyLogService:
         log_date: date,
         medication_taken: bool,
         water_intake_ml: int,
-        steps_count: int | None,
+        exercise_minutes: int | None,
         symptoms: str | None,
         mood: str | None,
         is_first_log_today: bool,
@@ -205,7 +205,7 @@ class DailyLogService:
             log_date: Log date
             medication_taken: Whether medication was taken
             water_intake_ml: Water intake in ml
-            steps_count: Step count
+            exercise_minutes: Exercise duration in minutes
             symptoms: Symptoms description
             mood: Mood rating
             is_first_log_today: Whether this is first log today
@@ -226,7 +226,7 @@ class DailyLogService:
                 log_date=log_date,
                 medication_taken=medication_taken,
                 water_intake_ml=water_intake_ml,
-                steps_count=steps_count,
+                exercise_minutes=exercise_minutes,
                 symptoms=symptoms,
                 mood=mood,
                 is_first_log_today=is_first_log_today,
@@ -419,7 +419,7 @@ class DailyLogService:
                 total_logs=0,
                 medication_adherence_rate=0.0,
                 avg_water_intake_ml=0.0,
-                avg_steps_count=None,
+                avg_exercise_minutes=None,
                 mood_distribution={"GOOD": 0, "NEUTRAL": 0, "BAD": 0},
                 date_range={"start": start_date, "end": end_date},
             )
@@ -435,9 +435,9 @@ class DailyLogService:
         total_water = sum(log.water_intake_ml for log in logs)
         avg_water = total_water / total
 
-        # Calculate average steps (excluding None values)
-        steps_logs = [log.steps_count for log in logs if log.steps_count is not None]
-        avg_steps = sum(steps_logs) / len(steps_logs) if steps_logs else None
+        # Calculate average exercise minutes (excluding None values)
+        exercise_logs = [log.exercise_minutes for log in logs if log.exercise_minutes is not None]
+        avg_exercise = sum(exercise_logs) / len(exercise_logs) if exercise_logs else None
 
         # Mood distribution
         mood_distribution = {"GOOD": 0, "NEUTRAL": 0, "BAD": 0}
@@ -449,7 +449,7 @@ class DailyLogService:
             total_logs=total,
             medication_adherence_rate=adherence_rate,
             avg_water_intake_ml=round(avg_water, 2),
-            avg_steps_count=round(avg_steps, 2) if avg_steps else None,
+            avg_exercise_minutes=round(avg_exercise, 2) if avg_exercise else None,
             mood_distribution=mood_distribution,
             date_range={"start": start_date, "end": end_date},
         )

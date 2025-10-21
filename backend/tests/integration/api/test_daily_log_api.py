@@ -35,7 +35,7 @@ async def test_create_daily_log_success(
         "log_date": date.today().isoformat(),
         "medication_taken": True,
         "water_intake_ml": 2000,
-        "steps_count": 5000,
+        "exercise_minutes": 40,  # 40 minutes of exercise
         "symptoms": "Mild cough",
         "mood": "GOOD"
     }
@@ -412,15 +412,15 @@ async def test_create_log_invalid_water_intake(
 
 
 @pytest.mark.asyncio
-async def test_create_log_invalid_steps_count(
+async def test_create_log_invalid_exercise_minutes(
     client: TestClient,
     patient_user: UserModel,
     patient_token: str,
 ):
     """
-    Test creating log with invalid steps count (Error Case - 422)
+    Test creating log with invalid exercise minutes (Error Case - 422)
 
-    Scenario: Steps count exceeds maximum
+    Scenario: Exercise minutes exceeds maximum (480 minutes / 8 hours)
     Expected: 422 Validation Error
     """
     # Arrange
@@ -429,7 +429,7 @@ async def test_create_log_invalid_steps_count(
         "log_date": date.today().isoformat(),
         "medication_taken": True,
         "water_intake_ml": 2000,
-        "steps_count": 150000,  # Exceeds max 100000
+        "exercise_minutes": 500,  # Exceeds max 480 minutes
     }
 
     # Act

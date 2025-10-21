@@ -58,7 +58,7 @@ class DailyLogSubmittedEvent(DomainEvent):
     log_date: date = Field(..., description="Date of the log")
     medication_taken: bool = Field(..., description="Whether medication was taken")
     water_intake_ml: int = Field(..., description="Water intake in ml")
-    steps_count: int | None = Field(None, description="Step count")
+    exercise_minutes: int | None = Field(None, description="Exercise duration in minutes")
     symptoms: str | None = Field(None, description="Symptoms description")
     mood: Literal["GOOD", "NEUTRAL", "BAD"] | None = Field(None, description="Mood rating")
 
@@ -116,7 +116,7 @@ def create_daily_log_submitted_event(
     log_date: date,
     medication_taken: bool,
     water_intake_ml: int,
-    steps_count: int | None,
+    exercise_minutes: int | None,
     symptoms: str | None,
     mood: str | None,
     is_first_log_today: bool = True,
@@ -131,7 +131,7 @@ def create_daily_log_submitted_event(
         log_date: Date of the log
         medication_taken: Whether medication was taken
         water_intake_ml: Water intake in ml
-        steps_count: Step count
+        exercise_minutes: Exercise duration in minutes
         symptoms: Symptoms description
         mood: Mood rating
         is_first_log_today: Whether this is first log today
@@ -151,7 +151,7 @@ def create_daily_log_submitted_event(
         log_date=log_date,
         medication_taken=medication_taken,
         water_intake_ml=water_intake_ml,
-        steps_count=steps_count,
+        exercise_minutes=exercise_minutes,
         symptoms=symptoms,
         mood=mood,
         is_first_log_today=is_first_log_today,

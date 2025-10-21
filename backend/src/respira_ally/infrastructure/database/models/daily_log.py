@@ -38,21 +38,26 @@ class DailyLogModel(Base):
     # Log Date
     log_date: Mapped[date] = mapped_column(Date, nullable=False)
 
-    # Health Metrics
-    medication_taken: Mapped[bool] = mapped_column(
+    # Health Metrics (all nullable for flexible tracking)
+    medication_taken: Mapped[bool | None] = mapped_column(
         Boolean,
-        nullable=False,
-        server_default=text("false")
+        nullable=True,
+        comment="Whether medication was taken (NULL = not recorded)"
     )
-    water_intake_ml: Mapped[int] = mapped_column(
-        Integer,
-        nullable=False,
-        comment="Daily water intake in milliliters"
-    )
-    steps_count: Mapped[int | None] = mapped_column(
+    water_intake_ml: Mapped[int | None] = mapped_column(
         Integer,
         nullable=True,
-        comment="Daily step count"
+        comment="Daily water intake in milliliters (NULL = not recorded)"
+    )
+    exercise_minutes: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
+        comment="Daily exercise duration in minutes (replaces steps_count)"
+    )
+    smoking_count: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
+        comment="Number of cigarettes smoked (COPD risk factor)"
     )
 
     # Symptoms & Mood
@@ -90,15 +95,20 @@ class DailyLogModel(Base):
     __table_args__ = (
         # One log per patient per day
         UniqueConstraint("patient_id", "log_date", name="daily_logs_unique_per_day"),
-        # Water intake range
+        # Water intake range (nullable)
         CheckConstraint(
-            "water_intake_ml >= 0 AND water_intake_ml <= 10000",
+            "water_intake_ml IS NULL OR (water_intake_ml >= 0 AND water_intake_ml <= 10000)",
             name="daily_logs_water_intake_check"
         ),
-        # Steps count range
+        # Exercise duration range (0-480 minutes = 8 hours max)
         CheckConstraint(
-            "steps_count IS NULL OR (steps_count >= 0 AND steps_count <= 100000)",
-            name="daily_logs_steps_count_check"
+            "exercise_minutes IS NULL OR (exercise_minutes >= 0 AND exercise_minutes <= 480)",
+            name="daily_logs_exercise_minutes_check"
+        ),
+        # Smoking count range (0-100 cigarettes/day)
+        CheckConstraint(
+            "smoking_count IS NULL OR (smoking_count >= 0 AND smoking_count <= 100)",
+            name="daily_logs_smoking_count_check"
         ),
     )
 

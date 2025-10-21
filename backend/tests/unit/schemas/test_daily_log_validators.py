@@ -162,94 +162,94 @@ def test_water_intake_reject_excessive():
 
 
 # ============================================================================
-# steps_count Validator Tests
+# exercise_minutes Validator Tests
 # ============================================================================
 
-def test_steps_count_valid_normal():
-    """Test steps_count accepts normal values (1000-30000)"""
-    for steps in [1000, 5000, 10000, 20000, 30000]:
+def test_exercise_minutes_valid_normal():
+    """Test exercise_minutes accepts normal values (10-120 minutes)"""
+    for minutes in [10, 30, 60, 90, 120]:
         data = {
             "log_date": date.today(),
             "patient_id": uuid4(),
             "medication_taken": True,
             "water_intake_ml": 2000,
-            "steps_count": steps,
+            "exercise_minutes": minutes,
         }
         log = DailyLogCreate(**data)
-        assert log.steps_count == steps
+        assert log.exercise_minutes == minutes
 
 
-def test_steps_count_valid_none():
-    """Test steps_count accepts None (optional field)"""
+def test_exercise_minutes_valid_none():
+    """Test exercise_minutes accepts None (optional field)"""
     data = {
         "log_date": date.today(),
         "patient_id": uuid4(),
         "medication_taken": True,
         "water_intake_ml": 2000,
-        "steps_count": None,
+        "exercise_minutes": None,
     }
     log = DailyLogCreate(**data)
-    assert log.steps_count is None
+    assert log.exercise_minutes is None
 
 
-def test_steps_count_valid_low_warning():
-    """Test steps_count accepts low values but should trigger warning"""
+def test_exercise_minutes_valid_low_warning():
+    """Test exercise_minutes accepts low values but should trigger warning"""
     data = {
         "log_date": date.today(),
         "patient_id": uuid4(),
         "medication_taken": True,
         "water_intake_ml": 2000,
-        "steps_count": 500,  # Low but valid
+        "exercise_minutes": 5,  # Low but valid (<10 min threshold)
     }
     log = DailyLogCreate(**data)
-    assert log.steps_count == 500
-    # Note: In production, this should trigger a low activity warning
+    assert log.exercise_minutes == 5
+    # Note: In production, this should trigger a low activity warning for COPD patients
 
 
-def test_steps_count_valid_high_warning():
-    """Test steps_count accepts high values but should trigger warning"""
+def test_exercise_minutes_valid_high_warning():
+    """Test exercise_minutes accepts high values but should trigger warning"""
     data = {
         "log_date": date.today(),
         "patient_id": uuid4(),
         "medication_taken": True,
         "water_intake_ml": 2000,
-        "steps_count": 40000,  # High but valid
+        "exercise_minutes": 200,  # High but valid (>120 min threshold)
     }
     log = DailyLogCreate(**data)
-    assert log.steps_count == 40000
-    # Note: In production, this should trigger an excessive activity warning
+    assert log.exercise_minutes == 200
+    # Note: In production, this should trigger an excessive activity warning for COPD patients
 
 
-def test_steps_count_reject_excessive():
-    """Test steps_count rejects values > 50000"""
+def test_exercise_minutes_reject_excessive():
+    """Test exercise_minutes rejects values > 480 (max 8 hours)"""
     data = {
         "log_date": date.today(),
         "patient_id": uuid4(),
         "medication_taken": True,
         "water_intake_ml": 2000,
-        "steps_count": 60000,  # Exceeds max
+        "exercise_minutes": 481,  # Exceeds max 480 minutes
     }
     with pytest.raises(ValidationError) as exc_info:
         DailyLogCreate(**data)
 
     errors = exc_info.value.errors()
-    assert any(e["loc"] == ("steps_count",) for e in errors)
+    assert any(e["loc"] == ("exercise_minutes",) for e in errors)
 
 
-def test_steps_count_reject_negative():
-    """Test steps_count rejects negative values"""
+def test_exercise_minutes_reject_negative():
+    """Test exercise_minutes rejects negative values"""
     data = {
         "log_date": date.today(),
         "patient_id": uuid4(),
         "medication_taken": True,
         "water_intake_ml": 2000,
-        "steps_count": -100,
+        "exercise_minutes": -1,
     }
     with pytest.raises(ValidationError) as exc_info:
         DailyLogCreate(**data)
 
     errors = exc_info.value.errors()
-    assert any(e["loc"] == ("steps_count",) for e in errors)
+    assert any(e["loc"] == ("exercise_minutes",) for e in errors)
 
 
 # ============================================================================
@@ -331,14 +331,14 @@ def test_symptoms_reject_too_long():
 # DailyLogUpdate Validator Tests
 # ============================================================================
 
-def test_update_steps_count_max_50000():
-    """Test DailyLogUpdate enforces max 50000 steps"""
-    data = {"steps_count": 60000}
+def test_update_exercise_minutes_max_480():
+    """Test DailyLogUpdate enforces max 480 minutes (8 hours)"""
+    data = {"exercise_minutes": 481}
     with pytest.raises(ValidationError) as exc_info:
         DailyLogUpdate(**data)
 
     errors = exc_info.value.errors()
-    assert any(e["loc"] == ("steps_count",) for e in errors)
+    assert any(e["loc"] == ("exercise_minutes",) for e in errors)
 
 
 def test_update_all_fields_optional():
@@ -347,6 +347,6 @@ def test_update_all_fields_optional():
     update = DailyLogUpdate(**data)
     assert update.medication_taken is None
     assert update.water_intake_ml is None
-    assert update.steps_count is None
+    assert update.exercise_minutes is None
     assert update.symptoms is None
     assert update.mood is None

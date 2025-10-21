@@ -14,11 +14,12 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 # ============================================================================
 
 class DailyLogBase(BaseModel):
-    """Base daily log information (shared fields)"""
-    log_date: date = Field(..., description="Date of the log entry")
-    medication_taken: bool = Field(..., description="Whether medication was taken")
-    water_intake_ml: int = Field(..., ge=0, le=10000, description="Water intake in milliliters")
-    steps_count: int | None = Field(None, ge=0, le=50000, description="Daily step count (max 50000)")
+    """Base daily log information (all fields optional except log_date)"""
+    log_date: date = Field(..., description="Date of the log entry (ONLY required field)")
+    medication_taken: bool | None = Field(None, description="Whether medication was taken (NULL = not recorded)")
+    water_intake_ml: int | None = Field(None, ge=0, le=10000, description="Water intake in milliliters (NULL = not recorded)")
+    exercise_minutes: int | None = Field(None, ge=0, le=480, description="Exercise duration in minutes (0-480, max 8 hours)")
+    smoking_count: int | None = Field(None, ge=0, le=100, description="Number of cigarettes smoked (COPD risk factor)")
     symptoms: str | None = Field(None, max_length=500, description="Reported symptoms")
     mood: Literal["GOOD", "NEUTRAL", "BAD"] | None = Field(None, description="Patient mood")
 
@@ -45,7 +46,7 @@ class DailyLogBase(BaseModel):
 
     @field_validator("water_intake_ml")
     @classmethod
-    def validate_water_intake(cls, v: int) -> int:
+    def validate_water_intake(cls, v: int | None) -> int | None:
         """
         Validate water intake for COPD patients
 
@@ -53,6 +54,9 @@ class DailyLogBase(BaseModel):
         - <500ml: Dehydration risk (COPD patients need adequate hydration)
         - >5000ml: Excessive intake (normal: 2000-3000ml)
         """
+        if v is None:
+            return v
+
         if v < 500:
             # Note: This is a warning, not an error. We allow the value but log it.
             # In production, this could trigger a notification to therapist
@@ -63,24 +67,48 @@ class DailyLogBase(BaseModel):
 
         return v
 
-    @field_validator("steps_count")
+    @field_validator("exercise_minutes")
     @classmethod
-    def validate_steps_count(cls, v: int | None) -> int | None:
+    def validate_exercise_minutes(cls, v: int | None) -> int | None:
         """
-        Validate step count for COPD patients
+        Validate exercise duration for COPD patients
 
         Warning ranges:
-        - <1000 steps: Insufficient activity
-        - >30000 steps: Excessive activity (may strain COPD patients)
+        - <10 minutes: Insufficient activity (COPD patients need regular exercise)
+        - >120 minutes: Excessive activity (may strain COPD patients)
+
+        Recommended: 30-60 minutes of moderate exercise daily
         """
         if v is None:
             return v
 
-        if v < 1000:
+        if v < 10:
             # Low activity warning
             pass
-        elif v > 30000:
-            # High activity warning
+        elif v > 120:
+            # High activity warning (potential over-exertion)
+            pass
+
+        return v
+
+    @field_validator("smoking_count")
+    @classmethod
+    def validate_smoking_count(cls, v: int | None) -> int | None:
+        """
+        Validate smoking count (CRITICAL for COPD management)
+
+        ANY smoking is a risk factor for COPD progression!
+
+        Alert ranges:
+        - ≥1 cigarette: Should trigger therapist notification for cessation support
+        - ≥10 cigarettes: High-risk behavior, immediate intervention needed
+        """
+        if v is None:
+            return v
+
+        if v >= 1:
+            # CRITICAL: Any smoking should alert therapist
+            # In production, this should trigger immediate notification
             pass
 
         return v
@@ -136,7 +164,8 @@ class DailyLogUpdate(BaseModel):
     """
     medication_taken: bool | None = None
     water_intake_ml: int | None = Field(None, ge=0, le=10000)
-    steps_count: int | None = Field(None, ge=0, le=50000)
+    exercise_minutes: int | None = Field(None, ge=0, le=480)
+    smoking_count: int | None = Field(None, ge=0, le=100)
     symptoms: str | None = Field(None, max_length=500)
     mood: Literal["GOOD", "NEUTRAL", "BAD"] | None = None
 
@@ -194,7 +223,8 @@ class DailyLogStats(BaseModel):
     """
     total_logs: int = Field(..., description="Total number of logs")
     medication_adherence_rate: float = Field(..., ge=0, le=100, description="Medication adherence percentage")
-    avg_water_intake_ml: float = Field(..., description="Average daily water intake")
-    avg_steps_count: float | None = Field(None, description="Average daily steps")
+    avg_water_intake_ml: float | None = Field(None, description="Average daily water intake (NULL if no data)")
+    avg_exercise_minutes: float | None = Field(None, description="Average daily exercise duration in minutes")
+    avg_smoking_count: float | None = Field(None, description="Average daily cigarette count (COPD risk tracking)")
     mood_distribution: dict[str, int] = Field(..., description="Count of each mood type")
     date_range: dict[str, date] = Field(..., description="Start and end dates of logs")
