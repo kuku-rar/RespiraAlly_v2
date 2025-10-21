@@ -6,7 +6,7 @@ from decimal import Decimal
 from typing import TYPE_CHECKING, List
 from uuid import UUID
 
-from sqlalchemy import CheckConstraint, Date, Enum, ForeignKey, Integer, Numeric, String
+from sqlalchemy import CheckConstraint, Date, Enum, ForeignKey, Integer, Numeric, String, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -81,13 +81,13 @@ class PatientProfileModel(Base):
     medical_history: Mapped[dict] = mapped_column(
         JSONB,
         nullable=False,
-        server_default="'{}'::jsonb",
+        server_default=text("'{}'::jsonb"),
         comment="Medical history: {copd_stage, comorbidities, medications, ...}"
     )
     contact_info: Mapped[dict] = mapped_column(
         JSONB,
         nullable=False,
-        server_default="'{}'::jsonb",
+        server_default=text("'{}'::jsonb"),
         comment="Contact info: {phone, address, emergency_contact, ...}"
     )
 

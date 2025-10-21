@@ -4,7 +4,7 @@ Therapist Profile Model - Therapist-specific information
 from typing import TYPE_CHECKING, List
 from uuid import UUID
 
-from sqlalchemy import ForeignKey, String
+from sqlalchemy import ForeignKey, String, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -43,7 +43,7 @@ class TherapistProfileModel(Base):
     specialties: Mapped[dict] = mapped_column(
         JSONB,
         nullable=False,
-        server_default="'[]'::jsonb",
+        server_default=text("'[]'::jsonb"),
         comment="List of specialties: [\"Respiratory\", \"ICU\", ...]"
     )
 

@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
-from sqlalchemy import CheckConstraint, DateTime, Enum, ForeignKey, Integer
+from sqlalchemy import CheckConstraint, DateTime, Enum, ForeignKey, Integer, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -25,7 +25,7 @@ class SurveyResponseModel(Base):
     response_id: Mapped[UUID] = mapped_column(
         primary_key=True,
         default=uuid4,
-        server_default="gen_random_uuid()"
+        server_default=text("gen_random_uuid()")
     )
 
     # Survey Type
@@ -62,7 +62,7 @@ class SurveyResponseModel(Base):
     submitted_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
-        server_default="CURRENT_TIMESTAMP"
+        server_default=text("CURRENT_TIMESTAMP")
     )
 
     # Relationships

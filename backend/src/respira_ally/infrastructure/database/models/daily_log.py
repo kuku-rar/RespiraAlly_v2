@@ -5,7 +5,7 @@ from datetime import date, datetime
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
-from sqlalchemy import Boolean, CheckConstraint, Date, DateTime, Enum, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, CheckConstraint, Date, DateTime, Enum, ForeignKey, Integer, String, Text, UniqueConstraint, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from respira_ally.infrastructure.database.session import Base
@@ -26,7 +26,7 @@ class DailyLogModel(Base):
     log_id: Mapped[UUID] = mapped_column(
         primary_key=True,
         default=uuid4,
-        server_default="gen_random_uuid()"
+        server_default=text("gen_random_uuid()")
     )
 
     # Foreign Keys
@@ -42,7 +42,7 @@ class DailyLogModel(Base):
     medication_taken: Mapped[bool] = mapped_column(
         Boolean,
         nullable=False,
-        server_default="false"
+        server_default=text("false")
     )
     water_intake_ml: Mapped[int] = mapped_column(
         Integer,
@@ -71,12 +71,12 @@ class DailyLogModel(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
-        server_default="CURRENT_TIMESTAMP"
+        server_default=text("CURRENT_TIMESTAMP")
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
-        server_default="CURRENT_TIMESTAMP",
+        server_default=text("CURRENT_TIMESTAMP"),
         onupdate=datetime.utcnow
     )
 

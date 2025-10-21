@@ -66,7 +66,6 @@ class TherapistRegisterUseCase:
             raise ConflictError(
                 resource_type="User",
                 conflict_field="email",
-                message="Email already registered",
                 value=email,
             )
 

@@ -4,7 +4,7 @@ Event Log Model - System event tracking (replaces MongoDB)
 from datetime import datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import DateTime, Index, String
+from sqlalchemy import DateTime, Index, String, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -23,7 +23,7 @@ class EventLogModel(Base):
     event_id: Mapped[UUID] = mapped_column(
         primary_key=True,
         default=uuid4,
-        server_default="gen_random_uuid()"
+        server_default=text("gen_random_uuid()")
     )
 
     # Event Type
@@ -45,7 +45,7 @@ class EventLogModel(Base):
     payload: Mapped[dict] = mapped_column(
         JSONB,
         nullable=False,
-        server_default="'{}'::jsonb",
+        server_default=text("'{}'::jsonb"),
         comment="Event payload: {action, details, metadata, ...}"
     )
 
@@ -53,7 +53,7 @@ class EventLogModel(Base):
     timestamp: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
-        server_default="CURRENT_TIMESTAMP",
+        server_default=text("CURRENT_TIMESTAMP"),
         index=True
     )
 
