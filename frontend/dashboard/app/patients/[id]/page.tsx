@@ -11,6 +11,7 @@ import { patientsApi } from '@/lib/api/patients'
 import { tokenManager } from '@/lib/api/auth'
 import type { PatientResponse } from '@/lib/types/patient'
 import { HealthKPIDashboard } from '@/components/kpi/HealthKPIDashboard'
+import { HealthTimelineChart } from '@/components/health-timeline'
 
 export default function PatientDetailPage() {
   const router = useRouter()
@@ -188,23 +189,38 @@ export default function PatientDetailPage() {
           <HealthKPIDashboard patientId={patientId} />
         </div>
 
-        {/* Health Timeline Placeholder */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
-          <h3 className="text-xl font-semibold text-gray-900 mb-4">
-            📊 健康時間軸
-          </h3>
-          <p className="text-lg text-gray-600">
-            即將推出：顯示病患的健康數據趨勢圖（SpO2、CAT、mMRC）
-          </p>
-          <p className="text-sm text-gray-500 mt-2">
-            Related Issue: <a
+        {/* Health Timeline - Daily Log Charts (Phase 1) */}
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-2xl font-semibold text-gray-900">
+              📊 健康時間軸
+            </h2>
+            <a
               href="https://github.com/kuku-rar/RespiraAlly_v2/issues/5"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-blue-600 hover:underline"
+              className="text-sm text-blue-600 hover:underline"
             >
-              #5 feat(kpi): add patient health timeline chart
+              Issue #5: Health Timeline Chart
             </a>
+          </div>
+          <HealthTimelineChart patientId={patientId} defaultDays={30} />
+        </div>
+
+        {/* Phase 2 Placeholder - Survey Charts */}
+        <div className="bg-blue-50 rounded-xl border border-blue-200 p-6">
+          <h3 className="text-xl font-semibold text-gray-900 mb-2">
+            📋 Phase 2: Survey 評估圖表
+          </h3>
+          <p className="text-lg text-gray-700 mb-3">
+            下列功能待 Survey API 完成後實作：
+          </p>
+          <ul className="space-y-2 text-base text-gray-600">
+            <li>• <strong>CAT Score (COPD 評估測試)</strong>: 評估 COPD 對生活的影響程度</li>
+            <li>• <strong>mMRC Score (呼吸困難分級)</strong>: 測量呼吸困難的嚴重程度</li>
+          </ul>
+          <p className="text-sm text-gray-500 mt-4">
+            ⏳ 預計時程: Survey API 完成後 2-3 小時
           </p>
         </div>
 
