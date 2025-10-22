@@ -2,11 +2,11 @@
 
 ---
 
-**文件版本 (Document Version):** `v3.3.0` ✅ Sprint 3 MVP 範圍調整 - TTS 簡化 (24h→8h), 營養評估延後至 MVP 後 (實用主義路線)
-**最後更新 (Last Updated):** `2025-10-22 21:55`
+**文件版本 (Document Version):** `v3.3.1` ✅ ADR 關聯更新 - Sprint 3 ADR-010/011 參考已添加
+**最後更新 (Last Updated):** `2025-10-22 23:15`
 **主要作者 (Lead Author):** `TaskMaster Hub / Claude Code AI`
 **審核者 (Reviewers):** `Technical Lead, Product Manager, Architecture Team, Client Stakeholders`
-**狀態 (Status):** `執行中 - Sprint 1 完成 93.5%, Sprint 2 完成 85.9%, Sprint 3 調整 (Task 5.2 完成 24h/96h, 25.0%) - 採實用主義路線，聚焦 MVP 核心功能, 累計進度: ~27.8%`
+**狀態 (Status):** `執行中 - Sprint 1 完成 85.6%, Sprint 2 完成 85.9%, Sprint 3 進行中 25.0% (Task 5.2 完成 24h/96h) - 採實用主義路線，聚焦 MVP 核心功能 | 總工時: 1033h (-80h) | 累計進度: ~39.9% | ADR: ADR-010 (範圍調整), ADR-011 (TTS 方案)`
 
 ---
 
@@ -30,17 +30,18 @@
 | **專案名稱** | RespiraAlly V2.0 - COPD Patient Healthcare Platform |
 | **專案經理** | TaskMaster Hub (AI-Powered Project Coordination) |
 | **技術主導** | Backend Lead, Frontend Lead, AI/ML Specialist |
-| **專案狀態** | 執行中 (In Progress) - 目前進度: ~24.3% 完成 (Sprint 0 完成 83.9% + Sprint 1 進行中 85.6%) |
-| **文件版本** | v3.0.3 ⭐ Task 3.4.4 完成 - Sprint 1 認證系統 Phase 1-4 完成 (85.6%) |
-| **最後更新** | 2025-10-20 17:05 |
+| **專案狀態** | 執行中 (In Progress) - 目前進度: ~39.9% 完成 (Sprint 1: 85.6%, Sprint 2: 85.9%, Sprint 3: 25.0%) |
+| **文件版本** | v3.3.1 ⭐ ADR 關聯更新 - Sprint 3 ADR-010/011 參考添加, 總工時 1033h (-80h) |
+| **最後更新** | 2025-10-22 23:15 |
 
 ### ⏱️ 專案時程規劃
 
 | 項目 | 日期/時間 |
 |------|----------|
 | **總工期** | 16 週 (8 Sprints × 14 days) (2025-10-21 ～ 2026-02-12) |
-| **目前進度** | ~24.3% 完成 (~269h/1107h，Sprint 0 完成 ✅ + Sprint 1 進行中 85.6%) |
-| **當前階段** | Sprint 0 收尾 (60.6%) + 客戶需求整合完成 - CR-001 資料驗證 (10h) + CR-002 CAT 無障礙 TTS (24h) + CR-003 營養評估 (56h) = 90h 已納入 Sprint 2-3 |
+| **總工時** | 1033h ⭐ v3.3.1 調整 (-80h: 營養評估延後) |
+| **目前進度** | ~39.9% 完成 (411.75h/1033h, Sprint 0-2 完成, Sprint 3 進行中 25.0%) |
+| **當前階段** | Sprint 3 Week 5 - 實用主義路線: 360° 頁面 + LIFF 問卷 + 基礎 TTS 無障礙 ([ADR-010](./adr/ADR-010-sprint3-mvp-scope-reduction.md)) |
 | **預計交付** | 2026-Q1 (V2.0 MVP Release) |
 
 ### 👥 專案角色與職責
@@ -602,12 +603,12 @@
 
 ---
 
-### 5.0 Sprint 3: 儀表板 & 問卷系統 + 無障礙 TTS [Week 5-6] ⭐ v3.3 MVP 範圍調整
+### 5.0 Sprint 3: 儀表板 & 問卷系統 + 無障礙 TTS [Week 5-6] ⭐ v3.3 MVP 範圍調整 | ADR-010
 
 **Sprint 目標**: 完成個案 360° 頁面、CAT/mMRC 問卷系統、基礎 TTS 無障礙功能，聚焦 MVP 核心交付。
 
-**⭐ v3.3 重大調整 - 實用主義路線**:
-- ✅ **TTS 工時大幅簡化**: 24h → 8h (採用 Web Speech API，零後端成本)
+**⭐ v3.3 重大調整 - 實用主義路線** ([ADR-010: Sprint 3 MVP 範圍縮減決策](./adr/ADR-010-sprint3-mvp-scope-reduction.md)):
+- ✅ **TTS 工時大幅簡化**: 24h → 8h (採用 Web Speech API，零後端成本) → [ADR-011](./adr/ADR-011-cat-accessibility-tts-solution.md)
 - ⏸ **營養評估延後**: 56h 延後至 MVP 後 (Sprint 6+)，需求不明確暫緩
 - 🎯 **聚焦核心**: 360° 頁面 + LIFF 問卷 + 基礎無障礙 = MVP 必要功能
 - 📊 **總工時調整**: 176h → 96h (減少 80h，提升交付穩定性)
@@ -663,13 +664,15 @@
 #### 5.4 趨勢圖表元件 [16h] (P2 - 可選)
 *詳細任務分解保持原規劃*
 
-#### 5.6 CAT 量表無障礙設計 (TTS) [8h] ⭐ v3.3 大幅簡化
+#### 5.6 CAT 量表無障礙設計 (TTS) [8h] ⭐ v3.3 大幅簡化 | ADR-011
 
-**⭐ v3.3 調整: Web Speech API 實現 (零後端成本)**
+**⭐ v3.3 調整: Web Speech API 實現 (零後端成本)** ([ADR-011: CAT 無障礙 TTS 技術方案](./adr/ADR-011-cat-accessibility-tts-solution.md))
 
 **業務目標**: 為 COPD 病患提供基礎語音朗讀功能，減輕閱讀疲勞，提升問卷填答體驗。
 
 **技術方案**: 採用瀏覽器原生 Web Speech API，無需後端 TTS 服務，零額外成本。
+
+**參考實現**: [docs/frontend/cat_form.html](./frontend/cat_form.html) - 無障礙設計範例與問卷結構
 
 | 任務編號 | 任務名稱 | 負責人 | 工時(h) | 狀態 | 完成日期 | 依賴關係 | 技術說明 |
 |---------|---------|--------|---------|------|----------|----------|----------|
@@ -690,12 +693,13 @@
 - Android Chrome 90+
 - Desktop Chrome/Edge (開發測試)
 
-**5.0 Sprint 3 小計**: 96h ⭐ v3.3 調整 (-80h) | 進度: 25.0% (24h/96h 已完成)
-**關鍵交付物**: 個案 360° 頁面、CAT/mMRC 問卷、LIFF 問卷頁、基礎 TTS 無障礙
-**⭐ v3.3 重大變更**:
-- TTS 簡化 24h → 8h (Web Speech API)
-- 營養評估延後 56h → Sprint 6+ (實用主義路線)
-- 聚焦 MVP 核心功能
+**5.0 Sprint 3 小計**: 96h ⭐ v3.3 調整 (-80h) | 進度: 25.0% (24h/96h 已完成) | ADR-010, ADR-011
+**關鍵交付物**: 個案 360° 頁面、CAT/mMRC 問卷 ✅、LIFF 問卷頁、基礎 TTS 無障礙
+**⭐ v3.3 重大變更** ([ADR-010](./adr/ADR-010-sprint3-mvp-scope-reduction.md)):
+- TTS 簡化 24h → 8h (Web Speech API) → [ADR-011](./adr/ADR-011-cat-accessibility-tts-solution.md)
+- 營養評估延後 56h → Sprint 6+ (實用主義路線，需求不明確)
+- 聚焦 MVP 核心功能 (360° + 問卷 + TTS)
+- 參考實現: [cat_form.html](./frontend/cat_form.html) 無障礙設計
 
 ---
 
@@ -716,20 +720,20 @@
 
 ### 🎯 整體進度統計
 
-| WBS 模組 | 總工時 | 已完成 | 進度 | 狀態 |
-|---------|--------|--------|------|------|
-| 1.0 專案管理 ⭐ | 87h (+71h) | 17h | 19.5% | 🔄 |
-| 2.0 系統架構 ⭐ | 148h (+36h) | 148h | 100% | ✅ |
-| 3.0 Sprint 1 ⭐ | 104h (+8h) | 89h | 85.6% | 🔄 |
-| 4.0 Sprint 2 ⭐ | 155.75h (+27.75h) | 133.75h | 85.9% | 🔄 |
-| 5.0 Sprint 3 ⭐ | 176h (+80h) | 0h | 0% | ⬜ |
-| 6.0 Sprint 4 | 104h | 0h | 0% | ⬜ |
-| 7.0 Sprint 5 | 80h | 0h | 0% | ⬜ |
-| 8.0 Sprint 6 | 88h | 0h | 0% | ⬜ |
-| 9.0 Sprint 7 | 72h | 0h | 0% | ⬜ |
-| 10.0 Sprint 8 | 96h | 0h | 0% | ⬜ |
-| 11.0 測試品保 | 80h | 0h | 0% | ⬜ |
-| **總計** | **1121h** (+136h) | **387.75h** | **~34.6%** | **🔄** |
+| WBS 模組 | 總工時 | 已完成 | 進度 | 狀態 | ADR 參考 |
+|---------|--------|--------|------|------|---------|
+| 1.0 專案管理 ⭐ | 87h (+71h) | 17h | 19.5% | 🔄 | - |
+| 2.0 系統架構 ⭐ | 148h (+36h) | 148h | 100% | ✅ | ADR-001~009 |
+| 3.0 Sprint 1 ⭐ | 104h (+8h) | 89h | 85.6% | 🔄 | - |
+| 4.0 Sprint 2 ⭐ | 155.75h (+27.75h) | 133.75h | 85.9% | 🔄 | ADR-009 |
+| 5.0 Sprint 3 ⭐ | 96h (-80h) | 24h | 25.0% | 🔄 | ADR-010, ADR-011 |
+| 6.0 Sprint 4 | 104h | 0h | 0% | ⬜ | - |
+| 7.0 Sprint 5 | 80h | 0h | 0% | ⬜ | - |
+| 8.0 Sprint 6 | 88h (+56h 營養) | 0h | 0% | ⬜ | - |
+| 9.0 Sprint 7 | 72h | 0h | 0% | ⬜ | - |
+| 10.0 Sprint 8 | 96h | 0h | 0% | ⬜ | - |
+| 11.0 測試品保 | 80h | 0h | 0% | ⬜ | - |
+| **總計** | **1033h** (+136-80h) | **411.75h** | **~39.9%** | **🔄** | **11 ADRs** |
 
 ### 📅 Sprint 進度分析
 
@@ -883,13 +887,19 @@
 
 ---
 
-**專案管理總結**: RespiraAlly V2.0 是一個高複雜度的 AI/ML Healthcare 專案,採用 8 Sprint 敏捷開發模式,總工時 983 小時 (v2.1 修正)。關鍵成功因素包括:專案管理流程的實務整合、技術架構的前置設計 (Sprint 0)、關鍵路徑的資源保障、風險的主動管理、以及測試品質的持續保證。
+**專案管理總結**: RespiraAlly V2.0 是一個高複雜度的 AI/ML Healthcare 專案,採用 8 Sprint 敏捷開發模式,總工時 1033 小時 (v3.3.1 調整: -80h)。關鍵成功因素包括:專案管理流程的實務整合、技術架構的前置設計 (Sprint 0)、關鍵路徑的資源保障、風險的主動管理、以及測試品質的持續保證。
 
 **架構決策**: MVP 階段採用 **Modular Monolith + PostgreSQL** 簡化技術棧，確保快速交付。Phase 3 後可根據實際需求拆分為微服務與專用向量資料庫。
 
+**⭐ v3.3.1 ADR 關聯更新** (2025-10-22):
+- Sprint 3 MVP 範圍調整 → [ADR-010](./adr/ADR-010-sprint3-mvp-scope-reduction.md)
+- CAT 無障礙 TTS 技術方案 → [ADR-011](./adr/ADR-011-cat-accessibility-tts-solution.md)
+- 總工時: 1113h → 1033h (-80h)
+- 專案進度: 34.6% → 39.9% (+5.3%)
+
 **專案經理**: TaskMaster Hub / Claude Code AI
-**最後更新**: 2025-10-18 10:00
-**下次檢討**: 2025-10-21 (Sprint 1 Planning)
+**最後更新**: 2025-10-22 23:15
+**下次檢討**: 2025-11-05 (Sprint 3 End)
 
 ---
 
