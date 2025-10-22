@@ -329,7 +329,7 @@ async def delete_daily_log(
             detail="You can only delete your own logs",
         )
 
-    deleted = await service.delete_daily_log(log_id)
+    deleted = await service.delete_daily_log(log_id, deleted_by=current_user.user_id)
     if not deleted:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

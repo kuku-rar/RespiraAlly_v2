@@ -157,3 +157,65 @@ def create_daily_log_submitted_event(
         is_first_log_today=is_first_log_today,
         consecutive_days=consecutive_days,
     )
+
+
+def create_daily_log_updated_event(
+    log_id: UUID,
+    patient_id: UUID,
+    log_date: date,
+    updated_fields: list[str],
+) -> DailyLogUpdatedEvent:
+    """
+    Factory function to create DailyLogUpdatedEvent
+
+    Args:
+        log_id: Daily log ID
+        patient_id: Patient who owns the log
+        log_date: Date of the log
+        updated_fields: List of field names that were updated
+
+    Returns:
+        DailyLogUpdatedEvent instance
+    """
+    from uuid import uuid4
+
+    return DailyLogUpdatedEvent(
+        event_id=str(uuid4()),
+        event_type="daily_log.updated",
+        timestamp=datetime.utcnow(),
+        aggregate_id=log_id,
+        patient_id=patient_id,
+        log_date=log_date,
+        updated_fields=updated_fields,
+    )
+
+
+def create_daily_log_deleted_event(
+    log_id: UUID,
+    patient_id: UUID,
+    log_date: date,
+    deleted_by: UUID,
+) -> DailyLogDeletedEvent:
+    """
+    Factory function to create DailyLogDeletedEvent
+
+    Args:
+        log_id: Daily log ID
+        patient_id: Patient who owns the log
+        log_date: Date of the log
+        deleted_by: User ID who deleted the log
+
+    Returns:
+        DailyLogDeletedEvent instance
+    """
+    from uuid import uuid4
+
+    return DailyLogDeletedEvent(
+        event_id=str(uuid4()),
+        event_type="daily_log.deleted",
+        timestamp=datetime.utcnow(),
+        aggregate_id=log_id,
+        patient_id=patient_id,
+        log_date=log_date,
+        deleted_by=deleted_by,
+    )

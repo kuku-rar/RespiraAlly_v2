@@ -17,7 +17,11 @@ from respira_ally.core.schemas.daily_log import (
     DailyLogListResponse,
     DailyLogStats,
 )
-from respira_ally.domain.events.daily_log_events import create_daily_log_submitted_event
+from respira_ally.domain.events.daily_log_events import (
+    create_daily_log_submitted_event,
+    create_daily_log_updated_event,
+    create_daily_log_deleted_event,
+)
 from respira_ally.domain.repositories.daily_log_repository import DailyLogRepository
 from respira_ally.infrastructure.database.models.daily_log import DailyLogModel
 from respira_ally.infrastructure.message_queue.publishers.event_publisher import EventPublisher
@@ -244,6 +248,84 @@ class DailyLogService:
                 exc_info=True
             )
 
+    async def _publish_daily_log_updated_event(
+        self,
+        log_id: UUID,
+        patient_id: UUID,
+        log_date: date,
+        updated_fields: list[str],
+    ) -> None:
+        """
+        Publish daily log updated event
+
+        Args:
+            log_id: Log ID
+            patient_id: Patient ID
+            log_date: Log date
+            updated_fields: List of fields that were updated
+        """
+        if self.event_publisher is None:
+            logger.warning("Event publisher not configured, skipping event publication")
+            return
+
+        try:
+            # Create and publish event
+            event = create_daily_log_updated_event(
+                log_id=log_id,
+                patient_id=patient_id,
+                log_date=log_date,
+                updated_fields=updated_fields,
+            )
+
+            await self.event_publisher.publish(event)
+            logger.info(f"Published daily_log.updated event for log {log_id} (fields: {', '.join(updated_fields)})")
+
+        except Exception as e:
+            # Log error but don't fail the request
+            logger.error(
+                f"Failed to publish daily_log.updated event for log {log_id}: {str(e)}",
+                exc_info=True
+            )
+
+    async def _publish_daily_log_deleted_event(
+        self,
+        log_id: UUID,
+        patient_id: UUID,
+        log_date: date,
+        deleted_by: UUID,
+    ) -> None:
+        """
+        Publish daily log deleted event
+
+        Args:
+            log_id: Log ID
+            patient_id: Patient ID
+            log_date: Log date
+            deleted_by: User ID who deleted the log
+        """
+        if self.event_publisher is None:
+            logger.warning("Event publisher not configured, skipping event publication")
+            return
+
+        try:
+            # Create and publish event
+            event = create_daily_log_deleted_event(
+                log_id=log_id,
+                patient_id=patient_id,
+                log_date=log_date,
+                deleted_by=deleted_by,
+            )
+
+            await self.event_publisher.publish(event)
+            logger.info(f"Published daily_log.deleted event for log {log_id}")
+
+        except Exception as e:
+            # Log error but don't fail the request
+            logger.error(
+                f"Failed to publish daily_log.deleted event for log {log_id}: {str(e)}",
+                exc_info=True
+            )
+
     # ========================================================================
     # Read Operations
     # ========================================================================
@@ -366,23 +448,50 @@ class DailyLogService:
         if not updated_log:
             return None
 
+        # Publish DailyLogUpdated event
+        await self._publish_daily_log_updated_event(
+            log_id=updated_log.log_id,
+            patient_id=updated_log.patient_id,
+            log_date=updated_log.log_date,
+            updated_fields=list(update_data.keys()),
+        )
+
         return self.to_response(updated_log)
 
     # ========================================================================
     # Delete Operations
     # ========================================================================
 
-    async def delete_daily_log(self, log_id: UUID) -> bool:
+    async def delete_daily_log(self, log_id: UUID, deleted_by: UUID) -> bool:
         """
         Delete daily log record
 
         Args:
             log_id: Daily log ID
+            deleted_by: User ID who is deleting the log
 
         Returns:
             True if log was deleted, False if not found
         """
-        return await self.daily_log_repo.delete(log_id)
+        # Get log info before deleting (for event publishing)
+        log = await self.daily_log_repo.get_by_id(log_id)
+        if not log:
+            return False
+
+        # Delete the log
+        deleted = await self.daily_log_repo.delete(log_id)
+        if not deleted:
+            return False
+
+        # Publish DailyLogDeleted event
+        await self._publish_daily_log_deleted_event(
+            log_id=log_id,
+            patient_id=log.patient_id,
+            log_date=log.log_date,
+            deleted_by=deleted_by,
+        )
+
+        return True
 
     # ========================================================================
     # Statistics & Analytics

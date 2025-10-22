@@ -90,7 +90,7 @@ CREATE INDEX idx_correct ON daily_logs(patient_id, log_date DESC);
 
 ```sql
 -- 查詢
-SELECT log_date, medication_taken, water_intake_ml, steps_count
+SELECT log_date, medication_taken, water_intake_ml, exercise_minutes  -- ⚠️ Changed from steps_count (v4.9)
 FROM daily_logs
 WHERE patient_id = ?
   AND log_date >= CURRENT_DATE - INTERVAL '7 days'

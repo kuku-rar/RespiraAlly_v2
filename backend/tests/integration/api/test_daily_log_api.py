@@ -462,3 +462,295 @@ async def test_get_daily_log_without_auth(
 
     # Assert
     assert response.status_code == 401, f"Expected 401, got {response.status_code}"
+
+
+# ============================================================================
+# PATCH /api/v1/daily-logs/{log_id} - Update Daily Log
+# ============================================================================
+
+@pytest.mark.asyncio
+async def test_update_daily_log_success(
+    client: TestClient,
+    patient_user: UserModel,
+    patient_token: str,
+):
+    """
+    Test updating a daily log successfully (Happy Path)
+
+    Scenario: Patient updates their own daily log
+    Expected: 200 OK, updated log data returned
+    """
+    # Arrange - Create a log first
+    log_data = {
+        "patient_id": str(patient_user.user_id),
+        "log_date": date.today().isoformat(),
+        "medication_taken": True,
+        "water_intake_ml": 2000,
+        "exercise_minutes": 30,
+        "mood": "GOOD"
+    }
+    create_response = client.post(
+        "/api/v1/daily-logs",
+        json=log_data,
+        headers={"Authorization": f"Bearer {patient_token}"}
+    )
+    assert create_response.status_code == 201
+    log_id = create_response.json()["log_id"]
+
+    # Act - Update the log
+    update_data = {
+        "water_intake_ml": 2500,
+        "exercise_minutes": 45,
+        "mood": "NEUTRAL"
+    }
+    response = client.patch(
+        f"/api/v1/daily-logs/{log_id}",
+        json=update_data,
+        headers={"Authorization": f"Bearer {patient_token}"}
+    )
+
+    # Assert
+    assert response.status_code == 200, f"Expected 200, got {response.status_code}: {response.text}"
+    data = response.json()
+    assert data["water_intake_ml"] == 2500  # Updated
+    assert data["exercise_minutes"] == 45  # Updated
+    assert data["mood"] == "NEUTRAL"  # Updated
+    assert data["medication_taken"] == True  # Unchanged
+
+
+@pytest.mark.asyncio
+async def test_update_daily_log_partial_fields(
+    client: TestClient,
+    patient_user: UserModel,
+    patient_token: str,
+    db_session: AsyncSession,
+):
+    """
+    Test updating only specific fields (Partial Update Test)
+
+    Scenario: Patient updates only mood, other fields remain unchanged
+    Expected: 200 OK, only specified field updated
+    """
+    # Arrange - Create a log first with unique timestamp
+    from datetime import datetime
+    unique_date = date.today() - timedelta(days=10)  # Use older date to avoid conflicts
+
+    log_data = {
+        "patient_id": str(patient_user.user_id),
+        "log_date": unique_date.isoformat(),
+        "medication_taken": True,
+        "water_intake_ml": 2000,
+        "exercise_minutes": 30,
+        "symptoms": "Mild cough",
+        "mood": "GOOD"
+    }
+    create_response = client.post(
+        "/api/v1/daily-logs",
+        json=log_data,
+        headers={"Authorization": f"Bearer {patient_token}"}
+    )
+    assert create_response.status_code == 201, f"Failed to create log: {create_response.text}"
+    log_id = create_response.json()["log_id"]
+
+    # Act - Update only mood
+    update_data = {"mood": "BAD"}
+    response = client.patch(
+        f"/api/v1/daily-logs/{log_id}",
+        json=update_data,
+        headers={"Authorization": f"Bearer {patient_token}"}
+    )
+
+    # Assert
+    assert response.status_code == 200, f"Failed to update: {response.text}"
+    data = response.json()
+    assert data["mood"] == "BAD"  # Updated
+    assert data["medication_taken"] == True  # Unchanged
+    assert data["water_intake_ml"] == 2000  # Unchanged
+    assert data["exercise_minutes"] == 30  # Unchanged
+    assert data["symptoms"] == "Mild cough"  # Unchanged
+
+
+@pytest.mark.asyncio
+async def test_update_daily_log_not_found(
+    client: TestClient,
+    patient_token: str,
+):
+    """
+    Test updating non-existent daily log (Error Case - 404)
+
+    Scenario: Patient tries to update a log that doesn't exist
+    Expected: 404 Not Found
+    """
+    # Arrange
+    from uuid import uuid4
+    fake_log_id = str(uuid4())
+    update_data = {"mood": "GOOD"}
+
+    # Act
+    response = client.patch(
+        f"/api/v1/daily-logs/{fake_log_id}",
+        json=update_data,
+        headers={"Authorization": f"Bearer {patient_token}"}
+    )
+
+    # Assert
+    assert response.status_code == 404, f"Expected 404, got {response.status_code}"
+
+
+@pytest.mark.asyncio
+async def test_update_other_patient_log_forbidden(
+    client: TestClient,
+    patient_user: UserModel,
+    other_patient_user: UserModel,
+    patient_token: str,
+    other_patient_token: str,
+):
+    """
+    Test updating another patient's log (Error Case - 403)
+
+    Scenario: Patient tries to update another patient's log
+    Expected: 403 Forbidden
+    """
+    # Arrange - Create log as other_patient
+    log_data = {
+        "patient_id": str(other_patient_user.user_id),
+        "log_date": date.today().isoformat(),
+        "medication_taken": True,
+        "water_intake_ml": 2000,
+    }
+    create_response = client.post(
+        "/api/v1/daily-logs",
+        json=log_data,
+        headers={"Authorization": f"Bearer {other_patient_token}"}
+    )
+    assert create_response.status_code == 201
+    log_id = create_response.json()["log_id"]
+
+    # Act - Try to update as different patient
+    update_data = {"mood": "GOOD"}
+    response = client.patch(
+        f"/api/v1/daily-logs/{log_id}",
+        json=update_data,
+        headers={"Authorization": f"Bearer {patient_token}"}  # Different patient token
+    )
+
+    # Assert
+    assert response.status_code == 403, f"Expected 403, got {response.status_code}"
+
+
+# ============================================================================
+# DELETE /api/v1/daily-logs/{log_id} - Delete Daily Log
+# ============================================================================
+
+@pytest.mark.asyncio
+async def test_delete_daily_log_success(
+    client: TestClient,
+    patient_user: UserModel,
+    patient_token: str,
+    db_session: AsyncSession,
+):
+    """
+    Test deleting a daily log successfully (Happy Path)
+
+    Scenario: Patient deletes their own daily log
+    Expected: 204 No Content
+    """
+    # Arrange - Create a log first with unique date
+    unique_date = date.today() - timedelta(days=20)  # Use older date to avoid conflicts
+
+    log_data = {
+        "patient_id": str(patient_user.user_id),
+        "log_date": unique_date.isoformat(),
+        "medication_taken": True,
+        "water_intake_ml": 2000,
+    }
+    create_response = client.post(
+        "/api/v1/daily-logs",
+        json=log_data,
+        headers={"Authorization": f"Bearer {patient_token}"}
+    )
+    assert create_response.status_code == 201, f"Failed to create log: {create_response.text}"
+    log_id = create_response.json()["log_id"]
+
+    # Act - Delete the log
+    response = client.delete(
+        f"/api/v1/daily-logs/{log_id}",
+        headers={"Authorization": f"Bearer {patient_token}"}
+    )
+
+    # Assert
+    assert response.status_code == 204, f"Expected 204, got {response.status_code}: {response.text}"
+
+    # Verify log is actually deleted
+    get_response = client.get(
+        f"/api/v1/daily-logs/{log_id}",
+        headers={"Authorization": f"Bearer {patient_token}"}
+    )
+    assert get_response.status_code == 404  # Log should not exist
+
+
+@pytest.mark.asyncio
+async def test_delete_daily_log_not_found(
+    client: TestClient,
+    patient_token: str,
+):
+    """
+    Test deleting non-existent daily log (Error Case - 404)
+
+    Scenario: Patient tries to delete a log that doesn't exist
+    Expected: 404 Not Found
+    """
+    # Arrange
+    from uuid import uuid4
+    fake_log_id = str(uuid4())
+
+    # Act
+    response = client.delete(
+        f"/api/v1/daily-logs/{fake_log_id}",
+        headers={"Authorization": f"Bearer {patient_token}"}
+    )
+
+    # Assert
+    assert response.status_code == 404, f"Expected 404, got {response.status_code}"
+
+
+@pytest.mark.asyncio
+async def test_delete_other_patient_log_forbidden(
+    client: TestClient,
+    patient_user: UserModel,
+    other_patient_user: UserModel,
+    patient_token: str,
+    other_patient_token: str,
+    db_session: AsyncSession,
+):
+    """
+    Test deleting another patient's log (Error Case - 403)
+
+    Scenario: Patient tries to delete another patient's log
+    Expected: 403 Forbidden
+    """
+    # Arrange - Create log as other_patient with unique date
+    unique_date = date.today() - timedelta(days=30)  # Use older date to avoid conflicts
+
+    log_data = {
+        "patient_id": str(other_patient_user.user_id),
+        "log_date": unique_date.isoformat(),
+        "medication_taken": True,
+        "water_intake_ml": 2000,
+    }
+    create_response = client.post(
+        "/api/v1/daily-logs",
+        json=log_data,
+        headers={"Authorization": f"Bearer {other_patient_token}"}
+    )
+    assert create_response.status_code == 201, f"Failed to create log: {create_response.text}"
+    log_id = create_response.json()["log_id"]
+
+    # Act - Try to delete as different patient
+    response = client.delete(
+        f"/api/v1/daily-logs/{log_id}",
+        headers={"Authorization": f"Bearer {patient_token}"}  # Different patient token
+    )
+
+    # Assert
+    assert response.status_code == 403, f"Expected 403, got {response.status_code}"

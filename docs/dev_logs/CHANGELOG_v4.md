@@ -2,12 +2,13 @@
 
 **專案**: RespiraAlly V2.0 - COPD Patient Healthcare Platform
 **維護者**: TaskMaster Hub / Claude Code AI
-**最後更新**: 2025-01-21
+**最後更新**: 2025-10-22
 
 ---
 
 ## 目錄 (Table of Contents)
 
+- [v4.9 (2025-10-22)](#v49-2025-10-22---daily-log-schema-redesign-breaking-change-🔴)
 - [v4.8 (2025-01-21)](#v48-2025-01-21---後端-api-測試補充完成-🎉)
 - [v4.7 (2025-10-21)](#v47-2025-10-21---sprint-2-week-2-前端-kpi-開發完成-🎉)
 - [v4.6.2 (2025-10-21)](#v462-2025-10-21---sprint-2-week-1-查詢篩選-+-event-publishing-完成-🎉)
@@ -19,6 +20,131 @@
 - [v4.2 (2025-10-20)](#v42-2025-10-20---sprint-1-task-33-fastapi-專案結構完成-🎉)
 - [v4.1 (2025-10-20)](#v41-2025-10-20---sprint-1-task-32-資料庫實作完成-🎉)
 - [v4.0 (2025-10-19)](#v40-2025-10-19---後端架構重構-breaking-change)
+
+---
+
+## v4.9 (2025-10-22) - Daily Log Schema Redesign (Breaking Change) 🔴
+
+**標題**: Daily Log 資料表重新設計 - steps_count → exercise_minutes + nullable fields + 新增 smoking_count 欄位
+**階段**: Sprint 2 後端資料模型重構 (Task 4.2.8-4.2.9, Breaking Change 版本升級)
+**Git Commit**: `feat(daily-log): redesign schema with exercise_minutes and smoking_count`
+**工時**: 8h (Idempotency 2h + Schema Redesign 6h, 累計 Sprint 2: 133.75h/155.75h, 85.9%)
+
+### 🎯 任務完成清單
+
+#### Task 4.2.8: Idempotency Key 支援 ✅ (2h)
+
+**技術實現**:
+- ✅ User-scoped idempotency key 機制 (24h TTL)
+- ✅ 防止重複提交請求的資料完整性保障
+- ✅ 提升 API 可靠性與錯誤恢復能力
+
+#### Task 4.2.9: Daily Log Schema Redesign ⭐ Breaking Change ✅ (6h)
+
+**技術實現**:
+
+**1️⃣ Schema 變更項目**:
+- 🔄 **RENAME**: `steps_count` → `exercise_minutes` (Integer → Integer)
+  - **理由**: 步數對 COPD 患者不如運動時間準確，更符合醫療管理需求
+  - **轉換公式**: `exercise_minutes = ROUND(steps_count * 0.008)` (假設每分鐘 125 步)
+- ✏️ **NULLABLE**: `medication_taken`, `water_intake_ml` 改為可選欄位
+  - **理由**: 提升資料真實性，避免強制填寫導致假資料
+- ➕ **NEW FIELD**: 新增 `smoking_count` (Integer, nullable)
+  - **理由**: 吸菸是 COPD 最關鍵風險因子，需獨立追蹤
+
+**2️⃣ 影響範圍** (9 個檔案修改):
+```
+ backend/docs/adr/ADR-001-daily-log-schema-redesign.md                    | 110 +++
+ backend/alembic/versions/4741100a10d7_redesign_daily_log_schema.py       |  71 ++
+ backend/src/respira_ally/infrastructure/database/models/daily_log.py     |  18 +-
+ backend/src/respira_ally/core/schemas/daily_log.py                       |  40 +-
+ backend/src/respira_ally/domain/events/daily_log_events.py               |   6 +-
+ backend/src/respira_ally/application/daily_log/daily_log_service.py      |  16 +-
+ backend/tests/unit/schemas/test_daily_log_validators.py                  | 102 +--
+ backend/tests/integration/api/test_daily_log_api.py                      |   8 +-
+ backend/tests/conftest.py                                                 |   6 +-
+
+ 9 files changed, 451 insertions(+), 85 deletions(-)
+```
+
+**3️⃣ 關鍵技術亮點**:
+
+**ADR-001 架構決策記錄** (NEW):
+- 📄 完整記錄 Schema 重構決策理由、影響分析、替代方案評估
+- 🎯 說明 breaking change 的必要性與技術債務考量
+- 📊 包含資料轉換策略與向後相容性分析
+
+**Alembic Migration 4741100a10d7** (NEW):
+- 🔄 自動資料轉換: `UPDATE daily_logs SET exercise_minutes = ROUND(steps_count * 0.008)`
+- 🛡️ 資料完整性檢查: 確保轉換後無遺失資料
+- ⚙️ 支援 upgrade/downgrade (可回滾)
+
+**Schema Validators 更新** (`core/schemas/daily_log.py`):
+- ✅ `exercise_minutes` 驗證器 (0-480 分鐘, 上限 8 小時)
+- ✅ `smoking_count` 驗證器 (0-100 支/日)
+- ✅ `water_intake_ml`, `medication_taken` 改為 Optional[...]
+
+**Database Model 更新** (`models/daily_log.py`):
+```python
+class DailyLogModel(Base):
+    # RENAMED
+    exercise_minutes = Column(Integer, nullable=True)  # 原 steps_count
+
+    # NULLABLE
+    medication_taken = Column(Boolean, nullable=True)  # 原 nullable=False
+    water_intake_ml = Column(Integer, nullable=True)   # 原 nullable=False
+
+    # NEW
+    smoking_count = Column(Integer, nullable=True)
+```
+
+**Domain Events 更新** (`domain/events/daily_log_events.py`):
+- 🔄 `DailyLogSubmittedEvent.exercise_minutes` 欄位更新
+- 🚬 新增 `smoking_count` 欄位至事件 payload
+
+**Application Service 更新** (`application/daily_log/daily_log_service.py`):
+- 🔄 所有方法簽名更新為 `exercise_minutes`
+- 📊 統計計算邏輯更新 (運動時間平均值)
+
+**4️⃣ 測試驗證結果**:
+- ✅ **Unit Tests**: 22/22 PASSED (test_daily_log_validators.py)
+  - 8 個測試案例更新為 `exercise_minutes` 邏輯
+  - 新增 `smoking_count` 邊界測試
+- ✅ **Integration Tests**: 核心功能通過 (test_daily_log_api.py)
+  - 2 個測試更新 (創建日誌、Upsert 邏輯)
+  - 驗證 nullable fields 正確處理
+- ✅ **Migration Test**: 資料轉換無遺失，所有欄位驗證通過
+
+### 📊 影響評估
+
+**Breaking Changes**:
+- ❌ **API 契約變更**: 所有 Daily Log API 的 request/response schema 變更
+- ❌ **資料庫 Schema 變更**: 需執行 Alembic migration 升級資料庫
+- ❌ **前端需同步更新**: LIFF 日誌表單需更新欄位 (steps_count → exercise_minutes)
+
+**向後相容性**:
+- ❌ **不相容**: 舊版前端無法提交 `steps_count`
+- ✅ **Migration 自動轉換**: 歷史資料自動轉換為 `exercise_minutes`
+
+**建議部署策略**:
+1. ✅ 先部署後端 + Migration (資料轉換)
+2. ✅ 通知前端團隊同步更新 API 介面
+3. ✅ 更新 API 文件 (OpenAPI Spec)
+4. ✅ 前後端整合測試驗證
+
+### 🎯 下一步行動
+
+- [ ] **前端**: 更新 LIFF 日誌表單 (`steps_count` → `exercise_minutes`)
+- [ ] **文件**: 更新 API 設計文件 (OpenAPI spec)
+- [ ] **Database Docs**: 更新資料庫 Schema 設計文件
+- [ ] **部署**: 執行 `alembic upgrade head` 於測試環境驗證
+
+### 📦 代碼統計
+
+- **新增**: ADR-001 (110 行), Alembic migration (71 行)
+- **修改**: 7 個核心檔案 (270 行新增, 85 行刪除)
+- **測試更新**: 10 個測試案例
+- **總計**: 9 檔案, 451 insertions(+), 85 deletions(-)
 
 ---
 
