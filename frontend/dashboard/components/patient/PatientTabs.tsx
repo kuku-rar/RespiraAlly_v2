@@ -12,6 +12,7 @@ import type { PatientResponse } from '@/lib/types/patient'
 import type { DailyLogListResponse } from '@/lib/types/daily-log'
 import type { SurveyListResponse } from '@/lib/types/survey'
 import { getCATScoreLabel, getMMRCGradeLabel } from '@/lib/types/survey'
+import { EmptyState } from '@/components/ui'
 
 interface PatientTabsProps {
   patient: PatientResponse
@@ -126,12 +127,11 @@ function ProfileTab({ patient }: { patient: PatientResponse }) {
 function DailyLogsTab({ dailyLogs }: { dailyLogs?: DailyLogListResponse }) {
   if (!dailyLogs || dailyLogs.items.length === 0) {
     return (
-      <div className="text-center py-12">
-        <p className="text-gray-500 text-lg">尚無每日紀錄資料</p>
-        <p className="text-gray-400 text-sm mt-2">
-          病患填寫每日健康紀錄後，資料會顯示在這裡
-        </p>
-      </div>
+      <EmptyState
+        icon="📊"
+        title="尚無每日紀錄資料"
+        description="病患填寫每日健康紀錄後，資料會顯示在這裡"
+      />
     )
   }
 
@@ -203,12 +203,11 @@ function DailyLogsTab({ dailyLogs }: { dailyLogs?: DailyLogListResponse }) {
 function SurveysTab({ surveys }: { surveys?: SurveyListResponse }) {
   if (!surveys || surveys.items.length === 0) {
     return (
-      <div className="text-center py-12">
-        <p className="text-gray-500 text-lg">尚無問卷評估資料</p>
-        <p className="text-gray-400 text-sm mt-2">
-          病患完成 CAT 或 mMRC 問卷後，結果會顯示在這裡
-        </p>
-      </div>
+      <EmptyState
+        icon="📋"
+        title="尚無問卷評估資料"
+        description="病患完成 CAT 或 mMRC 問卷後，結果會顯示在這裡"
+      />
     )
   }
 

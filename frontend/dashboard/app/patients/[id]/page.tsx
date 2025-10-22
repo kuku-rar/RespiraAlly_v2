@@ -10,6 +10,7 @@
 import { useParams } from 'next/navigation'
 import { usePatient, useDailyLogs, useSurveys } from '@/hooks/api'
 import { PatientHeader, PatientTabs } from '@/components/patient'
+import { LoadingSpinner, ErrorAlert, PageErrorBoundary } from '@/components/ui'
 
 export default function PatientDetailPage() {
   const params = useParams()
@@ -52,12 +53,11 @@ export default function PatientDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="inline-block h-16 w-16 animate-spin rounded-full border-4 border-solid border-blue-600 border-r-transparent align-[-0.125em]"></div>
-          <p className="mt-4 text-xl font-medium text-gray-700">載入中...</p>
-        </div>
-      </div>
+      <LoadingSpinner
+        size="lg"
+        message="載入病患資料中..."
+        fullScreen
+      />
     )
   }
 
@@ -68,16 +68,11 @@ export default function PatientDetailPage() {
   if (patientError) {
     return (
       <div className="container mx-auto py-8">
-        <div className="rounded-lg border border-red-200 bg-red-50 p-6">
-          <h2 className="text-xl font-semibold text-red-900 mb-2">無法載入病患資料</h2>
-          <p className="text-red-700">{patientError.message}</p>
-          <button
-            onClick={() => window.location.reload()}
-            className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
-          >
-            重試
-          </button>
-        </div>
+        <ErrorAlert
+          title="無法載入病患資料"
+          message={patientError.message}
+          onRetry={() => window.location.reload()}
+        />
       </div>
     )
   }
@@ -85,10 +80,11 @@ export default function PatientDetailPage() {
   if (!patient) {
     return (
       <div className="container mx-auto py-8">
-        <div className="rounded-lg border border-gray-200 bg-gray-50 p-6 text-center">
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">找不到病患資料</h2>
-          <p className="text-gray-600">病患 ID: {patientId}</p>
-        </div>
+        <ErrorAlert
+          title="找不到病患資料"
+          message={`病患 ID: ${patientId} 不存在於系統中`}
+          variant="warning"
+        />
       </div>
     )
   }
@@ -98,23 +94,27 @@ export default function PatientDetailPage() {
   // ========================================
 
   return (
-    <div className="container mx-auto py-8 space-y-6">
-      {/* Patient Header */}
-      <PatientHeader patient={patient} />
+    <PageErrorBoundary pageName="病患詳細資料頁面">
+      <div className="container mx-auto py-8 space-y-6">
+        {/* Patient Header */}
+        <PatientHeader patient={patient} />
 
-      {/* Patient Tabs (Profile, Daily Logs, Surveys) */}
-      <PatientTabs patient={patient} dailyLogs={dailyLogs} surveys={surveys} />
+        {/* Patient Tabs (Profile, Daily Logs, Surveys) */}
+        <PatientTabs patient={patient} dailyLogs={dailyLogs} surveys={surveys} />
 
-      {/* Success Message - Task 5.1.2 Completed */}
-      <div className="bg-green-50 border-2 border-green-200 rounded-lg p-4">
-        <p className="text-lg text-green-800 font-semibold">
-          ✅ Task 5.1.2 完成 - PatientHeader + PatientTabs 組件實現！
-        </p>
-        <p className="text-sm text-green-700 mt-1">
-          • PatientHeader: 顯示病患基本資訊與返回按鈕<br />
-          • PatientTabs: Tab 切換介面 (基本資料、每日紀錄、問卷評估)
-        </p>
+        {/* Success Message - Task 5.1.4 Completed */}
+        <div className="bg-green-50 border-2 border-green-200 rounded-lg p-4">
+          <p className="text-lg text-green-800 font-semibold">
+            ✅ Task 5.1.4 完成 - 錯誤處理 + Loading 狀態優化！
+          </p>
+          <p className="text-sm text-green-700 mt-1">
+            • LoadingSpinner: 可重用的載入指示器 (sm/md/lg/xl)<br />
+            • ErrorAlert: 統一的錯誤顯示組件 (error/warning/info)<br />
+            • ErrorBoundary: React 錯誤邊界保護機制<br />
+            • 改進的載入與錯誤狀態處理
+          </p>
+        </div>
       </div>
-    </div>
+    </PageErrorBoundary>
   )
 }
