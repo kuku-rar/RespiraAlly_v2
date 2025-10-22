@@ -5,7 +5,7 @@ Handles submission and scoring of mMRC (Modified Medical Research Council) surve
 from datetime import datetime
 from uuid import UUID, uuid4
 
-from respira_ally.core.exceptions.application_exceptions import NotFoundError, ValidationError
+from respira_ally.core.exceptions.application_exceptions import ResourceNotFoundError, ValidationError
 from respira_ally.core.schemas.survey import mMRCSurveyAnswers, SurveyResponse
 from respira_ally.domain.repositories.patient_repository import PatientRepository
 from respira_ally.domain.repositories.survey_repository import SurveyRepository
@@ -49,13 +49,13 @@ class SubmitMmrcSurveyUseCase:
             SurveyResponse with validated grade and severity
 
         Raises:
-            NotFoundError: If patient not found
+            ResourceNotFoundError: If patient not found
             ValidationError: If validation fails
         """
         # Validate patient exists
-        patient = await self.patient_repository.get_by_user_id(patient_id)
+        patient = await self.patient_repository.get_by_id(patient_id)
         if patient is None:
-            raise NotFoundError(resource_type="Patient", resource_id=str(patient_id))
+            raise ResourceNotFoundError(resource_type="Patient", resource_id=str(patient_id))
 
         # Validate grade and determine severity using domain service
         grade, severity_level = self.mmrc_scorer.score_and_classify(answers)
