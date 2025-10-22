@@ -260,3 +260,38 @@ async def get_idempotency_service(
     """
     from respira_ally.infrastructure.cache import IdempotencyService
     return IdempotencyService(redis)
+
+
+async def get_survey_service(
+    db: Annotated[AsyncSession, Depends(get_db)]
+):
+    """
+    Dependency injection for SurveyService
+
+    Provides SurveyService instance with Survey and Patient repositories injected.
+
+    Args:
+        db: Database session from FastAPI dependency
+
+    Returns:
+        SurveyService instance
+
+    Usage:
+        @router.post("/surveys/cat")
+        async def submit_cat(
+            service: Annotated[SurveyService, Depends(get_survey_service)]
+        ):
+            return await service.submit_cat_survey(...)
+    """
+    from respira_ally.application.survey.survey_service import SurveyService
+    from respira_ally.infrastructure.repositories.survey_repository_impl import (
+        SurveyRepositoryImpl,
+    )
+    from respira_ally.infrastructure.repositories.patient_repository_impl import (
+        PatientRepositoryImpl,
+    )
+
+    survey_repo = SurveyRepositoryImpl(db)
+    patient_repo = PatientRepositoryImpl(db)
+
+    return SurveyService(survey_repo, patient_repo)
