@@ -6,9 +6,10 @@
 import { useEffect, useState } from 'react'
 import RegisterPage from './pages/Register'
 import LogForm from './pages/LogForm'
+import SurveyPage from './pages/SurveyPage'
 import { tokenManager } from './api/auth'
 
-type Page = 'home' | 'log-form'
+type Page = 'home' | 'log-form' | 'survey'
 
 function App() {
   const [isRegistered, setIsRegistered] = useState(false)
@@ -40,6 +41,10 @@ function App() {
     return <LogForm />
   }
 
+  if (currentPage === 'survey') {
+    return <SurveyPage />
+  }
+
   // Home page (default)
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-blue-50 px-4 py-8">
@@ -68,6 +73,14 @@ function App() {
               style={{ minHeight: '56px' }}
             >
               📝 記錄今日健康日誌
+            </button>
+
+            <button
+              onClick={() => setCurrentPage('survey')}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white text-xl font-semibold py-4 rounded-lg transition-colors"
+              style={{ minHeight: '56px' }}
+            >
+              📋 填寫問卷評估
             </button>
 
             <button
