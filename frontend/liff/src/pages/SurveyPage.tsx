@@ -13,6 +13,7 @@
 
 import { useState } from 'react'
 import { useTTS } from '../hooks/useTTS'
+import { QuestionCard, ProgressBar } from '../components/survey'
 import {
   SurveyType,
   getSurveyQuestions,
@@ -268,37 +269,95 @@ export default function SurveyPage() {
   )
 
   /**
-   * Render survey form (placeholder - will be implemented in Task 5.3.2)
+   * Render survey form
    */
   const renderSurveyForm = () => (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-blue-50 px-4 py-8">
-      <div className="max-w-2xl mx-auto">
-        <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-200">
-          <div className="text-center mb-6">
-            <h2 className="text-2xl font-bold text-gray-900">
-              {surveyType === SurveyType.CAT ? 'CAT 評估測試' : 'mMRC 呼吸困難分級'}
-            </h2>
-            <p className="text-gray-600 mt-2">
-              問題 {currentStep + 1} / {totalSteps}
-            </p>
-          </div>
-
-          {/* TODO: Implement QuestionCard in Task 5.3.2 */}
-          <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-6 text-center">
-            <p className="text-lg text-blue-900 font-semibold mb-2">
-              🚧 開發中
-            </p>
-            <p className="text-blue-700">
-              問卷表單 UI 將在 Task 5.3.2 (Week 6 Day 2) 完成
-            </p>
-            <button
-              onClick={handleReset}
-              className="mt-4 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-            >
-              返回選擇
-            </button>
-          </div>
+    <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-blue-50 px-4 py-6 sm:py-8">
+      <div className="max-w-3xl mx-auto">
+        {/* Header */}
+        <div className="text-center mb-6">
+          <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-2">
+            {surveyType === SurveyType.CAT ? 'CAT 評估測試' : 'mMRC 呼吸困難分級'}
+          </h1>
+          <p className="text-lg text-gray-600">
+            {surveyType === SurveyType.CAT
+              ? 'COPD Assessment Test'
+              : 'Modified Medical Research Council Dyspnea Scale'}
+          </p>
         </div>
+
+        {/* Progress Bar */}
+        <ProgressBar current={currentStep} total={totalSteps} className="mb-6" />
+
+        {/* Question Card */}
+        {currentQuestion && (
+          <QuestionCard
+            question={currentQuestion}
+            selectedValue={answers[currentQuestion.id] ?? null}
+            onSelect={(value) => handleAnswer(currentQuestion.id, value)}
+            onSpeak={speak}
+            isSpeaking={isSpeaking}
+          />
+        )}
+
+        {/* Error Message */}
+        {error && (
+          <div className="mt-6 bg-red-50 border-2 border-red-200 rounded-lg p-4">
+            <p className="text-red-800 text-center font-medium">{error}</p>
+          </div>
+        )}
+
+        {/* Navigation Buttons */}
+        <div className="mt-6 flex gap-4">
+          {/* Previous Button */}
+          <button
+            onClick={handlePrevious}
+            disabled={currentStep === 0}
+            className={`
+              flex-1 py-4 px-6 rounded-xl font-semibold text-lg transition-all
+              ${
+                currentStep === 0
+                  ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                  : 'bg-gray-600 hover:bg-gray-700 text-white shadow-md hover:shadow-lg'
+              }
+            `}
+            aria-label="上一題"
+          >
+            ← 上一題
+          </button>
+
+          {/* Next/Submit Button */}
+          <button
+            onClick={handleNext}
+            disabled={isSubmitting}
+            className="
+              flex-1 py-4 px-6 rounded-xl font-semibold text-lg
+              bg-blue-600 hover:bg-blue-700 text-white
+              shadow-md hover:shadow-lg transition-all
+              disabled:bg-gray-400 disabled:cursor-not-allowed
+            "
+            aria-label={currentStep === totalSteps - 1 ? '提交問卷' : '下一題'}
+          >
+            {isSubmitting
+              ? '提交中...'
+              : currentStep === totalSteps - 1
+              ? '提交問卷 →'
+              : '下一題 →'}
+          </button>
+        </div>
+
+        {/* Helper Text */}
+        <p className="text-center text-gray-600 mt-6 text-base">
+          請選擇答案後點選「下一題」繼續
+        </p>
+
+        {/* Back to Selection */}
+        <button
+          onClick={handleReset}
+          className="mt-4 w-full py-3 text-gray-600 hover:text-gray-900 transition-colors"
+        >
+          ← 返回問卷選擇
+        </button>
       </div>
     </div>
   )
