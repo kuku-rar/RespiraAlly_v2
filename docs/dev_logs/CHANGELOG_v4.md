@@ -8,6 +8,7 @@
 
 ## 目錄 (Table of Contents)
 
+- [v4.10 (2025-10-22)](#v410-2025-10-22---sprint-3-task-52-survey-api-完成-🎉)
 - [v4.9 (2025-10-22)](#v49-2025-10-22---daily-log-schema-redesign-breaking-change-🔴)
 - [v4.8 (2025-01-21)](#v48-2025-01-21---後端-api-測試補充完成-🎉)
 - [v4.7 (2025-10-21)](#v47-2025-10-21---sprint-2-week-2-前端-kpi-開發完成-🎉)
@@ -20,6 +21,254 @@
 - [v4.2 (2025-10-20)](#v42-2025-10-20---sprint-1-task-33-fastapi-專案結構完成-🎉)
 - [v4.1 (2025-10-20)](#v41-2025-10-20---sprint-1-task-32-資料庫實作完成-🎉)
 - [v4.0 (2025-10-19)](#v40-2025-10-19---後端架構重構-breaking-change)
+
+---
+
+## v4.10 (2025-10-22) - Sprint 3 Task 5.2: Survey API 完成 🎉
+
+**標題**: CAT/mMRC 問卷系統完整實作 - Domain Events + 8 Endpoints + 20+ 整合測試
+**階段**: Sprint 3 問卷系統 (Task 5.2 完成, 24h/176h, Sprint 3 進度 13.6%)
+**Git Commits**:
+- `f399e6f` - feat(survey): implement core components & use cases
+- `d36f3a8` - feat(survey): complete API with 8 endpoints
+- `8be6be6` - feat(survey): add Domain Events and comprehensive API tests
+- `05bb9de` - fix(api): resolve Survey API import and method errors
+
+**工時**: 24h (Core 8h + Use Cases 6h + API 6h + Events & Tests 4h)
+
+### 🎯 任務完成清單
+
+#### Task 5.2.1: Survey Core Components ✅ (8h)
+
+**技術實現**:
+
+**1️⃣ Pydantic Schemas** (`core/schemas/survey.py`):
+```python
+class CATSurveyAnswers(BaseModel):
+    """CAT Survey - 8 questions, each 0-5 points"""
+    q1_cough: int = Field(..., ge=0, le=5, description="咳嗽頻率")
+    q2_mucus: int = Field(..., ge=0, le=5, description="胸部有痰")
+    # ... 8 questions total
+    # Total score: 0-40
+
+class mMRCSurveyAnswers(BaseModel):
+    """mMRC Dyspnea Scale - single grade 0-4"""
+    grade: int = Field(..., ge=0, le=4, description="呼吸困難等級")
+
+class SurveyResponse(BaseModel):
+    """Unified survey response for both CAT and mMRC"""
+    response_id: UUID
+    survey_type: Literal["CAT", "mMRC"]
+    total_score: int
+    severity_level: Literal["MILD", "MODERATE", "SEVERE", "VERY_SEVERE"]
+    submitted_at: datetime
+```
+
+**2️⃣ Domain Services** (DDD Pattern):
+
+**CAT Scorer** (`domain/services/cat_scorer.py`):
+- ✅ `calculate_total_score()` - 簡單加總 8 題分數 (0-40)
+- ✅ `determine_severity()` - 嚴重度映射:
+  - MILD: 0-10
+  - MODERATE: 11-20
+  - SEVERE: 21-30
+  - VERY_SEVERE: 31-40
+
+**mMRC Scorer** (`domain/services/mmrc_scorer.py`):
+- ✅ `validate_grade()` - 驗證 grade 範圍 (0-4)
+- ✅ `determine_severity()` - Grade → Severity 映射
+- ✅ `get_grade_description()` - 提供中英文說明
+
+**3️⃣ Repository Pattern** (`infrastructure/repositories/survey_repository_impl.py`):
+
+**CRUD Operations**:
+- ✅ `create()` - 創建問卷記錄
+- ✅ `get_by_id()` - 查詢單一問卷
+- ✅ `list_by_patient()` - 分頁查詢患者問卷 (支援篩選與排序)
+- ✅ `get_latest_by_patient_and_type()` - 獲取最新問卷
+
+**Analytics Methods**:
+- ✅ `count_by_patient()` - 統計問卷數量
+- ✅ `get_average_score()` - 計算平均分數
+- ✅ `get_score_trend()` - 趨勢分析 (IMPROVING/STABLE/WORSENING)
+  - 演算法: 將問卷歷史切分為前後兩半，比較平均值
+  - CAT 閾值: 4 分變化視為顯著
+  - mMRC 閾值: 1 級變化視為顯著
+
+#### Task 5.2.2: Use Cases & Application Layer ✅ (6h)
+
+**Use Cases** (Clean Architecture):
+- ✅ `SubmitCATSurveyUseCase` - CAT 問卷提交流程
+- ✅ `SubmitMmrcSurveyUseCase` - mMRC 問卷提交流程
+
+**Application Service** (`application/survey/survey_service.py`):
+- ✅ Orchestrates use cases and business logic
+- ✅ 提供統一的問卷操作介面
+- ✅ 轉換 Domain Model → Response Schema
+
+#### Task 5.2.3: Survey API Endpoints ✅ (6h)
+
+**8 個 RESTful Endpoints** (`api/v1/routers/survey.py`):
+
+| Endpoint | Method | 描述 | 授權 |
+|----------|--------|------|------|
+| `/surveys/cat` | POST | 提交 CAT 問卷 | Patient |
+| `/surveys/mmrc` | POST | 提交 mMRC 問卷 | Patient |
+| `/surveys/{response_id}` | GET | 查詢特定問卷 | Patient/Therapist |
+| `/surveys/patient/{patient_id}` | GET | 列出患者所有問卷 | Patient/Therapist |
+| `/surveys/cat/patient/{patient_id}/latest` | GET | 最新 CAT 問卷 | Patient/Therapist |
+| `/surveys/mmrc/patient/{patient_id}/latest` | GET | 最新 mMRC 問卷 | Patient/Therapist |
+| `/surveys/cat/patient/{patient_id}/stats` | GET | CAT 統計數據 | Patient/Therapist |
+| `/surveys/mmrc/patient/{patient_id}/stats` | GET | mMRC 統計數據 | Patient/Therapist |
+
+**Authorization Rules**:
+- ✅ 患者只能提交/查看自己的問卷
+- ✅ 治療師可以查看分配給自己的患者問卷
+- ✅ 提交時驗證 patient_id 與 JWT token 一致
+
+#### Task 5.2.4: Domain Events & Testing ✅ (4h)
+
+**1️⃣ Survey Domain Events** (`domain/events/survey_events.py`):
+
+```python
+class SurveySubmittedEvent(DomainEvent):
+    """Event published when patient submits survey"""
+    event_type: Literal["survey.submitted"] = "survey.submitted"
+    patient_id: UUID
+    survey_type: Literal["CAT", "mMRC"]
+    total_score: int
+    severity_level: Literal["MILD", "MODERATE", "SEVERE", "VERY_SEVERE"]
+
+    # Metadata for event consumers
+    is_first_survey: bool  # 是否為首次問卷
+    previous_score: int | None  # 前次分數
+    score_change: int | None  # 分數變化
+    is_concerning: bool  # 是否需要關注 (SEVERE/VERY_SEVERE 或顯著惡化)
+
+class SurveyUpdatedEvent(DomainEvent):
+    """Survey modification tracking"""
+
+class SurveyDeletedEvent(DomainEvent):
+    """Survey deletion tracking"""
+```
+
+**Event Factory Functions**:
+- ✅ `create_survey_submitted_event()` - 自動計算 is_concerning 狀態
+- ✅ `create_survey_updated_event()`
+- ✅ `create_survey_deleted_event()`
+
+**2️⃣ 整合測試** (`tests/integration/api/test_survey_api.py`):
+
+**20+ 測試案例涵蓋**:
+
+**CAT Survey Tests**:
+- ✅ `test_submit_cat_survey_success` - Happy path
+- ✅ `test_submit_cat_survey_mild_severity` - 測試 MILD (0-10)
+- ✅ `test_submit_cat_survey_very_severe` - 測試 VERY_SEVERE (31-40)
+- ✅ `test_submit_cat_survey_invalid_score` - 驗證錯誤處理 (422)
+- ✅ `test_submit_cat_survey_wrong_patient` - 安全性測試 (403)
+
+**mMRC Survey Tests**:
+- ✅ `test_submit_mmrc_survey_success`
+- ✅ `test_submit_mmrc_survey_all_grades` - 測試所有 Grade 0-4
+- ✅ `test_submit_mmrc_survey_invalid_grade`
+
+**Read Operations Tests**:
+- ✅ `test_get_survey_by_id_success`
+- ✅ `test_get_survey_not_found` - 404 錯誤處理
+- ✅ `test_list_patient_surveys` - 分頁查詢
+- ✅ `test_list_patient_surveys_filter_by_type` - 類型篩選
+- ✅ `test_get_latest_cat_survey`
+
+**Statistics Tests**:
+- ✅ `test_get_cat_survey_stats` - 統計數據驗證
+
+**Authorization Tests**:
+- ✅ `test_submit_cat_without_auth` - 401 Unauthorized
+
+### 🐛 Bug 修復 (Commit 05bb9de)
+
+**1️⃣ Import 錯誤**:
+- 問題: `NotFoundError` 不存在於 `application_exceptions`
+- 修復: 改為 `ResourceNotFoundError`
+
+**2️⃣ Method 名稱錯誤**:
+- 問題: Use cases 調用 `get_by_user_id()` 但 Repository 介面是 `get_by_id()`
+- 修復: 對齊方法名稱
+
+**3️⃣ 編碼錯誤**:
+- 問題: `mmrc_scorer.py` 中文文字損壞導致 SyntaxError
+- 修復: 重新編碼 UTF-8 中文描述
+
+### 📊 技術亮點
+
+**1️⃣ Domain-Driven Design (DDD)**:
+- ✅ Domain Services 封裝業務邏輯 (CATScorer, mMRCScorer)
+- ✅ Repository Pattern 隔離資料存取
+- ✅ Domain Events 實現鬆耦合
+
+**2️⃣ Clean Architecture**:
+- ✅ 分層架構: Presentation → Application → Domain → Infrastructure
+- ✅ Use Cases 封裝業務流程
+- ✅ Dependency Inversion (Domain 不依賴 Infrastructure)
+
+**3️⃣ Event-Driven Architecture**:
+- ✅ Survey events 可觸發後續流程 (風險評估、通知、趨勢分析)
+- ✅ `is_concerning` 自動偵測需要關注的問卷
+- ✅ 支援未來的 Event Sourcing 擴展
+
+**4️⃣ 完整的測試覆蓋**:
+- ✅ 20+ 整合測試案例
+- ✅ Happy path + Edge cases + Security tests
+- ✅ 所有 8 個 API endpoints 都有測試
+
+### 📦 代碼統計
+
+**新增檔案** (10 個):
+```
+backend/src/respira_ally/core/schemas/survey.py                                    150 行
+backend/src/respira_ally/domain/services/cat_scorer.py                             90 行
+backend/src/respira_ally/domain/services/mmrc_scorer.py                           139 行
+backend/src/respira_ally/domain/repositories/survey_repository.py                 120 行
+backend/src/respira_ally/infrastructure/repositories/survey_repository_impl.py    267 行
+backend/src/respira_ally/application/survey/use_cases/submit_cat_survey_use_case.py   102 行
+backend/src/respira_ally/application/survey/use_cases/submit_mmrc_survey_use_case.py   95 行
+backend/src/respira_ally/application/survey/survey_service.py                     285 行
+backend/src/respira_ally/api/v1/routers/survey.py                                 364 行
+backend/src/respira_ally/domain/events/survey_events.py                           243 行
+backend/tests/integration/api/test_survey_api.py                                  456 行
+
+總計: ~2,311 行新增代碼
+```
+
+**修改檔案** (3 個):
+- `backend/src/respira_ally/core/dependencies.py` - 新增 `get_survey_service()`
+- `backend/src/respira_ally/api/v1/routers/__init__.py` - 註冊 survey router
+- Bug fixes: 3 檔案 (use cases + mmrc_scorer)
+
+### 🎯 下一步行動
+
+**Sprint 3 剩餘任務**:
+- [ ] **Task 5.3**: LIFF 問卷頁面 (24h) - CAT/mMRC 前端表單
+- [ ] **Task 5.4**: 趨勢圖表元件 (16h) - 前端資料視覺化
+- [ ] **Task 5.5**: 營養評估 KPI (56h) - 擴展健康評估維度
+- [ ] **Task 5.6**: CAT 無障礙 TTS (24h) - 文字轉語音朗讀功能
+
+**API 文件更新**:
+- [ ] 更新 OpenAPI Spec (8 個新 endpoints)
+- [ ] 撰寫 API 使用文件
+- [ ] 前端 API 介接文件
+
+**事件整合**:
+- [ ] 實作 Event Publisher 至 Use Cases (目前為 TODO)
+- [ ] 訂閱 `SurveySubmittedEvent` 觸發風險評估
+- [ ] 訂閱 `SurveySubmittedEvent` 發送治療師通知 (SEVERE/VERY_SEVERE)
+
+### 🎉 Sprint 3 進度
+
+- **Task 5.2 完成**: 24h/176h (13.6%)
+- **累計進度**: Sprint 1 (93.5%) + Sprint 2 (85.9%) + Sprint 3 (13.6%) = **~26.9%**
+- **下個里程碑**: Sprint 3 完成 (目標: 176h)
 
 ---
 

@@ -2,11 +2,11 @@
 
 ---
 
-**文件版本 (Document Version):** `v3.1.0` ✅ Sprint 2 Daily Log Schema Redesign 完成 - Breaking Change: steps_count→exercise_minutes + nullable fields + smoking_count + ADR-001 + Alembic migration
-**最後更新 (Last Updated):** `2025-10-22 14:30`
+**文件版本 (Document Version):** `v3.2.0` ✅ Sprint 3 Task 5.2 Survey API 完成 - CAT/mMRC 問卷系統 (Domain Events + 20+ 整合測試 + DDD Architecture)
+**最後更新 (Last Updated):** `2025-10-22 21:05`
 **主要作者 (Lead Author):** `TaskMaster Hub / Claude Code AI`
 **審核者 (Reviewers):** `Technical Lead, Product Manager, Architecture Team, Client Stakeholders`
-**狀態 (Status):** `執行中 - Sprint 1 完成 93.5%, Sprint 2 進度 85.9% (133.75h/155.75h) - Daily Log Schema Redesign 完成 (9 檔案修改, ADR-001, 所有測試通過), Database Model 修復完成 (6/6 檔案), API 測試覆蓋率 67%`
+**狀態 (Status):** `執行中 - Sprint 1 完成 93.5%, Sprint 2 完成 85.9%, Sprint 3 開始 (Task 5.2 完成 24h/176h, 13.6%) - Survey API 完成 (8 endpoints + Domain Events + 整合測試), 累計進度: ~26.9%`
 
 ---
 
@@ -611,8 +611,47 @@
 #### 5.1 個案 360° 頁面 [32h]
 *詳細任務分解保持原規劃*
 
-#### 5.2 CAT/mMRC 問卷 API [24h]
-*詳細任務分解保持原規劃*
+#### 5.2 CAT/mMRC 問卷 API [24h] ✅ 100% 完成
+
+**業務目標**: 實作 CAT (COPD Assessment Test) 和 mMRC (Modified Medical Research Council) 問卷系統，提供完整的問卷提交、查詢、統計分析功能。
+
+**技術亮點**:
+- Domain-Driven Design (DDD) - Domain Services (CATScorer, mMRCScorer)
+- Event-Driven Architecture - Survey Domain Events (SurveySubmittedEvent)
+- Clean Architecture - Repository Pattern with async SQLAlchemy
+- Comprehensive Integration Tests - 20+ test cases
+
+| 任務編號 | 任務名稱 | 負責人 | 工時(h) | 狀態 | 完成日期 | 依賴關係 | Git Commit |
+|---------|---------|--------|---------|------|----------|----------|-----------|
+| **5.2.1 Survey Core Components** | | | **8h** | ✅ | 2025-10-22 | | |
+| 5.2.1.1 | Survey Pydantic Schemas (CAT/mMRC) | Backend | 2 | ✅ | 2025-10-22 | 3.2.5 | f399e6f |
+| 5.2.1.2 | CAT Scorer Domain Service (8 questions, 0-40 score) | Backend | 2 | ✅ | 2025-10-22 | 5.2.1.1 | f399e6f |
+| 5.2.1.3 | mMRC Scorer Domain Service (grade 0-4) | Backend | 2 | ✅ | 2025-10-22 | 5.2.1.1 | f399e6f |
+| 5.2.1.4 | Survey Repository Interface & Implementation | Backend | 2 | ✅ | 2025-10-22 | 3.2.5 | f399e6f |
+| **5.2.2 Use Cases & Application Layer** | | | **6h** | ✅ | 2025-10-22 | | |
+| 5.2.2.1 | Submit CAT Survey Use Case | Backend | 2 | ✅ | 2025-10-22 | 5.2.1.2, 5.2.1.4 | f399e6f |
+| 5.2.2.2 | Submit mMRC Survey Use Case | Backend | 2 | ✅ | 2025-10-22 | 5.2.1.3, 5.2.1.4 | f399e6f |
+| 5.2.2.3 | Survey Application Service (orchestration) | Backend | 2 | ✅ | 2025-10-22 | 5.2.2.1, 5.2.2.2 | d36f3a8 |
+| **5.2.3 Survey API Endpoints** | | | **6h** | ✅ | 2025-10-22 | | |
+| 5.2.3.1 | `POST /surveys/cat` - Submit CAT survey | Backend | 1 | ✅ | 2025-10-22 | 5.2.2.3 | d36f3a8 |
+| 5.2.3.2 | `POST /surveys/mmrc` - Submit mMRC survey | Backend | 1 | ✅ | 2025-10-22 | 5.2.2.3 | d36f3a8 |
+| 5.2.3.3 | `GET /surveys/{id}` - Get survey by ID | Backend | 1 | ✅ | 2025-10-22 | 5.2.2.3 | d36f3a8 |
+| 5.2.3.4 | `GET /surveys/patient/{id}` - List patient surveys | Backend | 1 | ✅ | 2025-10-22 | 5.2.2.3 | d36f3a8 |
+| 5.2.3.5 | `GET /surveys/{type}/patient/{id}/latest` - Latest survey | Backend | 1 | ✅ | 2025-10-22 | 5.2.2.3 | d36f3a8 |
+| 5.2.3.6 | `GET /surveys/{type}/patient/{id}/stats` - Survey statistics | Backend | 1 | ✅ | 2025-10-22 | 5.2.2.3 | d36f3a8 |
+| **5.2.4 Domain Events & Testing** | | | **4h** | ✅ | 2025-10-22 | | |
+| 5.2.4.1 | Survey Domain Events (Submitted/Updated/Deleted) | Backend | 1 | ✅ | 2025-10-22 | 5.2.1 | 8be6be6 |
+| 5.2.4.2 | Survey API Integration Tests (20+ test cases) | Backend | 2 | ✅ | 2025-10-22 | 5.2.3 | 8be6be6 |
+| 5.2.4.3 | Bug Fixes (Import/Method/Encoding errors) | Backend | 1 | ✅ | 2025-10-22 | 5.2.4.2 | 05bb9de |
+
+**實施檢查點**:
+- ✅ CAT 評分邏輯正確 (8 questions, 0-5 each = 0-40 total)
+- ✅ mMRC 嚴重度映射正確 (Grade 0-1: MILD, 2: MODERATE, 3: SEVERE, 4: VERY_SEVERE)
+- ✅ Repository 包含分析方法 (get_average_score, get_score_trend)
+- ✅ 趨勢分析算法實作 (比較前後半段平均值)
+- ✅ Domain Events 包含關注狀態偵測 (is_concerning)
+- ✅ 整合測試涵蓋所有 8 個 API endpoints
+- ✅ 安全性測試 (患者只能查看/提交自己的問卷)
 
 #### 5.3 LIFF 問卷頁 [24h]
 *詳細任務分解保持原規劃*
