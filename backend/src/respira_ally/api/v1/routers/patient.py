@@ -289,7 +289,7 @@ async def delete_patient(
         )
 
     # Delete using service
-    deleted = await patient_service.delete_patient(user_id)
+    deleted = await patient_service.delete_patient(user_id, deleted_by=current_user.user_id)
     if not deleted:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

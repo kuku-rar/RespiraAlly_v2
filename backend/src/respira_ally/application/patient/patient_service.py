@@ -5,6 +5,7 @@ Application Layer - Clean Architecture
 This service orchestrates patient-related use cases and business logic.
 It uses Repository pattern for data access and encapsulates complex workflows.
 """
+import logging
 from datetime import date
 from decimal import Decimal
 from typing import Optional
@@ -16,9 +17,17 @@ from respira_ally.core.schemas.patient import (
     PatientResponse,
     PatientListResponse,
 )
+from respira_ally.domain.events.patient_events import (
+    create_patient_created_event,
+    create_patient_updated_event,
+    create_patient_deleted_event,
+)
 from respira_ally.domain.repositories.patient_repository import PatientRepository
 from respira_ally.infrastructure.database.models.patient_profile import PatientProfileModel
 from respira_ally.infrastructure.database.models.user import UserModel
+from respira_ally.infrastructure.message_queue.publishers.event_publisher import EventPublisher
+
+logger = logging.getLogger(__name__)
 
 
 class PatientService:
@@ -30,16 +39,23 @@ class PatientService:
     - Calculate derived fields (BMI, age)
     - Validate business rules
     - Coordinate with User creation
+    - Publish domain events
     """
 
-    def __init__(self, patient_repository: PatientRepository):
+    def __init__(
+        self,
+        patient_repository: PatientRepository,
+        event_publisher: Optional[EventPublisher] = None,
+    ):
         """
-        Initialize service with repository dependency
+        Initialize service with repository and event publisher
 
         Args:
             patient_repository: Implementation of PatientRepository interface
+            event_publisher: Optional event publisher for domain events
         """
         self.patient_repo = patient_repository
+        self.event_publisher = event_publisher
 
     # ========================================================================
     # Helper Methods (Business Logic)
@@ -288,23 +304,47 @@ class PatientService:
         Returns:
             Updated PatientResponse if patient found, None otherwise
         """
+        # Get current patient data (needed for BMI change detection and event publishing)
+        patient = await self.patient_repo.get_by_id(user_id)
+        if not patient:
+            return None
+
         # Convert Pydantic model to dict, excluding None values
         update_data = data.model_dump(exclude_unset=True, exclude_none=True)
 
         # Handle phone update (stored in JSONB contact_info)
         if "phone" in update_data:
             phone = update_data.pop("phone")
-            # Fetch current contact_info
-            patient = await self.patient_repo.get_by_id(user_id)
-            if patient:
-                contact_info = patient.contact_info or {}
-                contact_info["phone"] = phone
-                update_data["contact_info"] = contact_info
+            contact_info = patient.contact_info or {}
+            contact_info["phone"] = phone
+            update_data["contact_info"] = contact_info
+
+        # Track updated fields for event
+        updated_fields = list(update_data.keys())
+
+        # Detect BMI changes (height_cm or weight_kg updated)
+        bmi_changed = "height_cm" in update_data or "weight_kg" in update_data
+        new_bmi = None
+
+        if bmi_changed:
+            # Calculate new BMI with updated values
+            new_height = update_data.get("height_cm", patient.height_cm)
+            new_weight = update_data.get("weight_kg", patient.weight_kg)
+            new_bmi = self.calculate_bmi(new_weight, new_height)
 
         # Update using repository
         updated_patient = await self.patient_repo.update(user_id, update_data)
         if not updated_patient:
             return None
+
+        # Publish PatientUpdated event
+        await self._publish_patient_updated_event(
+            patient_id=user_id,
+            therapist_id=updated_patient.therapist_id,
+            updated_fields=updated_fields,
+            bmi_changed=bmi_changed,
+            new_bmi=new_bmi,
+        )
 
         return self.enrich_patient_response(updated_patient)
 
@@ -312,12 +352,13 @@ class PatientService:
     # Delete Operations
     # ========================================================================
 
-    async def delete_patient(self, user_id: UUID) -> bool:
+    async def delete_patient(self, user_id: UUID, deleted_by: UUID) -> bool:
         """
         Delete patient record
 
         Args:
             user_id: Patient's user ID
+            deleted_by: User ID who is deleting the patient
 
         Returns:
             True if patient was deleted, False if not found
@@ -326,4 +367,103 @@ class PatientService:
             Currently performs hard delete. Consider soft delete
             for production (add deleted_at column).
         """
-        return await self.patient_repo.delete(user_id)
+        # Get patient info before deleting (for event publishing)
+        patient = await self.patient_repo.get_by_id(user_id)
+        if not patient:
+            return False
+
+        # Delete the patient
+        deleted = await self.patient_repo.delete(user_id)
+        if not deleted:
+            return False
+
+        # Publish PatientDeleted event
+        await self._publish_patient_deleted_event(
+            patient_id=user_id,
+            therapist_id=patient.therapist_id,
+            deleted_by=deleted_by,
+        )
+
+        return True
+
+    # ========================================================================
+    # Event Publishing
+    # ========================================================================
+
+    async def _publish_patient_updated_event(
+        self,
+        patient_id: UUID,
+        therapist_id: UUID,
+        updated_fields: list[str],
+        bmi_changed: bool = False,
+        new_bmi: Decimal | None = None,
+    ) -> None:
+        """
+        Publish patient updated event
+
+        Args:
+            patient_id: Patient ID
+            therapist_id: Assigned therapist ID
+            updated_fields: List of fields that were updated
+            bmi_changed: Whether BMI was affected
+            new_bmi: New BMI value if changed
+        """
+        if self.event_publisher is None:
+            logger.warning("Event publisher not configured, skipping event publication")
+            return
+
+        try:
+            # Create and publish event
+            event = create_patient_updated_event(
+                patient_id=patient_id,
+                therapist_id=therapist_id,
+                updated_fields=updated_fields,
+                bmi_changed=bmi_changed,
+                new_bmi=new_bmi,
+            )
+
+            await self.event_publisher.publish(event)
+            logger.info(f"Published patient.updated event for patient {patient_id} (fields: {', '.join(updated_fields)})")
+
+        except Exception as e:
+            # Log error but don't fail the request
+            logger.error(
+                f"Failed to publish patient.updated event for patient {patient_id}: {str(e)}",
+                exc_info=True
+            )
+
+    async def _publish_patient_deleted_event(
+        self,
+        patient_id: UUID,
+        therapist_id: UUID,
+        deleted_by: UUID,
+    ) -> None:
+        """
+        Publish patient deleted event
+
+        Args:
+            patient_id: Patient ID
+            therapist_id: Assigned therapist ID
+            deleted_by: User ID who deleted the patient
+        """
+        if self.event_publisher is None:
+            logger.warning("Event publisher not configured, skipping event publication")
+            return
+
+        try:
+            # Create and publish event
+            event = create_patient_deleted_event(
+                patient_id=patient_id,
+                therapist_id=therapist_id,
+                deleted_by=deleted_by,
+            )
+
+            await self.event_publisher.publish(event)
+            logger.info(f"Published patient.deleted event for patient {patient_id}")
+
+        except Exception as e:
+            # Log error but don't fail the request
+            logger.error(
+                f"Failed to publish patient.deleted event for patient {patient_id}: {str(e)}",
+                exc_info=True
+            )
