@@ -2,6 +2,7 @@
 Authentication Use Cases
 Business logic for user authentication and authorization
 """
+
 from respira_ally.application.auth.use_cases.login_use_case import (
     PatientLoginUseCase,
     TherapistLoginUseCase,

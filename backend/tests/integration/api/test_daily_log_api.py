@@ -4,18 +4,19 @@ Tests all Daily Log API endpoints with database integration
 
 Run with: pytest tests/integration/api/test_daily_log_api.py -v
 """
-import pytest
+
 from datetime import date, timedelta
 
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from respira_ally.infrastructure.database.models.user import UserModel
 
-
 # ============================================================================
 # POST /api/v1/daily-logs - Create/Update Daily Log (Upsert)
 # ============================================================================
+
 
 @pytest.mark.asyncio
 async def test_create_daily_log_success(
@@ -37,14 +38,12 @@ async def test_create_daily_log_success(
         "water_intake_ml": 2000,
         "exercise_minutes": 40,  # 40 minutes of exercise
         "symptoms": "Mild cough",
-        "mood": "GOOD"
+        "mood": "GOOD",
     }
 
     # Act
     response = client.post(
-        "/api/v1/daily-logs",
-        json=log_data,
-        headers={"Authorization": f"Bearer {patient_token}"}
+        "/api/v1/daily-logs", json=log_data, headers={"Authorization": f"Bearer {patient_token}"}
     )
 
     # Assert
@@ -87,18 +86,14 @@ async def test_upsert_daily_log_same_date(
 
     # Act - First submission
     response1 = client.post(
-        "/api/v1/daily-logs",
-        json=first_log,
-        headers={"Authorization": f"Bearer {patient_token}"}
+        "/api/v1/daily-logs", json=first_log, headers={"Authorization": f"Bearer {patient_token}"}
     )
     assert response1.status_code == 201
     log_id_1 = response1.json()["log_id"]
 
     # Act - Second submission (upsert)
     response2 = client.post(
-        "/api/v1/daily-logs",
-        json=updated_log,
-        headers={"Authorization": f"Bearer {patient_token}"}
+        "/api/v1/daily-logs", json=updated_log, headers={"Authorization": f"Bearer {patient_token}"}
     )
 
     # Assert
@@ -132,9 +127,7 @@ async def test_create_log_for_other_patient_forbidden(
 
     # Act
     response = client.post(
-        "/api/v1/daily-logs",
-        json=log_data,
-        headers={"Authorization": f"Bearer {patient_token}"}
+        "/api/v1/daily-logs", json=log_data, headers={"Authorization": f"Bearer {patient_token}"}
     )
 
     # Assert
@@ -144,6 +137,7 @@ async def test_create_log_for_other_patient_forbidden(
 # ============================================================================
 # GET /api/v1/daily-logs/{log_id} - Get Single Daily Log
 # ============================================================================
+
 
 @pytest.mark.asyncio
 async def test_get_daily_log_success(
@@ -165,16 +159,13 @@ async def test_get_daily_log_success(
         "water_intake_ml": 1500,
     }
     create_response = client.post(
-        "/api/v1/daily-logs",
-        json=log_data,
-        headers={"Authorization": f"Bearer {patient_token}"}
+        "/api/v1/daily-logs", json=log_data, headers={"Authorization": f"Bearer {patient_token}"}
     )
     log_id = create_response.json()["log_id"]
 
     # Act
     response = client.get(
-        f"/api/v1/daily-logs/{log_id}",
-        headers={"Authorization": f"Bearer {patient_token}"}
+        f"/api/v1/daily-logs/{log_id}", headers={"Authorization": f"Bearer {patient_token}"}
     )
 
     # Assert
@@ -204,7 +195,7 @@ async def test_get_other_patient_log_forbidden(
     # Act - Try to get logs list for other patient
     response = client.get(
         f"/api/v1/daily-logs?patient_id={other_patient_user.user_id}",
-        headers={"Authorization": f"Bearer {patient_token}"}
+        headers={"Authorization": f"Bearer {patient_token}"},
     )
 
     # Assert - Patient role cannot specify patient_id for others
@@ -220,6 +211,7 @@ async def test_get_other_patient_log_forbidden(
 # ============================================================================
 # GET /api/v1/daily-logs - List Daily Logs
 # ============================================================================
+
 
 @pytest.mark.asyncio
 async def test_list_daily_logs_success(
@@ -244,13 +236,13 @@ async def test_list_daily_logs_success(
         client.post(
             "/api/v1/daily-logs",
             json=log_data,
-            headers={"Authorization": f"Bearer {patient_token}"}
+            headers={"Authorization": f"Bearer {patient_token}"},
         )
 
     # Act
     response = client.get(
         "/api/v1/daily-logs?page=0&page_size=10",
-        headers={"Authorization": f"Bearer {patient_token}"}
+        headers={"Authorization": f"Bearer {patient_token}"},
     )
 
     # Assert
@@ -287,13 +279,13 @@ async def test_list_daily_logs_with_date_filter(
             "medication_taken": True,
             "water_intake_ml": 2000,
         },
-        headers={"Authorization": f"Bearer {patient_token}"}
+        headers={"Authorization": f"Bearer {patient_token}"},
     )
 
     # Act - Filter by today only
     response = client.get(
         f"/api/v1/daily-logs?start_date={today.isoformat()}&end_date={today.isoformat()}",
-        headers={"Authorization": f"Bearer {patient_token}"}
+        headers={"Authorization": f"Bearer {patient_token}"},
     )
 
     # Assert
@@ -307,6 +299,7 @@ async def test_list_daily_logs_with_date_filter(
 # ============================================================================
 # GET /api/v1/daily-logs/patient/{patient_id}/stats - Get Statistics
 # ============================================================================
+
 
 @pytest.mark.asyncio
 async def test_get_patient_statistics_success(
@@ -332,7 +325,7 @@ async def test_get_patient_statistics_success(
                 "water_intake_ml": 2000 + i * 100,
                 "mood": "GOOD" if i % 2 == 0 else "NEUTRAL",
             },
-            headers={"Authorization": f"Bearer {patient_token}"}
+            headers={"Authorization": f"Bearer {patient_token}"},
         )
 
     # Act
@@ -340,7 +333,7 @@ async def test_get_patient_statistics_success(
     end_date = today.isoformat()
     response = client.get(
         f"/api/v1/daily-logs/patient/{patient_user.user_id}/stats?start_date={start_date}&end_date={end_date}",
-        headers={"Authorization": f"Bearer {patient_token}"}
+        headers={"Authorization": f"Bearer {patient_token}"},
     )
 
     # Assert
@@ -369,7 +362,7 @@ async def test_get_statistics_for_other_patient_forbidden(
     today = date.today()
     response = client.get(
         f"/api/v1/daily-logs/patient/{other_patient_user.user_id}/stats?start_date={today.isoformat()}&end_date={today.isoformat()}",
-        headers={"Authorization": f"Bearer {patient_token}"}
+        headers={"Authorization": f"Bearer {patient_token}"},
     )
 
     # Assert
@@ -379,6 +372,7 @@ async def test_get_statistics_for_other_patient_forbidden(
 # ============================================================================
 # Validation Tests
 # ============================================================================
+
 
 @pytest.mark.asyncio
 async def test_create_log_invalid_water_intake(
@@ -402,9 +396,7 @@ async def test_create_log_invalid_water_intake(
 
     # Act
     response = client.post(
-        "/api/v1/daily-logs",
-        json=log_data,
-        headers={"Authorization": f"Bearer {patient_token}"}
+        "/api/v1/daily-logs", json=log_data, headers={"Authorization": f"Bearer {patient_token}"}
     )
 
     # Assert
@@ -434,9 +426,7 @@ async def test_create_log_invalid_exercise_minutes(
 
     # Act
     response = client.post(
-        "/api/v1/daily-logs",
-        json=log_data,
-        headers={"Authorization": f"Bearer {patient_token}"}
+        "/api/v1/daily-logs", json=log_data, headers={"Authorization": f"Bearer {patient_token}"}
     )
 
     # Assert
@@ -455,6 +445,7 @@ async def test_get_daily_log_without_auth(
     """
     # Arrange
     from uuid import uuid4
+
     fake_log_id = str(uuid4())
 
     # Act
@@ -467,6 +458,7 @@ async def test_get_daily_log_without_auth(
 # ============================================================================
 # PATCH /api/v1/daily-logs/{log_id} - Update Daily Log
 # ============================================================================
+
 
 @pytest.mark.asyncio
 async def test_update_daily_log_success(
@@ -487,26 +479,20 @@ async def test_update_daily_log_success(
         "medication_taken": True,
         "water_intake_ml": 2000,
         "exercise_minutes": 30,
-        "mood": "GOOD"
+        "mood": "GOOD",
     }
     create_response = client.post(
-        "/api/v1/daily-logs",
-        json=log_data,
-        headers={"Authorization": f"Bearer {patient_token}"}
+        "/api/v1/daily-logs", json=log_data, headers={"Authorization": f"Bearer {patient_token}"}
     )
     assert create_response.status_code == 201
     log_id = create_response.json()["log_id"]
 
     # Act - Update the log
-    update_data = {
-        "water_intake_ml": 2500,
-        "exercise_minutes": 45,
-        "mood": "NEUTRAL"
-    }
+    update_data = {"water_intake_ml": 2500, "exercise_minutes": 45, "mood": "NEUTRAL"}
     response = client.patch(
         f"/api/v1/daily-logs/{log_id}",
         json=update_data,
-        headers={"Authorization": f"Bearer {patient_token}"}
+        headers={"Authorization": f"Bearer {patient_token}"},
     )
 
     # Assert
@@ -532,7 +518,7 @@ async def test_update_daily_log_partial_fields(
     Expected: 200 OK, only specified field updated
     """
     # Arrange - Create a log first with unique timestamp
-    from datetime import datetime
+
     unique_date = date.today() - timedelta(days=10)  # Use older date to avoid conflicts
 
     log_data = {
@@ -542,12 +528,10 @@ async def test_update_daily_log_partial_fields(
         "water_intake_ml": 2000,
         "exercise_minutes": 30,
         "symptoms": "Mild cough",
-        "mood": "GOOD"
+        "mood": "GOOD",
     }
     create_response = client.post(
-        "/api/v1/daily-logs",
-        json=log_data,
-        headers={"Authorization": f"Bearer {patient_token}"}
+        "/api/v1/daily-logs", json=log_data, headers={"Authorization": f"Bearer {patient_token}"}
     )
     assert create_response.status_code == 201, f"Failed to create log: {create_response.text}"
     log_id = create_response.json()["log_id"]
@@ -557,7 +541,7 @@ async def test_update_daily_log_partial_fields(
     response = client.patch(
         f"/api/v1/daily-logs/{log_id}",
         json=update_data,
-        headers={"Authorization": f"Bearer {patient_token}"}
+        headers={"Authorization": f"Bearer {patient_token}"},
     )
 
     # Assert
@@ -583,6 +567,7 @@ async def test_update_daily_log_not_found(
     """
     # Arrange
     from uuid import uuid4
+
     fake_log_id = str(uuid4())
     update_data = {"mood": "GOOD"}
 
@@ -590,7 +575,7 @@ async def test_update_daily_log_not_found(
     response = client.patch(
         f"/api/v1/daily-logs/{fake_log_id}",
         json=update_data,
-        headers={"Authorization": f"Bearer {patient_token}"}
+        headers={"Authorization": f"Bearer {patient_token}"},
     )
 
     # Assert
@@ -621,7 +606,7 @@ async def test_update_other_patient_log_forbidden(
     create_response = client.post(
         "/api/v1/daily-logs",
         json=log_data,
-        headers={"Authorization": f"Bearer {other_patient_token}"}
+        headers={"Authorization": f"Bearer {other_patient_token}"},
     )
     assert create_response.status_code == 201
     log_id = create_response.json()["log_id"]
@@ -631,7 +616,7 @@ async def test_update_other_patient_log_forbidden(
     response = client.patch(
         f"/api/v1/daily-logs/{log_id}",
         json=update_data,
-        headers={"Authorization": f"Bearer {patient_token}"}  # Different patient token
+        headers={"Authorization": f"Bearer {patient_token}"},  # Different patient token
     )
 
     # Assert
@@ -641,6 +626,7 @@ async def test_update_other_patient_log_forbidden(
 # ============================================================================
 # DELETE /api/v1/daily-logs/{log_id} - Delete Daily Log
 # ============================================================================
+
 
 @pytest.mark.asyncio
 async def test_delete_daily_log_success(
@@ -665,17 +651,14 @@ async def test_delete_daily_log_success(
         "water_intake_ml": 2000,
     }
     create_response = client.post(
-        "/api/v1/daily-logs",
-        json=log_data,
-        headers={"Authorization": f"Bearer {patient_token}"}
+        "/api/v1/daily-logs", json=log_data, headers={"Authorization": f"Bearer {patient_token}"}
     )
     assert create_response.status_code == 201, f"Failed to create log: {create_response.text}"
     log_id = create_response.json()["log_id"]
 
     # Act - Delete the log
     response = client.delete(
-        f"/api/v1/daily-logs/{log_id}",
-        headers={"Authorization": f"Bearer {patient_token}"}
+        f"/api/v1/daily-logs/{log_id}", headers={"Authorization": f"Bearer {patient_token}"}
     )
 
     # Assert
@@ -683,8 +666,7 @@ async def test_delete_daily_log_success(
 
     # Verify log is actually deleted
     get_response = client.get(
-        f"/api/v1/daily-logs/{log_id}",
-        headers={"Authorization": f"Bearer {patient_token}"}
+        f"/api/v1/daily-logs/{log_id}", headers={"Authorization": f"Bearer {patient_token}"}
     )
     assert get_response.status_code == 404  # Log should not exist
 
@@ -702,12 +684,12 @@ async def test_delete_daily_log_not_found(
     """
     # Arrange
     from uuid import uuid4
+
     fake_log_id = str(uuid4())
 
     # Act
     response = client.delete(
-        f"/api/v1/daily-logs/{fake_log_id}",
-        headers={"Authorization": f"Bearer {patient_token}"}
+        f"/api/v1/daily-logs/{fake_log_id}", headers={"Authorization": f"Bearer {patient_token}"}
     )
 
     # Assert
@@ -741,7 +723,7 @@ async def test_delete_other_patient_log_forbidden(
     create_response = client.post(
         "/api/v1/daily-logs",
         json=log_data,
-        headers={"Authorization": f"Bearer {other_patient_token}"}
+        headers={"Authorization": f"Bearer {other_patient_token}"},
     )
     assert create_response.status_code == 201, f"Failed to create log: {create_response.text}"
     log_id = create_response.json()["log_id"]
@@ -749,7 +731,7 @@ async def test_delete_other_patient_log_forbidden(
     # Act - Try to delete as different patient
     response = client.delete(
         f"/api/v1/daily-logs/{log_id}",
-        headers={"Authorization": f"Bearer {patient_token}"}  # Different patient token
+        headers={"Authorization": f"Bearer {patient_token}"},  # Different patient token
     )
 
     # Assert

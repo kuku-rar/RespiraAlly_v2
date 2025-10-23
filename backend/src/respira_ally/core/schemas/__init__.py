@@ -2,6 +2,7 @@
 Core Schemas Module
 Pydantic models for request/response validation
 """
+
 from respira_ally.core.schemas.auth import (
     LoginResponse,
     LogoutRequest,

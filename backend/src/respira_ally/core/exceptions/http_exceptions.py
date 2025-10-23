@@ -2,7 +2,8 @@
 HTTP Exception Handlers
 FastAPI global exception handlers for consistent error responses
 """
-from datetime import datetime, timezone
+
+from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import Request, status
@@ -52,7 +53,7 @@ def create_error_response(
         "error": {
             "type": error_type,
             "message": message,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
     }
 
@@ -77,9 +78,7 @@ async def validation_error_handler(request: Request, exc: ValidationError) -> JS
     )
 
 
-async def resource_not_found_handler(
-    request: Request, exc: ResourceNotFoundError
-) -> JSONResponse:
+async def resource_not_found_handler(request: Request, exc: ResourceNotFoundError) -> JSONResponse:
     """Handle resource not found errors"""
     return create_error_response(
         error_type="ResourceNotFoundError",

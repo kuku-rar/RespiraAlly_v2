@@ -2,6 +2,7 @@
 Refresh Token Use Case
 Handles token refresh and rotation
 """
+
 from respira_ally.core.config import settings
 from respira_ally.core.exceptions.application_exceptions import UnauthorizedError
 from respira_ally.core.schemas.auth import RefreshTokenResponse

@@ -4,20 +4,19 @@ Tests all Patient API endpoints with database integration
 
 Run with: pytest tests/integration/api/test_patient_api.py -v
 """
-import pytest
-from datetime import date
-from decimal import Decimal
+
 from uuid import UUID
 
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from respira_ally.infrastructure.database.models.user import UserModel
 
-
 # ============================================================================
 # POST /api/v1/patients - Create Patient
 # ============================================================================
+
 
 @pytest.mark.asyncio
 async def test_create_patient_success(
@@ -40,14 +39,14 @@ async def test_create_patient_success(
         "therapist_id": str(therapist_user.user_id),
         "height_cm": 175,
         "weight_kg": 80.5,
-        "phone": "0912345678"
+        "phone": "0912345678",
     }
 
     # Act
     response = client.post(
         "/api/v1/patients",
         json=patient_data,
-        headers={"Authorization": f"Bearer {therapist_token}"}
+        headers={"Authorization": f"Bearer {therapist_token}"},
     )
 
     # Assert
@@ -82,9 +81,7 @@ async def test_create_patient_as_patient_forbidden(
 
     # Act
     response = client.post(
-        "/api/v1/patients",
-        json=patient_data,
-        headers={"Authorization": f"Bearer {patient_token}"}
+        "/api/v1/patients", json=patient_data, headers={"Authorization": f"Bearer {patient_token}"}
     )
 
     # Assert
@@ -105,6 +102,7 @@ async def test_create_patient_invalid_therapist(
     """
     # Arrange
     from uuid import uuid4
+
     invalid_therapist_id = str(uuid4())
     patient_data = {
         "name": "Test Patient",
@@ -117,7 +115,7 @@ async def test_create_patient_invalid_therapist(
     response = client.post(
         "/api/v1/patients",
         json=patient_data,
-        headers={"Authorization": f"Bearer {therapist_token}"}
+        headers={"Authorization": f"Bearer {therapist_token}"},
     )
 
     # Assert
@@ -128,6 +126,7 @@ async def test_create_patient_invalid_therapist(
 # ============================================================================
 # GET /api/v1/patients/{user_id} - Get Single Patient
 # ============================================================================
+
 
 @pytest.mark.asyncio
 async def test_get_patient_as_therapist_success(
@@ -144,7 +143,7 @@ async def test_get_patient_as_therapist_success(
     # Act
     response = client.get(
         f"/api/v1/patients/{patient_user.user_id}",
-        headers={"Authorization": f"Bearer {therapist_token}"}
+        headers={"Authorization": f"Bearer {therapist_token}"},
     )
 
     # Assert
@@ -169,7 +168,7 @@ async def test_get_patient_as_self_success(
     # Act
     response = client.get(
         f"/api/v1/patients/{patient_user.user_id}",
-        headers={"Authorization": f"Bearer {patient_token}"}
+        headers={"Authorization": f"Bearer {patient_token}"},
     )
 
     # Assert
@@ -193,7 +192,7 @@ async def test_get_other_patient_forbidden(
     # Act
     response = client.get(
         f"/api/v1/patients/{other_patient_user.user_id}",
-        headers={"Authorization": f"Bearer {patient_token}"}
+        headers={"Authorization": f"Bearer {patient_token}"},
     )
 
     # Assert
@@ -213,12 +212,12 @@ async def test_get_patient_not_found(
     """
     # Arrange
     from uuid import uuid4
+
     invalid_id = str(uuid4())
 
     # Act
     response = client.get(
-        f"/api/v1/patients/{invalid_id}",
-        headers={"Authorization": f"Bearer {therapist_token}"}
+        f"/api/v1/patients/{invalid_id}", headers={"Authorization": f"Bearer {therapist_token}"}
     )
 
     # Assert
@@ -228,6 +227,7 @@ async def test_get_patient_not_found(
 # ============================================================================
 # GET /api/v1/patients - List Patients
 # ============================================================================
+
 
 @pytest.mark.asyncio
 async def test_list_patients_success(
@@ -244,7 +244,7 @@ async def test_list_patients_success(
     # Act
     response = client.get(
         "/api/v1/patients?page=0&page_size=20",
-        headers={"Authorization": f"Bearer {therapist_token}"}
+        headers={"Authorization": f"Bearer {therapist_token}"},
     )
 
     # Assert
@@ -272,7 +272,7 @@ async def test_list_patients_with_pagination(
     # Act
     response = client.get(
         "/api/v1/patients?page=0&page_size=5",
-        headers={"Authorization": f"Bearer {therapist_token}"}
+        headers={"Authorization": f"Bearer {therapist_token}"},
     )
 
     # Assert
@@ -297,8 +297,7 @@ async def test_list_patients_with_search(
     """
     # Act
     response = client.get(
-        "/api/v1/patients?search=Test",
-        headers={"Authorization": f"Bearer {therapist_token}"}
+        "/api/v1/patients?search=Test", headers={"Authorization": f"Bearer {therapist_token}"}
     )
 
     # Assert
@@ -322,10 +321,7 @@ async def test_list_patients_as_patient_forbidden(
     Expected: 403 Forbidden
     """
     # Act
-    response = client.get(
-        "/api/v1/patients",
-        headers={"Authorization": f"Bearer {patient_token}"}
-    )
+    response = client.get("/api/v1/patients", headers={"Authorization": f"Bearer {patient_token}"})
 
     # Assert
     assert response.status_code == 403, f"Expected 403, got {response.status_code}"
@@ -334,6 +330,7 @@ async def test_list_patients_as_patient_forbidden(
 # ============================================================================
 # Edge Cases & Validation Tests
 # ============================================================================
+
 
 @pytest.mark.asyncio
 async def test_create_patient_invalid_birth_date(
@@ -359,7 +356,7 @@ async def test_create_patient_invalid_birth_date(
     response = client.post(
         "/api/v1/patients",
         json=patient_data,
-        headers={"Authorization": f"Bearer {therapist_token}"}
+        headers={"Authorization": f"Bearer {therapist_token}"},
     )
 
     # Assert
@@ -391,7 +388,7 @@ async def test_create_patient_invalid_height(
     response = client.post(
         "/api/v1/patients",
         json=patient_data,
-        headers={"Authorization": f"Bearer {therapist_token}"}
+        headers={"Authorization": f"Bearer {therapist_token}"},
     )
 
     # Assert

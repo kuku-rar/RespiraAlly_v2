@@ -8,7 +8,8 @@ Strategy:
 - Automatic cleanup via Redis TTL
 - Clear counters on successful login
 """
-from datetime import datetime, timedelta, timezone
+
+from datetime import UTC, datetime, timedelta
 from typing import NamedTuple
 
 from redis.asyncio import Redis
@@ -122,8 +123,8 @@ class LoginLockoutService:
                 return False, None
 
             # Check if lockout has expired
-            locked_until = datetime.fromtimestamp(int(locked_until_ts), tz=timezone.utc)
-            now = datetime.now(timezone.utc)
+            locked_until = datetime.fromtimestamp(int(locked_until_ts), tz=UTC)
+            now = datetime.now(UTC)
 
             if now >= locked_until:
                 # Lockout expired, clean up
@@ -167,7 +168,7 @@ class LoginLockoutService:
             if lockout_duration_minutes:
                 # Trigger lockout
                 locked_key = self._get_locked_key(identifier)
-                locked_until = datetime.now(timezone.utc) + timedelta(
+                locked_until = datetime.now(UTC) + timedelta(
                     minutes=lockout_duration_minutes
                 )
                 locked_until_ts = int(locked_until.timestamp())

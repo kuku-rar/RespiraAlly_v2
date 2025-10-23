@@ -6,8 +6,8 @@ This is the abstract repository interface that defines the contract
 for patient data operations. The actual implementation is in the
 Infrastructure Layer.
 """
+
 from abc import ABC, abstractmethod
-from typing import Optional
 from uuid import UUID
 
 from respira_ally.infrastructure.database.models.patient_profile import PatientProfileModel
@@ -39,7 +39,7 @@ class PatientRepository(ABC):
         pass
 
     @abstractmethod
-    async def get_by_id(self, user_id: UUID) -> Optional[PatientProfileModel]:
+    async def get_by_id(self, user_id: UUID) -> PatientProfileModel | None:
         """
         Retrieve patient by user ID
 
@@ -58,12 +58,12 @@ class PatientRepository(ABC):
         skip: int = 0,
         limit: int = 20,
         # Filters
-        search: Optional[str] = None,
-        gender: Optional[str] = None,
-        min_bmi: Optional[float] = None,
-        max_bmi: Optional[float] = None,
-        min_age: Optional[int] = None,
-        max_age: Optional[int] = None,
+        search: str | None = None,
+        gender: str | None = None,
+        min_bmi: float | None = None,
+        max_bmi: float | None = None,
+        min_age: int | None = None,
+        max_age: int | None = None,
         sort_by: str = "created_at",
         sort_order: str = "desc",
     ) -> tuple[list[PatientProfileModel], int]:
@@ -93,7 +93,7 @@ class PatientRepository(ABC):
         self,
         user_id: UUID,
         update_data: dict,
-    ) -> Optional[PatientProfileModel]:
+    ) -> PatientProfileModel | None:
         """
         Update patient information
 

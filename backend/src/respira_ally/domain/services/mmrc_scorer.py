@@ -11,6 +11,7 @@ mMRC Dyspnea Scale (0-4):
 
 Reference: https://www.mrc.ac.uk/
 """
+
 from typing import Literal
 
 from respira_ally.core.schemas.survey import mMRCSurveyAnswers

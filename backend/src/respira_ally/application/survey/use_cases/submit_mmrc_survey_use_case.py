@@ -2,11 +2,14 @@
 Submit mMRC Survey Use Case
 Handles submission and scoring of mMRC (Modified Medical Research Council) surveys
 """
+
 from datetime import datetime
 from uuid import UUID, uuid4
 
-from respira_ally.core.exceptions.application_exceptions import ResourceNotFoundError, ValidationError
-from respira_ally.core.schemas.survey import mMRCSurveyAnswers, SurveyResponse
+from respira_ally.core.exceptions.application_exceptions import (
+    ResourceNotFoundError,
+)
+from respira_ally.core.schemas.survey import SurveyResponse, mMRCSurveyAnswers
 from respira_ally.domain.repositories.patient_repository import PatientRepository
 from respira_ally.domain.repositories.survey_repository import SurveyRepository
 from respira_ally.domain.services.mmrc_scorer import mMRCScorer
@@ -35,9 +38,7 @@ class SubmitMmrcSurveyUseCase:
         self.patient_repository = patient_repository
         self.mmrc_scorer = mMRCScorer()
 
-    async def execute(
-        self, patient_id: UUID, answers: mMRCSurveyAnswers
-    ) -> SurveyResponse:
+    async def execute(self, patient_id: UUID, answers: mMRCSurveyAnswers) -> SurveyResponse:
         """
         Submit a new mMRC survey
 

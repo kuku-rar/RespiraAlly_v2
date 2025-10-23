@@ -2,6 +2,7 @@
 User Model - Core authentication table
 Supports both PATIENT (LINE OAuth) and THERAPIST (Email/Password) login
 """
+
 from datetime import datetime
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
@@ -24,89 +25,67 @@ class UserModel(Base):
     - PATIENT: LINE OAuth (line_user_id)
     - THERAPIST: Email + Password (email + hashed_password)
     """
+
     __tablename__ = "users"
 
     # Primary Key
     user_id: Mapped[UUID] = mapped_column(
-        primary_key=True,
-        default=uuid4,
-        server_default=text("gen_random_uuid()")
+        primary_key=True, default=uuid4, server_default=text("gen_random_uuid()")
     )
 
     # Authentication Fields
     line_user_id: Mapped[str | None] = mapped_column(
-        String(255),
-        unique=True,
-        nullable=True,
-        comment="LINE User ID for PATIENT login"
+        String(255), unique=True, nullable=True, comment="LINE User ID for PATIENT login"
     )
     email: Mapped[str | None] = mapped_column(
-        String(255),
-        unique=True,
-        nullable=True,
-        comment="Email for THERAPIST login"
+        String(255), unique=True, nullable=True, comment="Email for THERAPIST login"
     )
     hashed_password: Mapped[str | None] = mapped_column(
-        String(255),
-        nullable=True,
-        comment="Bcrypt hashed password (null for LINE OAuth)"
+        String(255), nullable=True, comment="Bcrypt hashed password (null for LINE OAuth)"
     )
 
     # Role
     role: Mapped[str] = mapped_column(
         Enum("PATIENT", "THERAPIST", name="user_role_enum", create_type=True),
         nullable=False,
-        comment="User role"
+        comment="User role",
     )
 
     # Timestamps
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        nullable=False,
-        server_default=text("CURRENT_TIMESTAMP")
+        DateTime(timezone=True), nullable=False, server_default=text("CURRENT_TIMESTAMP")
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
         server_default=text("CURRENT_TIMESTAMP"),
-        onupdate=datetime.utcnow
+        onupdate=datetime.utcnow,
     )
     deleted_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True),
-        nullable=True,
-        comment="Soft delete timestamp"
+        DateTime(timezone=True), nullable=True, comment="Soft delete timestamp"
     )
 
     # Relationships
     patient_profile: Mapped["PatientProfileModel | None"] = relationship(
-        "PatientProfileModel",
-        back_populates="user",
-        uselist=False,
-        cascade="all, delete-orphan"
+        "PatientProfileModel", back_populates="user", uselist=False, cascade="all, delete-orphan"
     )
     therapist_profile: Mapped["TherapistProfileModel | None"] = relationship(
-        "TherapistProfileModel",
-        back_populates="user",
-        uselist=False,
-        cascade="all, delete-orphan"
+        "TherapistProfileModel", back_populates="user", uselist=False, cascade="all, delete-orphan"
     )
 
     # Constraints
     __table_args__ = (
         # At least one login method must be provided
         CheckConstraint(
-            "line_user_id IS NOT NULL OR email IS NOT NULL",
-            name="users_login_method_check"
+            "line_user_id IS NOT NULL OR email IS NOT NULL", name="users_login_method_check"
         ),
         # PATIENT must have line_user_id
         CheckConstraint(
-            "role != 'PATIENT' OR line_user_id IS NOT NULL",
-            name="users_patient_line_check"
+            "role != 'PATIENT' OR line_user_id IS NOT NULL", name="users_patient_line_check"
         ),
         # THERAPIST must have email
         CheckConstraint(
-            "role != 'THERAPIST' OR email IS NOT NULL",
-            name="users_therapist_email_check"
+            "role != 'THERAPIST' OR email IS NOT NULL", name="users_therapist_email_check"
         ),
     )
 

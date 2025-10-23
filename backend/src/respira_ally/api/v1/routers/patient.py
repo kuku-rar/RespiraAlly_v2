@@ -9,10 +9,11 @@ Endpoints:
 - PATCH /patients/{user_id} - Update patient information (therapist only)
 - DELETE /patients/{user_id} - Delete patient (therapist only)
 """
+
+import secrets
 from decimal import Decimal
 from typing import Annotated, Literal
 from uuid import UUID
-import secrets
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -26,9 +27,9 @@ from respira_ally.core.dependencies import (
 from respira_ally.core.schemas.auth import TokenData, UserRole
 from respira_ally.core.schemas.patient import (
     PatientCreate,
-    PatientUpdate,
     PatientListResponse,
     PatientResponse,
+    PatientUpdate,
 )
 from respira_ally.infrastructure.database.models.user import UserModel
 from respira_ally.infrastructure.database.session import get_db
@@ -67,9 +68,7 @@ async def create_patient(
     # 1. Verify therapist exists
     therapist_user = await db.get(UserModel, data.therapist_id)
     if not therapist_user or therapist_user.role != "THERAPIST":
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Therapist not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Therapist not found")
 
     # 2. Create user account for patient
     temp_line_id = f"temp_{secrets.token_hex(8)}"
@@ -120,9 +119,7 @@ async def get_patient(
     # Fetch patient using service
     patient = await patient_service.get_patient_by_id(user_id)
     if not patient:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Patient not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Patient not found")
 
     # Permission check
     if current_user.role == UserRole.THERAPIST:
@@ -229,9 +226,7 @@ async def update_patient(
     # Check if patient exists
     existing_patient = await patient_service.get_patient_by_id(user_id)
     if not existing_patient:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Patient not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Patient not found")
 
     # Permission check: Therapist can only update their own patients
     if existing_patient.therapist_id != current_user.user_id:
@@ -277,9 +272,7 @@ async def delete_patient(
     # Check if patient exists
     existing_patient = await patient_service.get_patient_by_id(user_id)
     if not existing_patient:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Patient not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Patient not found")
 
     # Permission check: Therapist can only delete their own patients
     if existing_patient.therapist_id != current_user.user_id:

@@ -5,11 +5,11 @@ Infrastructure Layer - Clean Architecture
 Concrete implementation of PatientRepository interface using SQLAlchemy.
 This class handles all database interactions for Patient entities.
 """
+
 from datetime import date
-from typing import Optional
 from uuid import UUID
 
-from sqlalchemy import and_, case, cast, desc, extract, func, or_, select
+from sqlalchemy import and_, case, cast, extract, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.types import Float
 
@@ -52,7 +52,7 @@ class PatientRepositoryImpl(PatientRepository):
         await self.db.refresh(patient)
         return patient
 
-    async def get_by_id(self, user_id: UUID) -> Optional[PatientProfileModel]:
+    async def get_by_id(self, user_id: UUID) -> PatientProfileModel | None:
         """
         Retrieve patient by user ID
 
@@ -70,12 +70,12 @@ class PatientRepositoryImpl(PatientRepository):
         skip: int = 0,
         limit: int = 20,
         # Filters
-        search: Optional[str] = None,
-        gender: Optional[str] = None,
-        min_bmi: Optional[float] = None,
-        max_bmi: Optional[float] = None,
-        min_age: Optional[int] = None,
-        max_age: Optional[int] = None,
+        search: str | None = None,
+        gender: str | None = None,
+        min_bmi: float | None = None,
+        max_bmi: float | None = None,
+        min_age: int | None = None,
+        max_age: int | None = None,
         sort_by: str = "created_at",
         sort_order: str = "desc",
     ) -> tuple[list[PatientProfileModel], int]:
@@ -151,8 +151,7 @@ class PatientRepositoryImpl(PatientRepository):
         if min_bmi is not None or max_bmi is not None:
             # Calculate BMI: weight / (height/100)^2
             bmi_expression = cast(
-                PatientProfileModel.weight_kg
-                / func.pow(PatientProfileModel.height_cm / 100.0, 2),
+                PatientProfileModel.weight_kg / func.pow(PatientProfileModel.height_cm / 100.0, 2),
                 Float,
             )
 
@@ -182,8 +181,7 @@ class PatientRepositoryImpl(PatientRepository):
         elif sort_by == "bmi":
             # Sort by calculated BMI
             order_column = cast(
-                PatientProfileModel.weight_kg
-                / func.pow(PatientProfileModel.height_cm / 100.0, 2),
+                PatientProfileModel.weight_kg / func.pow(PatientProfileModel.height_cm / 100.0, 2),
                 Float,
             )
         else:  # default: created_at
@@ -206,7 +204,7 @@ class PatientRepositoryImpl(PatientRepository):
         self,
         user_id: UUID,
         update_data: dict,
-    ) -> Optional[PatientProfileModel]:
+    ) -> PatientProfileModel | None:
         """
         Update patient information
 
@@ -282,8 +280,6 @@ class PatientRepositoryImpl(PatientRepository):
         Returns:
             Number of patients assigned to this therapist
         """
-        query = select(func.count()).where(
-            PatientProfileModel.therapist_id == therapist_id
-        )
+        query = select(func.count()).where(PatientProfileModel.therapist_id == therapist_id)
         result = await self.db.execute(query)
         return result.scalar() or 0

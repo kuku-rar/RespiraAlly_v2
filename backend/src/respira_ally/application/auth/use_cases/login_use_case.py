@@ -2,6 +2,7 @@
 Login Use Cases
 Handles user authentication for both Patient (LINE) and Therapist (Email/Password)
 """
+
 from passlib.context import CryptContext
 
 from respira_ally.core.config import settings

@@ -2,24 +2,34 @@
 Daily Log Schemas
 Pydantic models for Daily Log API endpoints
 """
+
 from datetime import date, datetime, timedelta
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
-
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 # ============================================================================
 # Base Schemas
 # ============================================================================
 
+
 class DailyLogBase(BaseModel):
     """Base daily log information (all fields optional except log_date)"""
+
     log_date: date = Field(..., description="Date of the log entry (ONLY required field)")
-    medication_taken: bool | None = Field(None, description="Whether medication was taken (NULL = not recorded)")
-    water_intake_ml: int | None = Field(None, ge=0, le=10000, description="Water intake in milliliters (NULL = not recorded)")
-    exercise_minutes: int | None = Field(None, ge=0, le=480, description="Exercise duration in minutes (0-480, max 8 hours)")
-    smoking_count: int | None = Field(None, ge=0, le=100, description="Number of cigarettes smoked (COPD risk factor)")
+    medication_taken: bool | None = Field(
+        None, description="Whether medication was taken (NULL = not recorded)"
+    )
+    water_intake_ml: int | None = Field(
+        None, ge=0, le=10000, description="Water intake in milliliters (NULL = not recorded)"
+    )
+    exercise_minutes: int | None = Field(
+        None, ge=0, le=480, description="Exercise duration in minutes (0-480, max 8 hours)"
+    )
+    smoking_count: int | None = Field(
+        None, ge=0, le=100, description="Number of cigarettes smoked (COPD risk factor)"
+    )
     symptoms: str | None = Field(None, max_length=500, description="Reported symptoms")
     mood: Literal["GOOD", "NEUTRAL", "BAD"] | None = Field(None, description="Patient mood")
 
@@ -129,10 +139,20 @@ class DailyLogBase(BaseModel):
             return v
 
         critical_keywords = [
-            "無法呼吸", "不能呼吸", "呼吸困難", "喘不過氣",
-            "胸痛", "胸悶", "心臟痛",
-            "暈倒", "昏倒", "失去意識", "昏迷",
-            "咳血", "吐血", "血痰"
+            "無法呼吸",
+            "不能呼吸",
+            "呼吸困難",
+            "喘不過氣",
+            "胸痛",
+            "胸悶",
+            "心臟痛",
+            "暈倒",
+            "昏倒",
+            "失去意識",
+            "昏迷",
+            "咳血",
+            "吐血",
+            "血痰",
         ]
 
         v_lower = v.lower()
@@ -149,11 +169,13 @@ class DailyLogBase(BaseModel):
 # Request Schemas
 # ============================================================================
 
+
 class DailyLogCreate(DailyLogBase):
     """
     Daily Log Creation Request
     Patients submit daily health logs via LIFF
     """
+
     patient_id: UUID = Field(..., description="Patient user ID")
 
 
@@ -162,6 +184,7 @@ class DailyLogUpdate(BaseModel):
     Daily Log Update Request
     All fields optional for partial updates
     """
+
     medication_taken: bool | None = None
     water_intake_ml: int | None = Field(None, ge=0, le=10000)
     exercise_minutes: int | None = Field(None, ge=0, le=480)
@@ -174,11 +197,13 @@ class DailyLogUpdate(BaseModel):
 # Response Schemas
 # ============================================================================
 
+
 class DailyLogResponse(DailyLogBase):
     """
     Daily Log API Response
     Returns complete daily log information
     """
+
     log_id: UUID = Field(..., description="Unique log ID")
     patient_id: UUID = Field(..., description="Patient user ID")
     created_at: datetime = Field(..., description="Log creation timestamp")
@@ -191,6 +216,7 @@ class DailyLogListResponse(BaseModel):
     """
     Daily Log List Response (with pagination)
     """
+
     items: list[DailyLogResponse]
     total: int = Field(..., description="Total number of logs")
     page: int = Field(..., description="Current page (0-indexed)")
@@ -202,10 +228,12 @@ class DailyLogListResponse(BaseModel):
 # Query Schemas
 # ============================================================================
 
+
 class DailyLogQuery(BaseModel):
     """
     Query parameters for filtering daily logs
     """
+
     patient_id: UUID | None = Field(None, description="Filter by patient ID")
     start_date: date | None = Field(None, description="Filter logs from this date (inclusive)")
     end_date: date | None = Field(None, description="Filter logs until this date (inclusive)")
@@ -217,14 +245,24 @@ class DailyLogQuery(BaseModel):
 # Statistics Schemas
 # ============================================================================
 
+
 class DailyLogStats(BaseModel):
     """
     Daily log statistics for a patient
     """
+
     total_logs: int = Field(..., description="Total number of logs")
-    medication_adherence_rate: float = Field(..., ge=0, le=100, description="Medication adherence percentage")
-    avg_water_intake_ml: float | None = Field(None, description="Average daily water intake (NULL if no data)")
-    avg_exercise_minutes: float | None = Field(None, description="Average daily exercise duration in minutes")
-    avg_smoking_count: float | None = Field(None, description="Average daily cigarette count (COPD risk tracking)")
+    medication_adherence_rate: float = Field(
+        ..., ge=0, le=100, description="Medication adherence percentage"
+    )
+    avg_water_intake_ml: float | None = Field(
+        None, description="Average daily water intake (NULL if no data)"
+    )
+    avg_exercise_minutes: float | None = Field(
+        None, description="Average daily exercise duration in minutes"
+    )
+    avg_smoking_count: float | None = Field(
+        None, description="Average daily cigarette count (COPD risk tracking)"
+    )
     mood_distribution: dict[str, int] = Field(..., description="Count of each mood type")
     date_range: dict[str, date] = Field(..., description="Start and end dates of logs")

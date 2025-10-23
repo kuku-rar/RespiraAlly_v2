@@ -6,6 +6,7 @@ Abstract interface for publishing domain events.
 Implementations can use different message brokers (RabbitMQ, Kafka, etc.)
 or in-memory event bus for testing.
 """
+
 from abc import ABC, abstractmethod
 
 from respira_ally.domain.events.daily_log_events import DomainEvent
@@ -58,7 +59,12 @@ class EventPublisher(ABC):
 class PublishError(Exception):
     """Exception raised when event publishing fails"""
 
-    def __init__(self, message: str, event: DomainEvent | None = None, original_error: Exception | None = None):
+    def __init__(
+        self,
+        message: str,
+        event: DomainEvent | None = None,
+        original_error: Exception | None = None,
+    ):
         self.message = message
         self.event = event
         self.original_error = original_error

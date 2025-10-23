@@ -5,22 +5,21 @@ Application Layer - Clean Architecture
 This service orchestrates patient-related use cases and business logic.
 It uses Repository pattern for data access and encapsulates complex workflows.
 """
+
 import logging
 from datetime import date
 from decimal import Decimal
-from typing import Optional
 from uuid import UUID
 
 from respira_ally.core.schemas.patient import (
     PatientCreate,
-    PatientUpdate,
-    PatientResponse,
     PatientListResponse,
+    PatientResponse,
+    PatientUpdate,
 )
 from respira_ally.domain.events.patient_events import (
-    create_patient_created_event,
-    create_patient_updated_event,
     create_patient_deleted_event,
+    create_patient_updated_event,
 )
 from respira_ally.domain.repositories.patient_repository import PatientRepository
 from respira_ally.infrastructure.database.models.patient_profile import PatientProfileModel
@@ -45,7 +44,7 @@ class PatientService:
     def __init__(
         self,
         patient_repository: PatientRepository,
-        event_publisher: Optional[EventPublisher] = None,
+        event_publisher: EventPublisher | None = None,
     ):
         """
         Initialize service with repository and event publisher
@@ -79,7 +78,7 @@ class PatientService:
         return age
 
     @staticmethod
-    def calculate_bmi(weight_kg: Optional[Decimal], height_cm: Optional[int]) -> Optional[Decimal]:
+    def calculate_bmi(weight_kg: Decimal | None, height_cm: int | None) -> Decimal | None:
         """
         Calculate Body Mass Index (BMI)
 
@@ -185,7 +184,7 @@ class PatientService:
     # Read Operations
     # ========================================================================
 
-    async def get_patient_by_id(self, user_id: UUID) -> Optional[PatientResponse]:
+    async def get_patient_by_id(self, user_id: UUID) -> PatientResponse | None:
         """
         Retrieve patient by user ID
 
@@ -207,12 +206,12 @@ class PatientService:
         page: int = 0,
         page_size: int = 20,
         # Filters
-        search: Optional[str] = None,
-        gender: Optional[str] = None,
-        min_bmi: Optional[float] = None,
-        max_bmi: Optional[float] = None,
-        min_age: Optional[int] = None,
-        max_age: Optional[int] = None,
+        search: str | None = None,
+        gender: str | None = None,
+        min_bmi: float | None = None,
+        max_bmi: float | None = None,
+        min_age: int | None = None,
+        max_age: int | None = None,
         sort_by: str = "created_at",
         sort_order: str = "desc",
     ) -> PatientListResponse:
@@ -293,7 +292,7 @@ class PatientService:
         self,
         user_id: UUID,
         data: PatientUpdate,
-    ) -> Optional[PatientResponse]:
+    ) -> PatientResponse | None:
         """
         Update patient information (partial update)
 
@@ -423,13 +422,15 @@ class PatientService:
             )
 
             await self.event_publisher.publish(event)
-            logger.info(f"Published patient.updated event for patient {patient_id} (fields: {', '.join(updated_fields)})")
+            logger.info(
+                f"Published patient.updated event for patient {patient_id} (fields: {', '.join(updated_fields)})"
+            )
 
         except Exception as e:
             # Log error but don't fail the request
             logger.error(
                 f"Failed to publish patient.updated event for patient {patient_id}: {str(e)}",
-                exc_info=True
+                exc_info=True,
             )
 
     async def _publish_patient_deleted_event(
@@ -465,5 +466,5 @@ class PatientService:
             # Log error but don't fail the request
             logger.error(
                 f"Failed to publish patient.deleted event for patient {patient_id}: {str(e)}",
-                exc_info=True
+                exc_info=True,
             )

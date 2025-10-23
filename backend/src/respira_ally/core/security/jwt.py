@@ -2,7 +2,8 @@
 JWT Token Management Module
 Handles JWT token creation, verification, and decoding
 """
-from datetime import datetime, timedelta, timezone
+
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from jose import jwt
@@ -30,22 +31,16 @@ def create_access_token(data: dict[str, Any], expires_delta: timedelta | None = 
 
     # Set expiration time
     if expires_delta:
-        expire = datetime.now(timezone.utc) + expires_delta
+        expire = datetime.now(UTC) + expires_delta
     else:
-        expire = datetime.now(timezone.utc) + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+        expire = datetime.now(UTC) + timedelta(
+            minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
+        )
 
-    to_encode.update({
-        "exp": expire,
-        "iat": datetime.now(timezone.utc),
-        "type": "access"
-    })
+    to_encode.update({"exp": expire, "iat": datetime.now(UTC), "type": "access"})
 
     # Encode token
-    encoded_jwt = jwt.encode(
-        to_encode,
-        settings.JWT_SECRET_KEY,
-        algorithm=settings.JWT_ALGORITHM
-    )
+    encoded_jwt = jwt.encode(to_encode, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
 
     return encoded_jwt
 
@@ -66,20 +61,12 @@ def create_refresh_token(data: dict[str, Any]) -> str:
     to_encode = data.copy()
 
     # Set longer expiration for refresh token
-    expire = datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+    expire = datetime.now(UTC) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
 
-    to_encode.update({
-        "exp": expire,
-        "iat": datetime.now(timezone.utc),
-        "type": "refresh"
-    })
+    to_encode.update({"exp": expire, "iat": datetime.now(UTC), "type": "refresh"})
 
     # Encode token
-    encoded_jwt = jwt.encode(
-        to_encode,
-        settings.JWT_SECRET_KEY,
-        algorithm=settings.JWT_ALGORITHM
-    )
+    encoded_jwt = jwt.encode(to_encode, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
 
     return encoded_jwt
 
@@ -106,7 +93,7 @@ def decode_token(token: str) -> dict[str, Any]:
             token,
             settings.JWT_SECRET_KEY,
             algorithms=[settings.JWT_ALGORITHM],
-            options={"verify_signature": False, "verify_exp": False}
+            options={"verify_signature": False, "verify_exp": False},
         )
         return payload
     except JWTError as e:
@@ -133,11 +120,7 @@ def verify_token(token: str, expected_type: str = "access") -> dict[str, Any]:
     """
     try:
         # Decode and verify token
-        payload = jwt.decode(
-            token,
-            settings.JWT_SECRET_KEY,
-            algorithms=[settings.JWT_ALGORITHM]
-        )
+        payload = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
 
         # Verify token type
         token_type = payload.get("type")
@@ -170,7 +153,7 @@ def get_token_expiration(token: str) -> datetime | None:
         exp_timestamp = payload.get("exp")
 
         if exp_timestamp:
-            return datetime.fromtimestamp(exp_timestamp, tz=timezone.utc)
+            return datetime.fromtimestamp(exp_timestamp, tz=UTC)
 
         return None
 
@@ -193,4 +176,4 @@ def is_token_expired(token: str) -> bool:
     if exp_time is None:
         return True
 
-    return datetime.now(timezone.utc) > exp_time
+    return datetime.now(UTC) > exp_time

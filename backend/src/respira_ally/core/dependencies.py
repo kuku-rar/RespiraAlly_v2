@@ -2,6 +2,7 @@
 FastAPI Dependencies
 Authentication and authorization dependencies for route protection
 """
+
 from typing import Annotated, Any
 from uuid import UUID
 
@@ -11,8 +12,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from respira_ally.core.exceptions.application_exceptions import ForbiddenError, UnauthorizedError
 from respira_ally.core.schemas.auth import TokenData, UserRole
 from respira_ally.core.security.jwt import verify_token
-from respira_ally.infrastructure.cache.token_blacklist_service import token_blacklist_service
 from respira_ally.infrastructure.cache.redis_client import get_redis
+from respira_ally.infrastructure.cache.token_blacklist_service import token_blacklist_service
 from respira_ally.infrastructure.database.session import get_db
 
 
@@ -89,7 +90,7 @@ async def get_current_user(token: Annotated[str, Depends(get_token_from_header)]
 
 
 async def get_current_patient(
-    current_user: Annotated[TokenData, Depends(get_current_user)]
+    current_user: Annotated[TokenData, Depends(get_current_user)],
 ) -> TokenData:
     """
     Require current user to be a patient
@@ -109,7 +110,7 @@ async def get_current_patient(
 
 
 async def get_current_therapist(
-    current_user: Annotated[TokenData, Depends(get_current_user)]
+    current_user: Annotated[TokenData, Depends(get_current_user)],
 ) -> TokenData:
     """
     Require current user to be a therapist
@@ -130,7 +131,7 @@ async def get_current_therapist(
 
 # Optional: Helper dependency for routes that allow both roles but need authentication
 async def get_authenticated_user(
-    current_user: Annotated[TokenData, Depends(get_current_user)]
+    current_user: Annotated[TokenData, Depends(get_current_user)],
 ) -> TokenData:
     """
     Require authentication but allow any role
@@ -148,9 +149,8 @@ async def get_authenticated_user(
 # Application Services Dependencies
 # ============================================================================
 
-async def get_patient_service(
-    db: Annotated[AsyncSession, Depends(get_db)]
-):
+
+async def get_patient_service(db: Annotated[AsyncSession, Depends(get_db)]):
     """
     Dependency injection for PatientService
 
@@ -178,9 +178,7 @@ async def get_patient_service(
     return PatientService(patient_repo)
 
 
-async def get_daily_log_service(
-    db: Annotated[AsyncSession, Depends(get_db)]
-):
+async def get_daily_log_service(db: Annotated[AsyncSession, Depends(get_db)]):
     """
     Dependency injection for DailyLogService
 
@@ -200,10 +198,10 @@ async def get_daily_log_service(
             return await service.create_daily_log(...)
     """
     from respira_ally.application.daily_log.daily_log_service import DailyLogService
+    from respira_ally.infrastructure.message_queue.in_memory_event_bus import get_event_bus
     from respira_ally.infrastructure.repository_impls.daily_log_repository_impl import (
         DailyLogRepositoryImpl,
     )
-    from respira_ally.infrastructure.message_queue.in_memory_event_bus import get_event_bus
 
     daily_log_repo = DailyLogRepositoryImpl(db)
     event_publisher = get_event_bus()  # Use in-memory event bus for now
@@ -211,7 +209,9 @@ async def get_daily_log_service(
     return DailyLogService(daily_log_repo, event_publisher)
 
 
-def get_idempotency_key(idempotency_key: str | None = Header(None, alias="Idempotency-Key")) -> str | None:
+def get_idempotency_key(
+    idempotency_key: str | None = Header(None, alias="Idempotency-Key")
+) -> str | None:
     """
     Extract Idempotency-Key from request header (optional)
 
@@ -233,9 +233,7 @@ def get_idempotency_key(idempotency_key: str | None = Header(None, alias="Idempo
     return idempotency_key
 
 
-async def get_idempotency_service(
-    redis: Annotated[Any, Depends(get_redis)]
-):
+async def get_idempotency_service(redis: Annotated[Any, Depends(get_redis)]):
     """
     Dependency injection for IdempotencyService
 
@@ -259,12 +257,11 @@ async def get_idempotency_service(
                     return cached
     """
     from respira_ally.infrastructure.cache import IdempotencyService
+
     return IdempotencyService(redis)
 
 
-async def get_survey_service(
-    db: Annotated[AsyncSession, Depends(get_db)]
-):
+async def get_survey_service(db: Annotated[AsyncSession, Depends(get_db)]):
     """
     Dependency injection for SurveyService
 
@@ -284,11 +281,11 @@ async def get_survey_service(
             return await service.submit_cat_survey(...)
     """
     from respira_ally.application.survey.survey_service import SurveyService
-    from respira_ally.infrastructure.repository_impls.survey_repository_impl import (
-        SurveyRepositoryImpl,
-    )
     from respira_ally.infrastructure.repository_impls.patient_repository_impl import (
         PatientRepositoryImpl,
+    )
+    from respira_ally.infrastructure.repository_impls.survey_repository_impl import (
+        SurveyRepositoryImpl,
     )
 
     survey_repo = SurveyRepositoryImpl(db)

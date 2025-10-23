@@ -2,6 +2,7 @@
 Patient Schemas
 Pydantic models for Patient API endpoints
 """
+
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Literal
@@ -9,13 +10,14 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
-
 # ============================================================================
 # Base Schemas
 # ============================================================================
 
+
 class PatientBase(BaseModel):
     """Base patient information (shared fields)"""
+
     name: str = Field(..., min_length=2, max_length=100, description="Patient full name")
     birth_date: date = Field(..., description="Date of birth")
     gender: Literal["MALE", "FEMALE", "OTHER"] | None = Field(None, description="Gender")
@@ -25,11 +27,13 @@ class PatientBase(BaseModel):
 # Request Schemas
 # ============================================================================
 
+
 class PatientCreate(PatientBase):
     """
     Patient Creation Request
     Therapists create patient profiles and assign themselves
     """
+
     therapist_id: UUID = Field(..., description="Assigned therapist ID")
 
     # Optional fields for detailed profile
@@ -45,6 +49,7 @@ class PatientUpdate(BaseModel):
     Patient Update Request
     All fields optional for partial updates
     """
+
     name: str | None = Field(None, min_length=2, max_length=100)
     birth_date: date | None = None
     gender: Literal["MALE", "FEMALE", "OTHER"] | None = None
@@ -59,6 +64,7 @@ class PatientQueryFilters(BaseModel):
     Patient Query Filters
     Optional filters for patient list endpoint
     """
+
     # Search
     search: str | None = Field(None, description="Search by name or phone (case-insensitive)")
 
@@ -86,11 +92,13 @@ class PatientQueryFilters(BaseModel):
 # Response Schemas
 # ============================================================================
 
+
 class PatientResponse(PatientBase):
     """
     Patient API Response
     Returns essential patient information
     """
+
     user_id: UUID = Field(..., description="Patient user ID (primary key)")
     therapist_id: UUID | None = Field(None, description="Assigned therapist ID")
 
@@ -112,6 +120,7 @@ class PatientListResponse(BaseModel):
     """
     Patient List Response (with pagination)
     """
+
     items: list[PatientResponse]
     total: int = Field(..., description="Total number of patients")
     page: int = Field(..., description="Current page (0-indexed)")
@@ -123,11 +132,13 @@ class PatientListResponse(BaseModel):
 # Detailed Response (for future expansion)
 # ============================================================================
 
+
 class PatientDetailResponse(PatientResponse):
     """
     Detailed Patient Response
     Includes additional medical information (future use)
     """
+
     smoking_status: Literal["NEVER", "FORMER", "CURRENT"] | None = None
     smoking_years: int | None = None
     hospital_medical_record_number: str | None = None

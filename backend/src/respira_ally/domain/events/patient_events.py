@@ -5,6 +5,7 @@ Domain Layer - Event-Driven Architecture
 Events published when patient actions occur.
 These events enable loose coupling between bounded contexts.
 """
+
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Literal
@@ -12,10 +13,10 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
-
 # ============================================================================
 # Base Event
 # ============================================================================
+
 
 class DomainEvent(BaseModel):
     """
@@ -24,6 +25,7 @@ class DomainEvent(BaseModel):
     All domain events should inherit from this base class to ensure
     consistent structure and metadata.
     """
+
     event_id: str = Field(..., description="Unique event identifier")
     event_type: str = Field(..., description="Event type identifier")
     timestamp: datetime = Field(..., description="When the event occurred")
@@ -36,6 +38,7 @@ class DomainEvent(BaseModel):
 # ============================================================================
 # Patient Events
 # ============================================================================
+
 
 class PatientCreatedEvent(DomainEvent):
     """
@@ -50,6 +53,7 @@ class PatientCreatedEvent(DomainEvent):
     - NotificationService: Send welcome message
     - AnalyticsService: Track patient registration
     """
+
     event_type: Literal["patient.created"] = "patient.created"
 
     # Event data
@@ -72,6 +76,7 @@ class PatientUpdatedEvent(DomainEvent):
     - AuditService: Log modification history
     - RiskAssessmentService: Recalculate if BMI changed
     """
+
     event_type: Literal["patient.updated"] = "patient.updated"
 
     # Event data
@@ -95,6 +100,7 @@ class PatientDeletedEvent(DomainEvent):
     - AuditService: Log deletion
     - NotificationService: Notify therapist
     """
+
     event_type: Literal["patient.deleted"] = "patient.deleted"
 
     # Event data
@@ -105,6 +111,7 @@ class PatientDeletedEvent(DomainEvent):
 # ============================================================================
 # Event Factory
 # ============================================================================
+
 
 def create_patient_created_event(
     patient_id: UUID,

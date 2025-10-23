@@ -5,9 +5,10 @@ Application Layer - Clean Architecture
 This service orchestrates survey-related use cases (CAT and mMRC) and business logic.
 It uses Repository pattern for data access and encapsulates complex workflows.
 """
+
 import logging
 from datetime import datetime
-from typing import Literal, Optional
+from typing import Literal
 from uuid import UUID
 
 from respira_ally.application.survey.use_cases.submit_cat_survey_use_case import (
@@ -18,10 +19,10 @@ from respira_ally.application.survey.use_cases.submit_mmrc_survey_use_case impor
 )
 from respira_ally.core.schemas.survey import (
     CATSurveyAnswers,
-    mMRCSurveyAnswers,
-    SurveyResponse,
     SurveyListResponse,
+    SurveyResponse,
     SurveyStats,
+    mMRCSurveyAnswers,
 )
 from respira_ally.domain.repositories.patient_repository import PatientRepository
 from respira_ally.domain.repositories.survey_repository import SurveyRepository
@@ -128,7 +129,7 @@ class SurveyService:
     # Read Operations
     # ========================================================================
 
-    async def get_survey_by_id(self, response_id: UUID) -> Optional[SurveyResponse]:
+    async def get_survey_by_id(self, response_id: UUID) -> SurveyResponse | None:
         """
         Get a survey response by ID
 
@@ -144,9 +145,9 @@ class SurveyService:
     async def list_surveys(
         self,
         patient_id: UUID,
-        survey_type: Optional[Literal["CAT", "mMRC"]] = None,
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None,
+        survey_type: Literal["CAT", "mMRC"] | None = None,
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
         page: int = 0,
         page_size: int = 50,
     ) -> SurveyListResponse:
@@ -189,7 +190,7 @@ class SurveyService:
         self,
         patient_id: UUID,
         survey_type: Literal["CAT", "mMRC"],
-    ) -> Optional[SurveyResponse]:
+    ) -> SurveyResponse | None:
         """
         Get the latest survey response for a patient and survey type
 
@@ -214,8 +215,8 @@ class SurveyService:
         self,
         patient_id: UUID,
         survey_type: Literal["CAT", "mMRC"],
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None,
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
     ) -> SurveyStats:
         """
         Get survey statistics for a patient

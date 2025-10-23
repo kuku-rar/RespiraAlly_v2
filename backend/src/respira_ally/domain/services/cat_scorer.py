@@ -10,6 +10,7 @@ CAT Score Ranges:
 
 Reference: https://www.catestonline.org
 """
+
 from typing import Literal
 
 from respira_ally.core.schemas.survey import CATSurveyAnswers
@@ -54,7 +55,9 @@ class CATScorer:
         )
 
     @staticmethod
-    def determine_severity(total_score: int) -> Literal["MILD", "MODERATE", "SEVERE", "VERY_SEVERE"]:
+    def determine_severity(
+        total_score: int,
+    ) -> Literal["MILD", "MODERATE", "SEVERE", "VERY_SEVERE"]:
         """
         Determine COPD severity level based on CAT score
 
@@ -86,7 +89,9 @@ class CATScorer:
             return "VERY_SEVERE"
 
     @classmethod
-    def score_and_classify(cls, answers: CATSurveyAnswers) -> tuple[int, Literal["MILD", "MODERATE", "SEVERE", "VERY_SEVERE"]]:
+    def score_and_classify(
+        cls, answers: CATSurveyAnswers
+    ) -> tuple[int, Literal["MILD", "MODERATE", "SEVERE", "VERY_SEVERE"]]:
         """
         Calculate score and determine severity in one call
 

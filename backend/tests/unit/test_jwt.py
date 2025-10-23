@@ -2,6 +2,7 @@
 Unit Tests for JWT Token Management
 Tests JWT token creation, verification, and utilities
 """
+
 import time
 from datetime import timedelta
 from uuid import uuid4
@@ -9,8 +10,8 @@ from uuid import uuid4
 import pytest
 from jose import jwt
 
-from respira_ally.core.config import settings
 from respira_ally.core.exceptions.application_exceptions import UnauthorizedError
+from respira_ally.core.schemas import UserRole
 from respira_ally.core.security import (
     create_access_token,
     create_refresh_token,
@@ -19,7 +20,6 @@ from respira_ally.core.security import (
     is_token_expired,
     verify_token,
 )
-from respira_ally.core.schemas import UserRole
 
 
 class TestJWTCreation:

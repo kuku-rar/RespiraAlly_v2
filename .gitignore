@@ -310,6 +310,7 @@ VibeCoding_Workflow_Templates/
 
 ## AI 工具暫存目錄
 .gemini/
+gemini.md
 
 ## Next.js 自動生成檔案
 **/next-env.d.ts
@@ -319,3 +320,5 @@ VibeCoding_Workflow_Templates/INDEX.md
 
 ## MCP 設定檔案 (本地版本包含真實 token)
 .mcp.json.local
+
+# cat_form.html

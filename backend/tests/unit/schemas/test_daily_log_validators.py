@@ -2,17 +2,19 @@
 Unit Tests for Daily Log Schema Validators
 Tests Pydantic field validators for data accuracy
 """
-import pytest
+
 from datetime import date, timedelta
 from uuid import uuid4
 
-from respira_ally.core.schemas.daily_log import DailyLogCreate, DailyLogUpdate
+import pytest
 from pydantic import ValidationError
 
+from respira_ally.core.schemas.daily_log import DailyLogCreate, DailyLogUpdate
 
 # ============================================================================
 # log_date Validator Tests
 # ============================================================================
+
 
 def test_log_date_valid_today():
     """Test log_date accepts today's date"""
@@ -92,6 +94,7 @@ def test_log_date_reject_too_old():
 # water_intake_ml Validator Tests
 # ============================================================================
 
+
 def test_water_intake_valid_normal():
     """Test water_intake_ml accepts normal values (500-5000ml)"""
     for amount in [500, 2000, 3000, 5000]:
@@ -164,6 +167,7 @@ def test_water_intake_reject_excessive():
 # ============================================================================
 # exercise_minutes Validator Tests
 # ============================================================================
+
 
 def test_exercise_minutes_valid_normal():
     """Test exercise_minutes accepts normal values (10-120 minutes)"""
@@ -256,6 +260,7 @@ def test_exercise_minutes_reject_negative():
 # symptoms Validator Tests
 # ============================================================================
 
+
 def test_symptoms_valid_normal():
     """Test symptoms accepts normal symptom descriptions"""
     normal_symptoms = [
@@ -330,6 +335,7 @@ def test_symptoms_reject_too_long():
 # ============================================================================
 # DailyLogUpdate Validator Tests
 # ============================================================================
+
 
 def test_update_exercise_minutes_max_480():
     """Test DailyLogUpdate enforces max 480 minutes (8 hours)"""

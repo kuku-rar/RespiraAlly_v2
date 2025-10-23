@@ -2,7 +2,8 @@
 Redis Client Management
 Provides Redis connection pool and async client
 """
-from typing import AsyncGenerator
+
+from collections.abc import AsyncGenerator
 
 import redis.asyncio as redis
 from redis.asyncio import Redis

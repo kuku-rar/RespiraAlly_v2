@@ -4,23 +4,24 @@ Tests the PatientRepositoryImpl with real database operations
 
 Run with: pytest tests/integration/database/test_patient_repository.py -v
 """
-import pytest
+
 from datetime import date
 from decimal import Decimal
 from uuid import uuid4
 
-from sqlalchemy.ext.asyncio import AsyncSession
-
+import pytest
 from respira_ally.infrastructure.repositories.patient_repository_impl import (
     PatientRepositoryImpl,
 )
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from respira_ally.infrastructure.database.models.patient_profile import PatientProfileModel
 from respira_ally.infrastructure.database.models.user import UserModel
-
 
 # ============================================================================
 # Fixtures
 # ============================================================================
+
 
 @pytest.fixture
 async def therapist_user(db_session: AsyncSession) -> UserModel:
@@ -62,6 +63,7 @@ def sample_patient_data(therapist_user: UserModel) -> dict:
 # ============================================================================
 # Tests: Create Operations
 # ============================================================================
+
 
 @pytest.mark.asyncio
 async def test_create_patient_success(
@@ -112,6 +114,7 @@ async def test_create_patient_with_minimal_data(
 # ============================================================================
 # Tests: Read Operations
 # ============================================================================
+
 
 @pytest.mark.asyncio
 async def test_get_by_id_exists(
@@ -176,6 +179,7 @@ async def test_exists_false(
 # ============================================================================
 # Tests: List Operations
 # ============================================================================
+
 
 @pytest.mark.asyncio
 async def test_list_by_therapist_empty(
@@ -293,6 +297,7 @@ async def test_count_by_therapist(
 # Tests: Update Operations
 # ============================================================================
 
+
 @pytest.mark.asyncio
 async def test_update_patient_success(
     patient_repository: PatientRepositoryImpl,
@@ -364,6 +369,7 @@ async def test_update_patient_not_found(
 # ============================================================================
 # Tests: Delete Operations
 # ============================================================================
+
 
 @pytest.mark.asyncio
 async def test_delete_patient_success(

@@ -2,6 +2,7 @@
 User Repository Interface (Domain Layer)
 Defines contracts for user data access operations
 """
+
 from abc import ABC, abstractmethod
 from uuid import UUID
 
@@ -56,9 +57,7 @@ class UserRepository(ABC):
         pass
 
     @abstractmethod
-    async def create_patient(
-        self, line_user_id: str, display_name: str | None = None
-    ) -> UserModel:
+    async def create_patient(self, line_user_id: str, display_name: str | None = None) -> UserModel:
         """
         Create a new patient user
 
@@ -72,9 +71,7 @@ class UserRepository(ABC):
         pass
 
     @abstractmethod
-    async def create_therapist(
-        self, email: str, password_hash: str, full_name: str
-    ) -> UserModel:
+    async def create_therapist(self, email: str, password_hash: str, full_name: str) -> UserModel:
         """
         Create a new therapist user
 

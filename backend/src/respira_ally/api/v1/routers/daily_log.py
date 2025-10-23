@@ -10,17 +10,16 @@ Endpoints:
 - PATCH /daily-logs/{log_id} - Update log
 - DELETE /daily-logs/{log_id} - Delete log
 """
-from typing import Annotated
+
 from datetime import date
+from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from respira_ally.application.daily_log.daily_log_service import DailyLogService
-from respira_ally.infrastructure.cache import IdempotencyService
 from respira_ally.core.dependencies import (
     get_current_patient,
-    get_current_therapist,
     get_current_user,
     get_daily_log_service,
     get_idempotency_key,
@@ -29,11 +28,12 @@ from respira_ally.core.dependencies import (
 from respira_ally.core.schemas.auth import TokenData, UserRole
 from respira_ally.core.schemas.daily_log import (
     DailyLogCreate,
-    DailyLogUpdate,
-    DailyLogResponse,
     DailyLogListResponse,
+    DailyLogResponse,
     DailyLogStats,
+    DailyLogUpdate,
 )
+from respira_ally.infrastructure.cache import IdempotencyService
 
 router = APIRouter()
 

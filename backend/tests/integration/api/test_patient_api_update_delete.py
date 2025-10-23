@@ -4,20 +4,17 @@ Tests PATCH and DELETE endpoints for Patient API
 
 Run with: pytest tests/integration/api/test_patient_api_update_delete.py -v
 """
-import pytest
-from datetime import date
-from decimal import Decimal
 
+
+import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from respira_ally.infrastructure.database.models.user import UserModel
-from respira_ally.infrastructure.database.models.patient_profile import PatientProfileModel
-
 
 # ============================================================================
 # PATCH /api/v1/patients/{id} - Update Patient
 # ============================================================================
+
 
 @pytest.mark.asyncio
 async def test_update_patient_success(
@@ -35,16 +32,13 @@ async def test_update_patient_success(
     Note: patient_user fixture already has a patient profile created
     """
     # Update data (patient_user already has a profile)
-    update_data = {
-        "weight_kg": 75.5,
-        "phone": "0912345678"
-    }
+    update_data = {"weight_kg": 75.5, "phone": "0912345678"}
 
     # Act
     response = client.patch(
         f"/api/v1/patients/{patient_user.user_id}",
         json=update_data,
-        headers={"Authorization": f"Bearer {therapist_token}"}
+        headers={"Authorization": f"Bearer {therapist_token}"},
     )
 
     # Assert
@@ -77,7 +71,7 @@ async def test_update_patient_partial_fields(
     response = client.patch(
         f"/api/v1/patients/{patient_user.user_id}",
         json=update_data,
-        headers={"Authorization": f"Bearer {therapist_token}"}
+        headers={"Authorization": f"Bearer {therapist_token}"},
     )
 
     # Assert
@@ -106,7 +100,7 @@ async def test_update_patient_forbidden(
     response = client.patch(
         f"/api/v1/patients/{other_patient_user.user_id}",
         json=update_data,
-        headers={"Authorization": f"Bearer {therapist_token}"}
+        headers={"Authorization": f"Bearer {therapist_token}"},
     )
 
     # Assert
@@ -132,7 +126,7 @@ async def test_update_patient_not_found(
     response = client.patch(
         f"/api/v1/patients/{fake_uuid}",
         json=update_data,
-        headers={"Authorization": f"Bearer {therapist_token}"}
+        headers={"Authorization": f"Bearer {therapist_token}"},
     )
 
     # Assert
@@ -152,10 +146,7 @@ async def test_update_patient_without_auth(
     """
     # Act
     update_data = {"weight_kg": 80.0}
-    response = client.patch(
-        f"/api/v1/patients/{patient_user.user_id}",
-        json=update_data
-    )
+    response = client.patch(f"/api/v1/patients/{patient_user.user_id}", json=update_data)
 
     # Assert
     assert response.status_code == 401, f"Expected 401, got {response.status_code}"
@@ -164,6 +155,7 @@ async def test_update_patient_without_auth(
 # ============================================================================
 # DELETE /api/v1/patients/{id} - Delete Patient
 # ============================================================================
+
 
 @pytest.mark.asyncio
 async def test_delete_patient_success(
@@ -182,7 +174,7 @@ async def test_delete_patient_success(
     # Act (patient_user already has a profile)
     response = client.delete(
         f"/api/v1/patients/{patient_user.user_id}",
-        headers={"Authorization": f"Bearer {therapist_token}"}
+        headers={"Authorization": f"Bearer {therapist_token}"},
     )
 
     # Assert
@@ -191,7 +183,7 @@ async def test_delete_patient_success(
     # Verify patient is deleted (subsequent GET should fail)
     get_response = client.get(
         f"/api/v1/patients/{patient_user.user_id}",
-        headers={"Authorization": f"Bearer {therapist_token}"}
+        headers={"Authorization": f"Bearer {therapist_token}"},
     )
     assert get_response.status_code == 404
 
@@ -212,7 +204,7 @@ async def test_delete_patient_forbidden(
     # Act
     response = client.delete(
         f"/api/v1/patients/{other_patient_user.user_id}",
-        headers={"Authorization": f"Bearer {therapist_token}"}
+        headers={"Authorization": f"Bearer {therapist_token}"},
     )
 
     # Assert
@@ -234,8 +226,7 @@ async def test_delete_patient_not_found(
     # Act
     fake_uuid = "00000000-0000-0000-0000-000000000000"
     response = client.delete(
-        f"/api/v1/patients/{fake_uuid}",
-        headers={"Authorization": f"Bearer {therapist_token}"}
+        f"/api/v1/patients/{fake_uuid}", headers={"Authorization": f"Bearer {therapist_token}"}
     )
 
     # Assert

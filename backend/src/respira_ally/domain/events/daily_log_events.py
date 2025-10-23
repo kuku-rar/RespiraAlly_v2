@@ -5,16 +5,17 @@ Domain Layer - Event-Driven Architecture
 Events published when daily log actions occur.
 These events enable loose coupling between bounded contexts.
 """
+
 from datetime import date, datetime
 from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field
 
-
 # ============================================================================
 # Base Event
 # ============================================================================
+
 
 class DomainEvent(BaseModel):
     """
@@ -23,6 +24,7 @@ class DomainEvent(BaseModel):
     All domain events should inherit from this base class to ensure
     consistent structure and metadata.
     """
+
     event_id: str = Field(..., description="Unique event identifier")
     event_type: str = Field(..., description="Event type identifier")
     timestamp: datetime = Field(..., description="When the event occurred")
@@ -35,6 +37,7 @@ class DomainEvent(BaseModel):
 # ============================================================================
 # Daily Log Events
 # ============================================================================
+
 
 class DailyLogSubmittedEvent(DomainEvent):
     """
@@ -51,6 +54,7 @@ class DailyLogSubmittedEvent(DomainEvent):
     - AnalyticsService: Update adherence metrics
     - RiskAssessmentService: Check for health risks
     """
+
     event_type: Literal["daily_log.submitted"] = "daily_log.submitted"
 
     # Event data
@@ -63,7 +67,9 @@ class DailyLogSubmittedEvent(DomainEvent):
     mood: Literal["GOOD", "NEUTRAL", "BAD"] | None = Field(None, description="Mood rating")
 
     # Metadata
-    is_first_log_today: bool = Field(..., description="Whether this is the first log submission today")
+    is_first_log_today: bool = Field(
+        ..., description="Whether this is the first log submission today"
+    )
     consecutive_days: int = Field(0, description="Number of consecutive days with logs")
 
 
@@ -78,6 +84,7 @@ class DailyLogUpdatedEvent(DomainEvent):
     **Subscribers**:
     - AuditService: Log modification history
     """
+
     event_type: Literal["daily_log.updated"] = "daily_log.updated"
 
     # Event data
@@ -98,6 +105,7 @@ class DailyLogDeletedEvent(DomainEvent):
     - AnalyticsService: Recalculate metrics
     - AuditService: Log deletion
     """
+
     event_type: Literal["daily_log.deleted"] = "daily_log.deleted"
 
     # Event data
@@ -109,6 +117,7 @@ class DailyLogDeletedEvent(DomainEvent):
 # ============================================================================
 # Event Factory
 # ============================================================================
+
 
 def create_daily_log_submitted_event(
     log_id: UUID,

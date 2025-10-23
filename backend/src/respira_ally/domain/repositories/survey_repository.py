@@ -6,9 +6,10 @@ This is the abstract repository interface that defines the contract
 for survey response data operations (CAT and mMRC surveys).
 The actual implementation is in the Infrastructure Layer.
 """
+
 from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import Literal, Optional
+from typing import Literal
 from uuid import UUID
 
 from respira_ally.infrastructure.database.models.survey_response import SurveyResponseModel
@@ -40,7 +41,7 @@ class SurveyRepository(ABC):
         pass
 
     @abstractmethod
-    async def get_by_id(self, response_id: UUID) -> Optional[SurveyResponseModel]:
+    async def get_by_id(self, response_id: UUID) -> SurveyResponseModel | None:
         """
         Retrieve survey response by response ID
 
@@ -56,9 +57,9 @@ class SurveyRepository(ABC):
     async def list_by_patient(
         self,
         patient_id: UUID,
-        survey_type: Optional[Literal["CAT", "mMRC"]] = None,
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None,
+        survey_type: Literal["CAT", "mMRC"] | None = None,
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
         skip: int = 0,
         limit: int = 50,
     ) -> tuple[list[SurveyResponseModel], int]:
@@ -83,7 +84,7 @@ class SurveyRepository(ABC):
         self,
         patient_id: UUID,
         survey_type: Literal["CAT", "mMRC"],
-    ) -> Optional[SurveyResponseModel]:
+    ) -> SurveyResponseModel | None:
         """
         Get the most recent survey response for a patient and survey type
 
@@ -100,9 +101,9 @@ class SurveyRepository(ABC):
     async def count_by_patient(
         self,
         patient_id: UUID,
-        survey_type: Optional[Literal["CAT", "mMRC"]] = None,
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None,
+        survey_type: Literal["CAT", "mMRC"] | None = None,
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
     ) -> int:
         """
         Count survey responses for a patient
@@ -149,9 +150,9 @@ class SurveyRepository(ABC):
         self,
         patient_id: UUID,
         survey_type: Literal["CAT", "mMRC"],
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None,
-    ) -> Optional[float]:
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
+    ) -> float | None:
         """
         Calculate average score for a patient and survey type
 
@@ -197,8 +198,8 @@ class SurveyRepository(ABC):
         self,
         patient_id: UUID,
         survey_type: Literal["CAT", "mMRC"],
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None,
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
     ) -> dict[str, int]:
         """
         Get distribution of severity levels for a patient

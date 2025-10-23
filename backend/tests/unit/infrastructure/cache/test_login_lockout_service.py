@@ -4,19 +4,21 @@ Tests the Redis-based login lockout mechanism
 
 Run with: pytest tests/unit/infrastructure/cache/test_login_lockout_service.py -v
 """
+
+from datetime import UTC, datetime, timedelta
+from unittest.mock import AsyncMock
+
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
-from datetime import datetime, timedelta, timezone
 
 from respira_ally.infrastructure.cache.login_lockout_service import (
-    LoginLockoutService,
     LockoutPolicy,
+    LoginLockoutService,
 )
-
 
 # ============================================================================
 # Fixtures
 # ============================================================================
+
 
 @pytest.fixture
 def mock_redis():
@@ -45,6 +47,7 @@ def custom_lockout_service(mock_redis):
 # Tests: is_locked_out
 # ============================================================================
 
+
 @pytest.mark.asyncio
 async def test_is_locked_out_not_locked(lockout_service, mock_redis):
     """Test is_locked_out returns False when no lockout exists"""
@@ -64,7 +67,7 @@ async def test_is_locked_out_not_locked(lockout_service, mock_redis):
 async def test_is_locked_out_active_lockout(lockout_service, mock_redis):
     """Test is_locked_out returns True with remaining time for active lockout"""
     # Arrange
-    future_time = datetime.now(timezone.utc) + timedelta(minutes=10)
+    future_time = datetime.now(UTC) + timedelta(minutes=10)
     future_timestamp = str(int(future_time.timestamp()))
     mock_redis.get.return_value = future_timestamp
 
@@ -81,7 +84,7 @@ async def test_is_locked_out_active_lockout(lockout_service, mock_redis):
 async def test_is_locked_out_expired_lockout(lockout_service, mock_redis):
     """Test is_locked_out cleans up expired lockout"""
     # Arrange
-    past_time = datetime.now(timezone.utc) - timedelta(minutes=5)
+    past_time = datetime.now(UTC) - timedelta(minutes=5)
     past_timestamp = str(int(past_time.timestamp()))
     mock_redis.get.return_value = past_timestamp
 
@@ -97,6 +100,7 @@ async def test_is_locked_out_expired_lockout(lockout_service, mock_redis):
 # ============================================================================
 # Tests: record_failed_attempt
 # ============================================================================
+
 
 @pytest.mark.asyncio
 async def test_record_failed_attempt_first_failure(lockout_service, mock_redis):
@@ -174,6 +178,7 @@ async def test_record_failed_attempt_custom_policy(custom_lockout_service, mock_
 # Tests: clear_failed_attempts
 # ============================================================================
 
+
 @pytest.mark.asyncio
 async def test_clear_failed_attempts_success(lockout_service, mock_redis):
     """Test successfully clearing failed attempts"""
@@ -190,6 +195,7 @@ async def test_clear_failed_attempts_success(lockout_service, mock_redis):
 # ============================================================================
 # Tests: get_failed_attempt_count
 # ============================================================================
+
 
 @pytest.mark.asyncio
 async def test_get_failed_attempt_count_zero(lockout_service, mock_redis):
@@ -221,6 +227,7 @@ async def test_get_failed_attempt_count_nonzero(lockout_service, mock_redis):
 # Tests: unlock_account
 # ============================================================================
 
+
 @pytest.mark.asyncio
 async def test_unlock_account(lockout_service, mock_redis):
     """Test admin unlock function"""
@@ -235,6 +242,7 @@ async def test_unlock_account(lockout_service, mock_redis):
 # ============================================================================
 # Tests: get_lockout_info
 # ============================================================================
+
 
 def test_get_lockout_info_no_lockout(lockout_service):
     """Test lockout info when no lockout triggered"""
@@ -275,6 +283,7 @@ def test_get_lockout_info_max_lockout(lockout_service):
 # ============================================================================
 # Tests: Error Handling
 # ============================================================================
+
 
 @pytest.mark.asyncio
 async def test_is_locked_out_redis_error(lockout_service, mock_redis):

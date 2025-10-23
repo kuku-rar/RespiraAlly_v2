@@ -4,8 +4,9 @@ RespiraAlly V2.0 - FastAPI Application Entry Point
 Modular Monolith Architecture with Clean Architecture principles
 Based on 7 Bounded Contexts (DDD Strategic Design)
 """
+
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
 
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
@@ -67,7 +68,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Startup
     print("🚀 Starting RespiraAlly V2.0...")
     print(f"📋 Environment: {settings.ENVIRONMENT}")
-    print(f"🗄️  Database: {settings.DATABASE_URL.split('@')[1] if '@' in settings.DATABASE_URL else 'N/A'}")
+    print(
+        f"🗄️  Database: {settings.DATABASE_URL.split('@')[1] if '@' in settings.DATABASE_URL else 'N/A'}"
+    )
 
     yield
 
@@ -116,9 +119,7 @@ app.add_exception_handler(EntityNotFoundError, entity_not_found_handler)
 app.add_exception_handler(EntityAlreadyExistsError, entity_already_exists_handler)
 app.add_exception_handler(InvalidEntityStateError, invalid_entity_state_handler)
 app.add_exception_handler(BusinessRuleViolationError, business_rule_violation_handler)
-app.add_exception_handler(
-    AggregateInvariantViolationError, aggregate_invariant_violation_handler
-)
+app.add_exception_handler(AggregateInvariantViolationError, aggregate_invariant_violation_handler)
 app.add_exception_handler(DomainException, domain_exception_handler)
 
 # FastAPI Built-in Exceptions

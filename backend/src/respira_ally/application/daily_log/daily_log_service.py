@@ -5,22 +5,22 @@ Application Layer - Clean Architecture
 This service orchestrates daily log-related use cases and business logic.
 It uses Repository pattern for data access and encapsulates complex workflows.
 """
+
 import logging
 from datetime import date
-from typing import Optional
 from uuid import UUID
 
 from respira_ally.core.schemas.daily_log import (
     DailyLogCreate,
-    DailyLogUpdate,
-    DailyLogResponse,
     DailyLogListResponse,
+    DailyLogResponse,
     DailyLogStats,
+    DailyLogUpdate,
 )
 from respira_ally.domain.events.daily_log_events import (
+    create_daily_log_deleted_event,
     create_daily_log_submitted_event,
     create_daily_log_updated_event,
-    create_daily_log_deleted_event,
 )
 from respira_ally.domain.repositories.daily_log_repository import DailyLogRepository
 from respira_ally.infrastructure.database.models.daily_log import DailyLogModel
@@ -43,7 +43,7 @@ class DailyLogService:
     def __init__(
         self,
         daily_log_repository: DailyLogRepository,
-        event_publisher: Optional[EventPublisher] = None,
+        event_publisher: EventPublisher | None = None,
     ):
         """
         Initialize service with repository and event publisher
@@ -245,7 +245,7 @@ class DailyLogService:
             # In production, you might want to retry or send to DLQ
             logger.error(
                 f"Failed to publish daily_log.submitted event for log {log_id}: {str(e)}",
-                exc_info=True
+                exc_info=True,
             )
 
     async def _publish_daily_log_updated_event(
@@ -278,13 +278,15 @@ class DailyLogService:
             )
 
             await self.event_publisher.publish(event)
-            logger.info(f"Published daily_log.updated event for log {log_id} (fields: {', '.join(updated_fields)})")
+            logger.info(
+                f"Published daily_log.updated event for log {log_id} (fields: {', '.join(updated_fields)})"
+            )
 
         except Exception as e:
             # Log error but don't fail the request
             logger.error(
                 f"Failed to publish daily_log.updated event for log {log_id}: {str(e)}",
-                exc_info=True
+                exc_info=True,
             )
 
     async def _publish_daily_log_deleted_event(
@@ -323,14 +325,14 @@ class DailyLogService:
             # Log error but don't fail the request
             logger.error(
                 f"Failed to publish daily_log.deleted event for log {log_id}: {str(e)}",
-                exc_info=True
+                exc_info=True,
             )
 
     # ========================================================================
     # Read Operations
     # ========================================================================
 
-    async def get_daily_log_by_id(self, log_id: UUID) -> Optional[DailyLogResponse]:
+    async def get_daily_log_by_id(self, log_id: UUID) -> DailyLogResponse | None:
         """
         Retrieve daily log by log ID
 
@@ -348,7 +350,7 @@ class DailyLogService:
 
     async def get_daily_log_by_patient_and_date(
         self, patient_id: UUID, log_date: date
-    ) -> Optional[DailyLogResponse]:
+    ) -> DailyLogResponse | None:
         """
         Retrieve daily log for specific patient and date
 
@@ -370,8 +372,8 @@ class DailyLogService:
     async def list_daily_logs_by_patient(
         self,
         patient_id: UUID,
-        start_date: Optional[date] = None,
-        end_date: Optional[date] = None,
+        start_date: date | None = None,
+        end_date: date | None = None,
         page: int = 0,
         page_size: int = 30,
     ) -> DailyLogListResponse:
@@ -407,7 +409,7 @@ class DailyLogService:
             has_next=(skip + len(items)) < total,
         )
 
-    async def get_latest_log(self, patient_id: UUID) -> Optional[DailyLogResponse]:
+    async def get_latest_log(self, patient_id: UUID) -> DailyLogResponse | None:
         """
         Get the most recent log for a patient
 
@@ -429,7 +431,7 @@ class DailyLogService:
 
     async def update_daily_log(
         self, log_id: UUID, data: DailyLogUpdate
-    ) -> Optional[DailyLogResponse]:
+    ) -> DailyLogResponse | None:
         """
         Update daily log information (partial update)
 

@@ -2,6 +2,7 @@
 Auth Router - Authentication & Authorization API Endpoints
 Presentation Layer (Clean Architecture)
 """
+
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, status

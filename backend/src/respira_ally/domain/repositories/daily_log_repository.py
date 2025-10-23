@@ -6,9 +6,9 @@ This is the abstract repository interface that defines the contract
 for daily log data operations. The actual implementation is in the
 Infrastructure Layer.
 """
+
 from abc import ABC, abstractmethod
 from datetime import date
-from typing import Optional
 from uuid import UUID
 
 from respira_ally.infrastructure.database.models.daily_log import DailyLogModel
@@ -40,7 +40,7 @@ class DailyLogRepository(ABC):
         pass
 
     @abstractmethod
-    async def get_by_id(self, log_id: UUID) -> Optional[DailyLogModel]:
+    async def get_by_id(self, log_id: UUID) -> DailyLogModel | None:
         """
         Retrieve daily log by log ID
 
@@ -55,7 +55,7 @@ class DailyLogRepository(ABC):
     @abstractmethod
     async def get_by_patient_and_date(
         self, patient_id: UUID, log_date: date
-    ) -> Optional[DailyLogModel]:
+    ) -> DailyLogModel | None:
         """
         Retrieve daily log for specific patient and date
 
@@ -72,8 +72,8 @@ class DailyLogRepository(ABC):
     async def list_by_patient(
         self,
         patient_id: UUID,
-        start_date: Optional[date] = None,
-        end_date: Optional[date] = None,
+        start_date: date | None = None,
+        end_date: date | None = None,
         skip: int = 0,
         limit: int = 30,
     ) -> tuple[list[DailyLogModel], int]:
@@ -119,7 +119,7 @@ class DailyLogRepository(ABC):
         self,
         log_id: UUID,
         update_data: dict,
-    ) -> Optional[DailyLogModel]:
+    ) -> DailyLogModel | None:
         """
         Update daily log information
 
@@ -165,8 +165,8 @@ class DailyLogRepository(ABC):
     async def count_by_patient(
         self,
         patient_id: UUID,
-        start_date: Optional[date] = None,
-        end_date: Optional[date] = None,
+        start_date: date | None = None,
+        end_date: date | None = None,
     ) -> int:
         """
         Count daily logs for a patient
@@ -199,7 +199,7 @@ class DailyLogRepository(ABC):
         pass
 
     @abstractmethod
-    async def get_latest_log(self, patient_id: UUID) -> Optional[DailyLogModel]:
+    async def get_latest_log(self, patient_id: UUID) -> DailyLogModel | None:
         """
         Get the most recent log for a patient
 

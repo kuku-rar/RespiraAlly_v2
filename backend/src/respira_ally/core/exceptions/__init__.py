@@ -2,6 +2,7 @@
 Core Exceptions Module
 Exports all exception classes and handlers
 """
+
 from respira_ally.core.exceptions.application_exceptions import (
     ApplicationException,
     ConflictError,

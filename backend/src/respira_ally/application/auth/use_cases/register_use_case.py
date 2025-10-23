@@ -2,6 +2,7 @@
 Registration Use Case
 Handles therapist registration (patients auto-register via LINE OAuth)
 """
+
 from respira_ally.core.config import settings
 from respira_ally.core.exceptions.application_exceptions import ConflictError, ValidationError
 from respira_ally.core.schemas.auth import LoginResponse, UserInfo, UserRole
@@ -27,9 +28,7 @@ class TherapistRegisterUseCase:
     def __init__(self, user_repository: UserRepository):
         self.user_repository = user_repository
 
-    async def execute(
-        self, email: str, password: str, full_name: str
-    ) -> LoginResponse:
+    async def execute(self, email: str, password: str, full_name: str) -> LoginResponse:
         """
         Register a new therapist
 

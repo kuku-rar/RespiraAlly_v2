@@ -6,8 +6,8 @@ Supports both local development and Zeabur deployment:
 - Local: Uses individual env vars (REDIS_HOST, REDIS_PORT, etc.)
 - Zeabur: Parses auto-injected URLs (DATABASE_URL, REDIS_URL)
 """
+
 import os
-from typing import List
 from urllib.parse import urlparse
 
 from pydantic import Field, field_validator
@@ -32,7 +32,7 @@ class Settings(BaseSettings):
     # Database (PostgreSQL + pgvector)
     DATABASE_URL: str = Field(
         default="postgresql+asyncpg://respirally:respirally_dev@localhost:5432/respirally_db",
-        description="PostgreSQL connection string with asyncpg driver"
+        description="PostgreSQL connection string with asyncpg driver",
     )
     DB_POOL_SIZE: int = Field(default=10, description="Database connection pool size")
     DB_MAX_OVERFLOW: int = Field(default=20, description="Max overflow connections")
@@ -115,9 +115,7 @@ class Settings(BaseSettings):
 
     # Vector Search (pgvector)
     VECTOR_DIMENSION: int = Field(default=1536, description="Embedding vector dimension")
-    SIMILARITY_THRESHOLD: float = Field(
-        default=0.7, description="Vector similarity threshold"
-    )
+    SIMILARITY_THRESHOLD: float = Field(default=0.7, description="Vector similarity threshold")
 
     # Logging
     LOG_LEVEL: str = Field(default="INFO", description="Logging level")

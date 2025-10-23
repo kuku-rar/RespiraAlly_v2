@@ -7,8 +7,10 @@ Events are logged but not persisted or sent to external message brokers.
 
 For production, replace with RabbitMQ or Kafka implementation.
 """
+
 import logging
-from typing import Callable, Any
+from collections.abc import Callable
+from typing import Any
 
 from respira_ally.domain.events.daily_log_events import DomainEvent
 from respira_ally.infrastructure.message_queue.publishers.event_publisher import (
@@ -106,7 +108,7 @@ class InMemoryEventBus(EventPublisher):
                     # Log error but don't stop other handlers
                     logger.error(
                         f"Handler {handler.__name__} failed for {event.event_type}: {str(e)}",
-                        exc_info=True
+                        exc_info=True,
                     )
                     # In production, you might want to:
                     # - Send to dead letter queue

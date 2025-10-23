@@ -2,8 +2,8 @@
 Token Blacklist Service
 Manages JWT token revocation using Redis
 """
-from datetime import datetime, timezone
-from typing import Any
+
+from datetime import UTC, datetime
 
 from redis.asyncio import Redis
 
@@ -71,7 +71,7 @@ class TokenBlacklistService:
                 ttl = 30 * 24 * 60 * 60
             else:
                 # Calculate remaining time until expiration
-                now = datetime.now(timezone.utc)
+                now = datetime.now(UTC)
                 ttl = int((exp_time - now).total_seconds())
 
                 # If token is already expired, don't blacklist (no need)
@@ -138,7 +138,9 @@ class TokenBlacklistService:
             # On error, assume token is blacklisted (fail-safe)
             return True
 
-    async def revoke_all_user_tokens(self, user_id: str, issued_before: datetime | None = None) -> bool:
+    async def revoke_all_user_tokens(
+        self, user_id: str, issued_before: datetime | None = None
+    ) -> bool:
         """
         Revoke all tokens for a specific user
 
@@ -154,7 +156,7 @@ class TokenBlacklistService:
         """
         try:
             if issued_before is None:
-                issued_before = datetime.now(timezone.utc)
+                issued_before = datetime.now(UTC)
 
             # Store revocation timestamp (Unix epoch)
             revoke_timestamp = int(issued_before.timestamp())

@@ -2,10 +2,13 @@
 Submit CAT Survey Use Case
 Handles submission and scoring of CAT (COPD Assessment Test) surveys
 """
+
 from datetime import datetime
 from uuid import UUID, uuid4
 
-from respira_ally.core.exceptions.application_exceptions import ResourceNotFoundError, ValidationError
+from respira_ally.core.exceptions.application_exceptions import (
+    ResourceNotFoundError,
+)
 from respira_ally.core.schemas.survey import CATSurveyAnswers, SurveyResponse
 from respira_ally.domain.repositories.patient_repository import PatientRepository
 from respira_ally.domain.repositories.survey_repository import SurveyRepository
@@ -35,9 +38,7 @@ class SubmitCATSurveyUseCase:
         self.patient_repository = patient_repository
         self.cat_scorer = CATScorer()
 
-    async def execute(
-        self, patient_id: UUID, answers: CATSurveyAnswers
-    ) -> SurveyResponse:
+    async def execute(self, patient_id: UUID, answers: CATSurveyAnswers) -> SurveyResponse:
         """
         Submit a new CAT survey
 

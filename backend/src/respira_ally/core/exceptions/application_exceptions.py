@@ -2,6 +2,7 @@
 Application Layer Exceptions
 Use case and application service errors
 """
+
 from typing import Any
 
 

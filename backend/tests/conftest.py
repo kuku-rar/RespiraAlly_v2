@@ -2,28 +2,28 @@
 Pytest Configuration and Fixtures
 Shared fixtures for all tests
 """
+
 import asyncio
-import pytest
-import pytest_asyncio
+from collections.abc import AsyncGenerator
 from datetime import date
 from decimal import Decimal
-from typing import AsyncGenerator
 from uuid import uuid4
 
+import pytest
+import pytest_asyncio
 from fastapi.testclient import TestClient
 from httpx import AsyncClient
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
-from sqlalchemy.pool import NullPool
 from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.pool import NullPool
 
-from respira_ally.infrastructure.database.session import Base
-from respira_ally.infrastructure.database.models.user import UserModel
-from respira_ally.infrastructure.database.models.therapist_profile import TherapistProfileModel
-from respira_ally.infrastructure.database.models.patient_profile import PatientProfileModel
-from respira_ally.core.security.jwt import create_access_token
 from respira_ally.application.auth.use_cases import hash_password
+from respira_ally.core.security.jwt import create_access_token
+from respira_ally.infrastructure.database.models.patient_profile import PatientProfileModel
+from respira_ally.infrastructure.database.models.therapist_profile import TherapistProfileModel
+from respira_ally.infrastructure.database.models.user import UserModel
+from respira_ally.infrastructure.database.session import Base
 from respira_ally.main import app
-
 
 # ============================================================================
 # Test Database Configuration
@@ -36,6 +36,7 @@ TEST_DATABASE_URL = "postgresql+asyncpg://admin:admin@localhost:15432/respirally
 # Async Event Loop Fixture
 # ============================================================================
 
+
 @pytest.fixture(scope="session")
 def event_loop():
     """Create event loop for async tests"""
@@ -47,6 +48,7 @@ def event_loop():
 # ============================================================================
 # Database Fixtures
 # ============================================================================
+
 
 @pytest_asyncio.fixture(scope="function")
 async def db_session() -> AsyncGenerator[AsyncSession, None]:
@@ -103,6 +105,7 @@ async def db_session() -> AsyncGenerator[AsyncSession, None]:
 # FastAPI Test Client Fixtures
 # ============================================================================
 
+
 @pytest.fixture
 def client():
     """
@@ -128,6 +131,7 @@ async def async_client():
 # ============================================================================
 # User Fixtures
 # ============================================================================
+
 
 @pytest_asyncio.fixture
 async def therapist_user(db_session: AsyncSession) -> UserModel:
@@ -240,36 +244,29 @@ async def other_patient_user(db_session: AsyncSession, therapist_user: UserModel
 # JWT Token Fixtures
 # ============================================================================
 
+
 @pytest.fixture
 def therapist_token(therapist_user: UserModel) -> str:
     """Create JWT token for therapist user"""
-    return create_access_token({
-        "sub": str(therapist_user.user_id),
-        "role": "THERAPIST"
-    })
+    return create_access_token({"sub": str(therapist_user.user_id), "role": "THERAPIST"})
 
 
 @pytest.fixture
 def patient_token(patient_user: UserModel) -> str:
     """Create JWT token for patient user"""
-    return create_access_token({
-        "sub": str(patient_user.user_id),
-        "role": "PATIENT"
-    })
+    return create_access_token({"sub": str(patient_user.user_id), "role": "PATIENT"})
 
 
 @pytest.fixture
 def other_patient_token(other_patient_user: UserModel) -> str:
     """Create JWT token for other patient user (for permission testing)"""
-    return create_access_token({
-        "sub": str(other_patient_user.user_id),
-        "role": "PATIENT"
-    })
+    return create_access_token({"sub": str(other_patient_user.user_id), "role": "PATIENT"})
 
 
 # ============================================================================
 # Common Fixtures
 # ============================================================================
+
 
 @pytest.fixture
 def sample_email():

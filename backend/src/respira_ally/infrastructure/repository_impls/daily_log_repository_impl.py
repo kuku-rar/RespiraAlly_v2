@@ -5,8 +5,8 @@ Infrastructure Layer - Clean Architecture
 Concrete implementation of DailyLogRepository interface using SQLAlchemy.
 This class handles all database interactions for DailyLog entities.
 """
+
 from datetime import date
-from typing import Optional
 from uuid import UUID
 
 from sqlalchemy import and_, func, select
@@ -40,13 +40,13 @@ class DailyLogRepositoryImpl(DailyLogRepository):
         await self.db.refresh(daily_log)
         return daily_log
 
-    async def get_by_id(self, log_id: UUID) -> Optional[DailyLogModel]:
+    async def get_by_id(self, log_id: UUID) -> DailyLogModel | None:
         """Retrieve daily log by log ID"""
         return await self.db.get(DailyLogModel, log_id)
 
     async def get_by_patient_and_date(
         self, patient_id: UUID, log_date: date
-    ) -> Optional[DailyLogModel]:
+    ) -> DailyLogModel | None:
         """Retrieve daily log for specific patient and date"""
         query = select(DailyLogModel).where(
             and_(
@@ -60,8 +60,8 @@ class DailyLogRepositoryImpl(DailyLogRepository):
     async def list_by_patient(
         self,
         patient_id: UUID,
-        start_date: Optional[date] = None,
-        end_date: Optional[date] = None,
+        start_date: date | None = None,
+        end_date: date | None = None,
         skip: int = 0,
         limit: int = 30,
     ) -> tuple[list[DailyLogModel], int]:
@@ -80,11 +80,7 @@ class DailyLogRepositoryImpl(DailyLogRepository):
         total = count_result.scalar() or 0
 
         # Get paginated results
-        query = (
-            base_query.offset(skip)
-            .limit(limit)
-            .order_by(DailyLogModel.log_date.desc())
-        )
+        query = base_query.offset(skip).limit(limit).order_by(DailyLogModel.log_date.desc())
         result = await self.db.execute(query)
         logs = list(result.scalars().all())
 
@@ -123,7 +119,7 @@ class DailyLogRepositoryImpl(DailyLogRepository):
         self,
         log_id: UUID,
         update_data: dict,
-    ) -> Optional[DailyLogModel]:
+    ) -> DailyLogModel | None:
         """Update daily log information"""
         daily_log = await self.get_by_id(log_id)
         if not daily_log:
@@ -157,8 +153,8 @@ class DailyLogRepositoryImpl(DailyLogRepository):
     async def count_by_patient(
         self,
         patient_id: UUID,
-        start_date: Optional[date] = None,
-        end_date: Optional[date] = None,
+        start_date: date | None = None,
+        end_date: date | None = None,
     ) -> int:
         """Count daily logs for a patient"""
         conditions = [DailyLogModel.patient_id == patient_id]
@@ -202,7 +198,7 @@ class DailyLogRepositoryImpl(DailyLogRepository):
         adherence_rate = (taken_logs / total_logs) * 100
         return round(adherence_rate, 2)
 
-    async def get_latest_log(self, patient_id: UUID) -> Optional[DailyLogModel]:
+    async def get_latest_log(self, patient_id: UUID) -> DailyLogModel | None:
         """Get the most recent log for a patient"""
         query = (
             select(DailyLogModel)

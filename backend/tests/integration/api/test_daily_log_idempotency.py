@@ -4,19 +4,20 @@ Tests Idempotency-Key header support for POST /daily-logs
 
 Run with: pytest tests/integration/api/test_daily_log_idempotency.py -v
 """
-import pytest
+
 from datetime import date
 from uuid import uuid4
 
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from respira_ally.infrastructure.database.models.user import UserModel
 
-
 # ============================================================================
 # POST /api/v1/daily-logs - Idempotency Tests
 # ============================================================================
+
 
 @pytest.mark.asyncio
 async def test_idempotency_key_returns_cached_response(
@@ -54,7 +55,9 @@ async def test_idempotency_key_returns_cached_response(
         },
     )
 
-    assert response1.status_code == 201, f"Expected 201, got {response1.status_code}: {response1.text}"
+    assert (
+        response1.status_code == 201
+    ), f"Expected 201, got {response1.status_code}: {response1.text}"
     log1 = response1.json()
 
     # Second request with SAME idempotency key

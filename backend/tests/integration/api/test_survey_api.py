@@ -4,18 +4,17 @@ Tests all Survey API endpoints (CAT and mMRC) with database integration
 
 Run with: pytest tests/integration/api/test_survey_api.py -v
 """
-import pytest
-from datetime import datetime
 
+
+import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from respira_ally.infrastructure.database.models.user import UserModel
-
 
 # ============================================================================
 # POST /api/v1/surveys/cat - Submit CAT Survey
 # ============================================================================
+
 
 @pytest.mark.asyncio
 async def test_submit_cat_survey_success(
@@ -41,14 +40,14 @@ async def test_submit_cat_survey_success(
             "q6_confidence_leaving_home": 2,
             "q7_sleep_quality": 2,
             "q8_energy_level": 1,
-        }
+        },
     }
 
     # Act
     response = client.post(
         "/api/v1/surveys/cat",
         json=survey_data,
-        headers={"Authorization": f"Bearer {patient_token}"}
+        headers={"Authorization": f"Bearer {patient_token}"},
     )
 
     # Assert
@@ -82,13 +81,13 @@ async def test_submit_cat_survey_mild_severity(
             "q6_confidence_leaving_home": 1,
             "q7_sleep_quality": 1,
             "q8_energy_level": 1,
-        }
+        },
     }
 
     response = client.post(
         "/api/v1/surveys/cat",
         json=survey_data,
-        headers={"Authorization": f"Bearer {patient_token}"}
+        headers={"Authorization": f"Bearer {patient_token}"},
     )
 
     assert response.status_code == 201
@@ -117,13 +116,13 @@ async def test_submit_cat_survey_very_severe(
             "q6_confidence_leaving_home": 4,
             "q7_sleep_quality": 4,
             "q8_energy_level": 4,
-        }
+        },
     }
 
     response = client.post(
         "/api/v1/surveys/cat",
         json=survey_data,
-        headers={"Authorization": f"Bearer {patient_token}"}
+        headers={"Authorization": f"Bearer {patient_token}"},
     )
 
     assert response.status_code == 201
@@ -153,13 +152,13 @@ async def test_submit_cat_survey_invalid_score(
             "q6_confidence_leaving_home": 2,
             "q7_sleep_quality": 2,
             "q8_energy_level": 2,
-        }
+        },
     }
 
     response = client.post(
         "/api/v1/surveys/cat",
         json=survey_data,
-        headers={"Authorization": f"Bearer {patient_token}"}
+        headers={"Authorization": f"Bearer {patient_token}"},
     )
 
     assert response.status_code == 422
@@ -186,13 +185,13 @@ async def test_submit_cat_survey_wrong_patient(
             "q6_confidence_leaving_home": 2,
             "q7_sleep_quality": 2,
             "q8_energy_level": 2,
-        }
+        },
     }
 
     response = client.post(
         "/api/v1/surveys/cat",
         json=survey_data,
-        headers={"Authorization": f"Bearer {patient_token}"}
+        headers={"Authorization": f"Bearer {patient_token}"},
     )
 
     assert response.status_code == 403
@@ -201,6 +200,7 @@ async def test_submit_cat_survey_wrong_patient(
 # ============================================================================
 # POST /api/v1/surveys/mmrc - Submit mMRC Survey
 # ============================================================================
+
 
 @pytest.mark.asyncio
 async def test_submit_mmrc_survey_success(
@@ -211,17 +211,12 @@ async def test_submit_mmrc_survey_success(
     """
     Test submitting an mMRC survey successfully
     """
-    survey_data = {
-        "patient_id": str(patient_user.user_id),
-        "answers": {
-            "grade": 2
-        }
-    }
+    survey_data = {"patient_id": str(patient_user.user_id), "answers": {"grade": 2}}
 
     response = client.post(
         "/api/v1/surveys/mmrc",
         json=survey_data,
-        headers={"Authorization": f"Bearer {patient_token}"}
+        headers={"Authorization": f"Bearer {patient_token}"},
     )
 
     assert response.status_code == 201
@@ -250,15 +245,12 @@ async def test_submit_mmrc_survey_all_grades(
     }
 
     for grade, expected_severity in grade_to_severity.items():
-        survey_data = {
-            "patient_id": str(patient_user.user_id),
-            "answers": {"grade": grade}
-        }
+        survey_data = {"patient_id": str(patient_user.user_id), "answers": {"grade": grade}}
 
         response = client.post(
             "/api/v1/surveys/mmrc",
             json=survey_data,
-            headers={"Authorization": f"Bearer {patient_token}"}
+            headers={"Authorization": f"Bearer {patient_token}"},
         )
 
         assert response.status_code == 201
@@ -279,13 +271,13 @@ async def test_submit_mmrc_survey_invalid_grade(
     """
     survey_data = {
         "patient_id": str(patient_user.user_id),
-        "answers": {"grade": 5}  # Invalid: should be 0-4
+        "answers": {"grade": 5},  # Invalid: should be 0-4
     }
 
     response = client.post(
         "/api/v1/surveys/mmrc",
         json=survey_data,
-        headers={"Authorization": f"Bearer {patient_token}"}
+        headers={"Authorization": f"Bearer {patient_token}"},
     )
 
     assert response.status_code == 422
@@ -294,6 +286,7 @@ async def test_submit_mmrc_survey_invalid_grade(
 # ============================================================================
 # GET /api/v1/surveys/{response_id} - Get Survey by ID
 # ============================================================================
+
 
 @pytest.mark.asyncio
 async def test_get_survey_by_id_success(
@@ -316,21 +309,20 @@ async def test_get_survey_by_id_success(
             "q6_confidence_leaving_home": 2,
             "q7_sleep_quality": 2,
             "q8_energy_level": 2,
-        }
+        },
     }
 
     create_response = client.post(
         "/api/v1/surveys/cat",
         json=survey_data,
-        headers={"Authorization": f"Bearer {patient_token}"}
+        headers={"Authorization": f"Bearer {patient_token}"},
     )
     assert create_response.status_code == 201
     response_id = create_response.json()["response_id"]
 
     # Now, get the survey
     response = client.get(
-        f"/api/v1/surveys/{response_id}",
-        headers={"Authorization": f"Bearer {patient_token}"}
+        f"/api/v1/surveys/{response_id}", headers={"Authorization": f"Bearer {patient_token}"}
     )
 
     assert response.status_code == 200
@@ -350,7 +342,7 @@ async def test_get_survey_not_found(
     """
     response = client.get(
         "/api/v1/surveys/00000000-0000-0000-0000-000000000000",
-        headers={"Authorization": f"Bearer {patient_token}"}
+        headers={"Authorization": f"Bearer {patient_token}"},
     )
 
     assert response.status_code == 404
@@ -359,6 +351,7 @@ async def test_get_survey_not_found(
 # ============================================================================
 # GET /api/v1/surveys/patient/{patient_id} - List Patient Surveys
 # ============================================================================
+
 
 @pytest.mark.asyncio
 async def test_list_patient_surveys(
@@ -373,25 +366,32 @@ async def test_list_patient_surveys(
     cat_data = {
         "patient_id": str(patient_user.user_id),
         "answers": {
-            "q1_cough": 2, "q2_mucus": 2, "q3_chest_tightness": 2,
-            "q4_breathlessness_stairs": 2, "q5_activity_limitation": 2,
-            "q6_confidence_leaving_home": 2, "q7_sleep_quality": 2,
+            "q1_cough": 2,
+            "q2_mucus": 2,
+            "q3_chest_tightness": 2,
+            "q4_breathlessness_stairs": 2,
+            "q5_activity_limitation": 2,
+            "q6_confidence_leaving_home": 2,
+            "q7_sleep_quality": 2,
             "q8_energy_level": 2,
-        }
+        },
     }
-    mmrc_data = {
-        "patient_id": str(patient_user.user_id),
-        "answers": {"grade": 2}
-    }
+    mmrc_data = {"patient_id": str(patient_user.user_id), "answers": {"grade": 2}}
 
-    client.post("/api/v1/surveys/cat", json=cat_data, headers={"Authorization": f"Bearer {patient_token}"})
-    client.post("/api/v1/surveys/cat", json=cat_data, headers={"Authorization": f"Bearer {patient_token}"})
-    client.post("/api/v1/surveys/mmrc", json=mmrc_data, headers={"Authorization": f"Bearer {patient_token}"})
+    client.post(
+        "/api/v1/surveys/cat", json=cat_data, headers={"Authorization": f"Bearer {patient_token}"}
+    )
+    client.post(
+        "/api/v1/surveys/cat", json=cat_data, headers={"Authorization": f"Bearer {patient_token}"}
+    )
+    client.post(
+        "/api/v1/surveys/mmrc", json=mmrc_data, headers={"Authorization": f"Bearer {patient_token}"}
+    )
 
     # List all surveys
     response = client.get(
         f"/api/v1/surveys/patient/{patient_user.user_id}",
-        headers={"Authorization": f"Bearer {patient_token}"}
+        headers={"Authorization": f"Bearer {patient_token}"},
     )
 
     assert response.status_code == 200
@@ -413,24 +413,29 @@ async def test_list_patient_surveys_filter_by_type(
     cat_data = {
         "patient_id": str(patient_user.user_id),
         "answers": {
-            "q1_cough": 2, "q2_mucus": 2, "q3_chest_tightness": 2,
-            "q4_breathlessness_stairs": 2, "q5_activity_limitation": 2,
-            "q6_confidence_leaving_home": 2, "q7_sleep_quality": 2,
+            "q1_cough": 2,
+            "q2_mucus": 2,
+            "q3_chest_tightness": 2,
+            "q4_breathlessness_stairs": 2,
+            "q5_activity_limitation": 2,
+            "q6_confidence_leaving_home": 2,
+            "q7_sleep_quality": 2,
             "q8_energy_level": 2,
-        }
+        },
     }
-    mmrc_data = {
-        "patient_id": str(patient_user.user_id),
-        "answers": {"grade": 2}
-    }
+    mmrc_data = {"patient_id": str(patient_user.user_id), "answers": {"grade": 2}}
 
-    client.post("/api/v1/surveys/cat", json=cat_data, headers={"Authorization": f"Bearer {patient_token}"})
-    client.post("/api/v1/surveys/mmrc", json=mmrc_data, headers={"Authorization": f"Bearer {patient_token}"})
+    client.post(
+        "/api/v1/surveys/cat", json=cat_data, headers={"Authorization": f"Bearer {patient_token}"}
+    )
+    client.post(
+        "/api/v1/surveys/mmrc", json=mmrc_data, headers={"Authorization": f"Bearer {patient_token}"}
+    )
 
     # Filter by CAT
     response = client.get(
         f"/api/v1/surveys/patient/{patient_user.user_id}?survey_type=CAT",
-        headers={"Authorization": f"Bearer {patient_token}"}
+        headers={"Authorization": f"Bearer {patient_token}"},
     )
 
     assert response.status_code == 200
@@ -441,6 +446,7 @@ async def test_list_patient_surveys_filter_by_type(
 # ============================================================================
 # GET /api/v1/surveys/cat/patient/{patient_id}/latest - Latest CAT
 # ============================================================================
+
 
 @pytest.mark.asyncio
 async def test_get_latest_cat_survey(
@@ -455,19 +461,27 @@ async def test_get_latest_cat_survey(
     survey_data = {
         "patient_id": str(patient_user.user_id),
         "answers": {
-            "q1_cough": 3, "q2_mucus": 3, "q3_chest_tightness": 3,
-            "q4_breathlessness_stairs": 3, "q5_activity_limitation": 3,
-            "q6_confidence_leaving_home": 3, "q7_sleep_quality": 3,
+            "q1_cough": 3,
+            "q2_mucus": 3,
+            "q3_chest_tightness": 3,
+            "q4_breathlessness_stairs": 3,
+            "q5_activity_limitation": 3,
+            "q6_confidence_leaving_home": 3,
+            "q7_sleep_quality": 3,
             "q8_energy_level": 3,
-        }
+        },
     }
 
-    client.post("/api/v1/surveys/cat", json=survey_data, headers={"Authorization": f"Bearer {patient_token}"})
+    client.post(
+        "/api/v1/surveys/cat",
+        json=survey_data,
+        headers={"Authorization": f"Bearer {patient_token}"},
+    )
 
     # Get latest
     response = client.get(
         f"/api/v1/surveys/cat/patient/{patient_user.user_id}/latest",
-        headers={"Authorization": f"Bearer {patient_token}"}
+        headers={"Authorization": f"Bearer {patient_token}"},
     )
 
     assert response.status_code == 200
@@ -479,6 +493,7 @@ async def test_get_latest_cat_survey(
 # ============================================================================
 # GET /api/v1/surveys/cat/patient/{patient_id}/stats - CAT Statistics
 # ============================================================================
+
 
 @pytest.mark.asyncio
 async def test_get_cat_survey_stats(
@@ -494,16 +509,22 @@ async def test_get_cat_survey_stats(
         survey_data = {
             "patient_id": str(patient_user.user_id),
             "answers": {
-                f"q{i+1}_{'cough' if i == 0 else 'mucus' if i == 1 else 'chest_tightness' if i == 2 else 'breathlessness_stairs' if i == 3 else 'activity_limitation' if i == 4 else 'confidence_leaving_home' if i == 5 else 'sleep_quality' if i == 6 else 'energy_level'}": score // 8 + (1 if i < score % 8 else 0)
+                f"q{i+1}_{'cough' if i == 0 else 'mucus' if i == 1 else 'chest_tightness' if i == 2 else 'breathlessness_stairs' if i == 3 else 'activity_limitation' if i == 4 else 'confidence_leaving_home' if i == 5 else 'sleep_quality' if i == 6 else 'energy_level'}": score
+                // 8
+                + (1 if i < score % 8 else 0)
                 for i in range(8)
-            }
+            },
         }
-        client.post("/api/v1/surveys/cat", json=survey_data, headers={"Authorization": f"Bearer {patient_token}"})
+        client.post(
+            "/api/v1/surveys/cat",
+            json=survey_data,
+            headers={"Authorization": f"Bearer {patient_token}"},
+        )
 
     # Get statistics
     response = client.get(
         f"/api/v1/surveys/cat/patient/{patient_user.user_id}/stats",
-        headers={"Authorization": f"Bearer {patient_token}"}
+        headers={"Authorization": f"Bearer {patient_token}"},
     )
 
     assert response.status_code == 200
@@ -519,6 +540,7 @@ async def test_get_cat_survey_stats(
 # Authorization Tests
 # ============================================================================
 
+
 @pytest.mark.asyncio
 async def test_submit_cat_without_auth(client: TestClient):
     """
@@ -528,11 +550,15 @@ async def test_submit_cat_without_auth(client: TestClient):
     survey_data = {
         "patient_id": "00000000-0000-0000-0000-000000000000",
         "answers": {
-            "q1_cough": 2, "q2_mucus": 2, "q3_chest_tightness": 2,
-            "q4_breathlessness_stairs": 2, "q5_activity_limitation": 2,
-            "q6_confidence_leaving_home": 2, "q7_sleep_quality": 2,
+            "q1_cough": 2,
+            "q2_mucus": 2,
+            "q3_chest_tightness": 2,
+            "q4_breathlessness_stairs": 2,
+            "q5_activity_limitation": 2,
+            "q6_confidence_leaving_home": 2,
+            "q7_sleep_quality": 2,
             "q8_energy_level": 2,
-        }
+        },
     }
 
     response = client.post("/api/v1/surveys/cat", json=survey_data)

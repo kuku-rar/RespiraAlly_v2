@@ -4,17 +4,17 @@ Tests all Authentication & Authorization API endpoints
 
 Run with: pytest tests/integration/api/test_auth_api.py -v
 """
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from respira_ally.infrastructure.database.models.user import UserModel
-from respira_ally.application.auth.use_cases import hash_password
-
 
 # ============================================================================
 # POST /api/v1/auth/therapist/register - Therapist Registration
 # ============================================================================
+
 
 @pytest.mark.asyncio
 async def test_therapist_register_success(
@@ -31,14 +31,11 @@ async def test_therapist_register_success(
     register_data = {
         "email": "new.therapist@test.com",
         "password": "SecurePass123!",
-        "full_name": "Dr. New Therapist"
+        "full_name": "Dr. New Therapist",
     }
 
     # Act
-    response = client.post(
-        "/api/v1/auth/therapist/register",
-        json=register_data
-    )
+    response = client.post("/api/v1/auth/therapist/register", json=register_data)
 
     # Assert
     assert response.status_code == 201, f"Expected 201, got {response.status_code}: {response.text}"
@@ -66,14 +63,11 @@ async def test_therapist_register_duplicate_email(
     register_data = {
         "email": therapist_user.email,  # Existing email
         "password": "AnotherPass123!",
-        "full_name": "Dr. Duplicate"
+        "full_name": "Dr. Duplicate",
     }
 
     # Act
-    response = client.post(
-        "/api/v1/auth/therapist/register",
-        json=register_data
-    )
+    response = client.post("/api/v1/auth/therapist/register", json=register_data)
 
     # Assert
     assert response.status_code == 409, f"Expected 409, got {response.status_code}"
@@ -93,14 +87,11 @@ async def test_therapist_register_weak_password(
     register_data = {
         "email": "weak@test.com",
         "password": "123",  # Too short
-        "full_name": "Dr. Weak"
+        "full_name": "Dr. Weak",
     }
 
     # Act
-    response = client.post(
-        "/api/v1/auth/therapist/register",
-        json=register_data
-    )
+    response = client.post("/api/v1/auth/therapist/register", json=register_data)
 
     # Assert
     assert response.status_code == 422, f"Expected 422, got {response.status_code}"
@@ -109,6 +100,7 @@ async def test_therapist_register_weak_password(
 # ============================================================================
 # POST /api/v1/auth/therapist/login - Therapist Login
 # ============================================================================
+
 
 @pytest.mark.asyncio
 async def test_therapist_login_success(
@@ -122,16 +114,10 @@ async def test_therapist_login_success(
     Expected: 200 OK, tokens returned
     """
     # Arrange
-    login_data = {
-        "email": therapist_user.email,
-        "password": "SecurePass123!"  # From fixture
-    }
+    login_data = {"email": therapist_user.email, "password": "SecurePass123!"}  # From fixture
 
     # Act
-    response = client.post(
-        "/api/v1/auth/therapist/login",
-        json=login_data
-    )
+    response = client.post("/api/v1/auth/therapist/login", json=login_data)
 
     # Assert
     assert response.status_code == 200, f"Expected 200, got {response.status_code}: {response.text}"
@@ -154,16 +140,10 @@ async def test_therapist_login_invalid_password(
     Expected: 401 Unauthorized
     """
     # Arrange
-    login_data = {
-        "email": therapist_user.email,
-        "password": "WrongPassword123!"
-    }
+    login_data = {"email": therapist_user.email, "password": "WrongPassword123!"}
 
     # Act
-    response = client.post(
-        "/api/v1/auth/therapist/login",
-        json=login_data
-    )
+    response = client.post("/api/v1/auth/therapist/login", json=login_data)
 
     # Assert
     assert response.status_code == 401, f"Expected 401, got {response.status_code}"
@@ -180,16 +160,10 @@ async def test_therapist_login_invalid_email(
     Expected: 401 Unauthorized
     """
     # Arrange
-    login_data = {
-        "email": "nonexistent@test.com",
-        "password": "SomePassword123!"
-    }
+    login_data = {"email": "nonexistent@test.com", "password": "SomePassword123!"}
 
     # Act
-    response = client.post(
-        "/api/v1/auth/therapist/login",
-        json=login_data
-    )
+    response = client.post("/api/v1/auth/therapist/login", json=login_data)
 
     # Assert
     assert response.status_code == 401, f"Expected 401, got {response.status_code}"
@@ -198,6 +172,7 @@ async def test_therapist_login_invalid_email(
 # ============================================================================
 # POST /api/v1/auth/patient/login - Patient Login (LINE OAuth)
 # ============================================================================
+
 
 @pytest.mark.asyncio
 async def test_patient_login_success(
@@ -213,14 +188,11 @@ async def test_patient_login_success(
     # Arrange
     login_data = {
         "line_user_id": patient_user.line_user_id,
-        "line_access_token": "mock_line_token"  # Mock token
+        "line_access_token": "mock_line_token",  # Mock token
     }
 
     # Act
-    response = client.post(
-        "/api/v1/auth/patient/login",
-        json=login_data
-    )
+    response = client.post("/api/v1/auth/patient/login", json=login_data)
 
     # Assert
     assert response.status_code == 200, f"Expected 200, got {response.status_code}: {response.text}"
@@ -241,16 +213,10 @@ async def test_patient_login_auto_register(
     Expected: 200 OK, new user created, tokens returned
     """
     # Arrange
-    login_data = {
-        "line_user_id": "new_line_user_12345",
-        "line_access_token": "mock_line_token"
-    }
+    login_data = {"line_user_id": "new_line_user_12345", "line_access_token": "mock_line_token"}
 
     # Act
-    response = client.post(
-        "/api/v1/auth/patient/login",
-        json=login_data
-    )
+    response = client.post("/api/v1/auth/patient/login", json=login_data)
 
     # Assert
     assert response.status_code == 200, f"Expected 200, got {response.status_code}: {response.text}"
@@ -262,6 +228,7 @@ async def test_patient_login_auto_register(
 # ============================================================================
 # POST /api/v1/auth/logout - Logout
 # ============================================================================
+
 
 @pytest.mark.asyncio
 async def test_logout_success(
@@ -275,15 +242,13 @@ async def test_logout_success(
     Expected: 204 No Content
     """
     # Arrange
-    logout_data = {
-        "revoke_all_tokens": False
-    }
+    logout_data = {"revoke_all_tokens": False}
 
     # Act
     response = client.post(
         "/api/v1/auth/logout",
         json=logout_data,
-        headers={"Authorization": f"Bearer {therapist_token}"}
+        headers={"Authorization": f"Bearer {therapist_token}"},
     )
 
     # Assert
@@ -302,15 +267,13 @@ async def test_logout_revoke_all_tokens(
     Expected: 204 No Content, all tokens revoked
     """
     # Arrange
-    logout_data = {
-        "revoke_all_tokens": True
-    }
+    logout_data = {"revoke_all_tokens": True}
 
     # Act
     response = client.post(
         "/api/v1/auth/logout",
         json=logout_data,
-        headers={"Authorization": f"Bearer {therapist_token}"}
+        headers={"Authorization": f"Bearer {therapist_token}"},
     )
 
     # Assert
@@ -328,15 +291,10 @@ async def test_logout_without_auth(
     Expected: 401 Unauthorized
     """
     # Arrange
-    logout_data = {
-        "revoke_all_tokens": False
-    }
+    logout_data = {"revoke_all_tokens": False}
 
     # Act
-    response = client.post(
-        "/api/v1/auth/logout",
-        json=logout_data
-    )
+    response = client.post("/api/v1/auth/logout", json=logout_data)
 
     # Assert
     assert response.status_code == 401, f"Expected 401, got {response.status_code}"
@@ -356,10 +314,7 @@ async def test_access_after_logout(
     # Arrange - Login first
     login_response = client.post(
         "/api/v1/auth/therapist/login",
-        json={
-            "email": therapist_user.email,
-            "password": "SecurePass123!"
-        }
+        json={"email": therapist_user.email, "password": "SecurePass123!"},
     )
     token = login_response.json()["access_token"]
 
@@ -367,14 +322,11 @@ async def test_access_after_logout(
     client.post(
         "/api/v1/auth/logout",
         json={"revoke_all_tokens": False},
-        headers={"Authorization": f"Bearer {token}"}
+        headers={"Authorization": f"Bearer {token}"},
     )
 
     # Act - Try to access protected endpoint
-    response = client.get(
-        "/api/v1/patients",
-        headers={"Authorization": f"Bearer {token}"}
-    )
+    response = client.get("/api/v1/patients", headers={"Authorization": f"Bearer {token}"})
 
     # Assert
     assert response.status_code == 401, f"Expected 401, got {response.status_code}"
@@ -383,6 +335,7 @@ async def test_access_after_logout(
 # ============================================================================
 # POST /api/v1/auth/refresh - Token Refresh
 # ============================================================================
+
 
 @pytest.mark.asyncio
 async def test_refresh_token_success(
@@ -398,18 +351,12 @@ async def test_refresh_token_success(
     # Arrange - Login to get refresh token
     login_response = client.post(
         "/api/v1/auth/therapist/login",
-        json={
-            "email": therapist_user.email,
-            "password": "SecurePass123!"
-        }
+        json={"email": therapist_user.email, "password": "SecurePass123!"},
     )
     refresh_token = login_response.json()["refresh_token"]
 
     # Act
-    response = client.post(
-        "/api/v1/auth/refresh",
-        json={"refresh_token": refresh_token}
-    )
+    response = client.post("/api/v1/auth/refresh", json={"refresh_token": refresh_token})
 
     # Assert
     assert response.status_code == 200, f"Expected 200, got {response.status_code}: {response.text}"
@@ -432,10 +379,7 @@ async def test_refresh_with_invalid_token(
     fake_refresh_token = "fake.refresh.token"
 
     # Act
-    response = client.post(
-        "/api/v1/auth/refresh",
-        json={"refresh_token": fake_refresh_token}
-    )
+    response = client.post("/api/v1/auth/refresh", json={"refresh_token": fake_refresh_token})
 
     # Assert
     assert response.status_code == 401, f"Expected 401, got {response.status_code}"
@@ -454,8 +398,7 @@ async def test_refresh_with_access_token(
     """
     # Act
     response = client.post(
-        "/api/v1/auth/refresh",
-        json={"refresh_token": therapist_token}  # Wrong token type
+        "/api/v1/auth/refresh", json={"refresh_token": therapist_token}  # Wrong token type
     )
 
     # Assert
@@ -465,6 +408,7 @@ async def test_refresh_with_access_token(
 # ============================================================================
 # Edge Cases & Security Tests
 # ============================================================================
+
 
 @pytest.mark.asyncio
 async def test_login_with_expired_token(
@@ -477,18 +421,17 @@ async def test_login_with_expired_token(
     Expected: 401 Unauthorized
     """
     # Arrange - Create expired token
-    from respira_ally.core.security.jwt import create_access_token
     from datetime import timedelta
+
+    from respira_ally.core.security.jwt import create_access_token
+
     expired_token = create_access_token(
         {"sub": "test_user", "role": "THERAPIST"},
-        expires_delta=timedelta(seconds=-1)  # Already expired
+        expires_delta=timedelta(seconds=-1),  # Already expired
     )
 
     # Act
-    response = client.get(
-        "/api/v1/patients",
-        headers={"Authorization": f"Bearer {expired_token}"}
-    )
+    response = client.get("/api/v1/patients", headers={"Authorization": f"Bearer {expired_token}"})
 
     # Assert
     assert response.status_code == 401, f"Expected 401, got {response.status_code}"
@@ -505,10 +448,7 @@ async def test_malformed_authorization_header(
     Expected: 401 Unauthorized
     """
     # Act - Missing "Bearer" prefix
-    response = client.get(
-        "/api/v1/patients",
-        headers={"Authorization": "InvalidTokenFormat"}
-    )
+    response = client.get("/api/v1/patients", headers={"Authorization": "InvalidTokenFormat"})
 
     # Assert
     assert response.status_code == 401, f"Expected 401, got {response.status_code}"

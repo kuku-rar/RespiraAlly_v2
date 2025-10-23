@@ -1,6 +1,7 @@
 """
 Event Log Model - System event tracking (replaces MongoDB)
 """
+
 from datetime import datetime
 from uuid import UUID, uuid4
 
@@ -14,16 +15,15 @@ from respira_ally.infrastructure.database.session import Base
 class EventLogModel(Base):
     """
     Event logs table - System event tracking using PostgreSQL JSONB
-    
+
     Replaces MongoDB for event storage
     """
+
     __tablename__ = "event_logs"
 
     # Primary Key
     event_id: Mapped[UUID] = mapped_column(
-        primary_key=True,
-        default=uuid4,
-        server_default=text("gen_random_uuid()")
+        primary_key=True, default=uuid4, server_default=text("gen_random_uuid()")
     )
 
     # Event Type
@@ -31,14 +31,12 @@ class EventLogModel(Base):
         String(100),
         nullable=False,
         index=True,
-        comment="Event type: LOGIN, LOGOUT, DATA_SUBMIT, API_CALL, etc."
+        comment="Event type: LOGIN, LOGOUT, DATA_SUBMIT, API_CALL, etc.",
     )
 
     # User/Entity ID (for filtering)
     entity_id: Mapped[UUID | None] = mapped_column(
-        nullable=True,
-        index=True,
-        comment="Related user_id or patient_id"
+        nullable=True, index=True, comment="Related user_id or patient_id"
     )
 
     # Event Payload (JSONB for flexibility)
@@ -46,7 +44,7 @@ class EventLogModel(Base):
         JSONB,
         nullable=False,
         server_default=text("'{}'::jsonb"),
-        comment="Event payload: {action, details, metadata, ...}"
+        comment="Event payload: {action, details, metadata, ...}",
     )
 
     # Timestamp
@@ -54,7 +52,7 @@ class EventLogModel(Base):
         DateTime(timezone=True),
         nullable=False,
         server_default=text("CURRENT_TIMESTAMP"),
-        index=True
+        index=True,
     )
 
     # Indexes

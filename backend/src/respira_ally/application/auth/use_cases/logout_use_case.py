@@ -2,7 +2,8 @@
 Logout Use Case
 Handles token revocation and user logout
 """
-from datetime import datetime, timezone
+
+from datetime import UTC, datetime
 
 from respira_ally.core.exceptions.application_exceptions import UnauthorizedError
 from respira_ally.core.security.jwt import verify_token
@@ -54,7 +55,7 @@ class LogoutUseCase:
         # Optionally revoke all tokens for this user
         if revoke_all_tokens:
             await self.token_blacklist_service.revoke_all_user_tokens(
-                user_id=user_id, issued_before=datetime.now(timezone.utc)
+                user_id=user_id, issued_before=datetime.now(UTC)
             )
 
         return True

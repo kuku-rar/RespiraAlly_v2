@@ -5,16 +5,17 @@ Domain Layer - Event-Driven Architecture
 Events published when survey actions occur (CAT and mMRC).
 These events enable loose coupling between bounded contexts.
 """
+
 from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field
 
-
 # ============================================================================
 # Base Event
 # ============================================================================
+
 
 class DomainEvent(BaseModel):
     """
@@ -23,6 +24,7 @@ class DomainEvent(BaseModel):
     All domain events should inherit from this base class to ensure
     consistent structure and metadata.
     """
+
     event_id: str = Field(..., description="Unique event identifier")
     event_type: str = Field(..., description="Event type identifier")
     timestamp: datetime = Field(..., description="When the event occurred")
@@ -35,6 +37,7 @@ class DomainEvent(BaseModel):
 # ============================================================================
 # Survey Events
 # ============================================================================
+
 
 class SurveySubmittedEvent(DomainEvent):
     """
@@ -53,6 +56,7 @@ class SurveySubmittedEvent(DomainEvent):
     - AnalyticsService: Update patient health metrics
     - ReportingService: Generate COPD progression reports
     """
+
     event_type: Literal["survey.submitted"] = "survey.submitted"
 
     # Event data
@@ -64,10 +68,16 @@ class SurveySubmittedEvent(DomainEvent):
     )
 
     # Metadata
-    is_first_survey: bool = Field(False, description="Whether this is the first survey of this type")
+    is_first_survey: bool = Field(
+        False, description="Whether this is the first survey of this type"
+    )
     previous_score: int | None = Field(None, description="Previous survey score (if exists)")
-    score_change: int | None = Field(None, description="Change from previous score (positive = worsening)")
-    is_concerning: bool = Field(False, description="Whether score indicates concerning health status")
+    score_change: int | None = Field(
+        None, description="Change from previous score (positive = worsening)"
+    )
+    is_concerning: bool = Field(
+        False, description="Whether score indicates concerning health status"
+    )
 
 
 class SurveyUpdatedEvent(DomainEvent):
@@ -83,6 +93,7 @@ class SurveyUpdatedEvent(DomainEvent):
     - AuditService: Log modification history
     - RiskAssessmentService: Recalculate risk if score changed
     """
+
     event_type: Literal["survey.updated"] = "survey.updated"
 
     # Event data
@@ -105,6 +116,7 @@ class SurveyDeletedEvent(DomainEvent):
     - AnalyticsService: Recalculate patient metrics
     - AuditService: Log deletion
     """
+
     event_type: Literal["survey.deleted"] = "survey.deleted"
 
     # Event data
@@ -117,6 +129,7 @@ class SurveyDeletedEvent(DomainEvent):
 # ============================================================================
 # Event Factory
 # ============================================================================
+
 
 def create_survey_submitted_event(
     response_id: UUID,

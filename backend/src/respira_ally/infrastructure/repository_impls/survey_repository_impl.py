@@ -5,8 +5,9 @@ Infrastructure Layer - Clean Architecture
 Concrete implementation of SurveyRepository interface using SQLAlchemy.
 This class handles all database interactions for Survey Response entities.
 """
+
 from datetime import datetime, timedelta
-from typing import Literal, Optional
+from typing import Literal
 from uuid import UUID
 
 from sqlalchemy import and_, func, select
@@ -40,16 +41,16 @@ class SurveyRepositoryImpl(SurveyRepository):
         await self.db.refresh(survey_response)
         return survey_response
 
-    async def get_by_id(self, response_id: UUID) -> Optional[SurveyResponseModel]:
+    async def get_by_id(self, response_id: UUID) -> SurveyResponseModel | None:
         """Retrieve survey response by response ID"""
         return await self.db.get(SurveyResponseModel, response_id)
 
     async def list_by_patient(
         self,
         patient_id: UUID,
-        survey_type: Optional[Literal["CAT", "mMRC"]] = None,
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None,
+        survey_type: Literal["CAT", "mMRC"] | None = None,
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
         skip: int = 0,
         limit: int = 50,
     ) -> tuple[list[SurveyResponseModel], int]:
@@ -72,9 +73,7 @@ class SurveyRepositoryImpl(SurveyRepository):
 
         # Get paginated results
         query = (
-            base_query.offset(skip)
-            .limit(limit)
-            .order_by(SurveyResponseModel.submitted_at.desc())
+            base_query.offset(skip).limit(limit).order_by(SurveyResponseModel.submitted_at.desc())
         )
         result = await self.db.execute(query)
         responses = list(result.scalars().all())
@@ -85,7 +84,7 @@ class SurveyRepositoryImpl(SurveyRepository):
         self,
         patient_id: UUID,
         survey_type: Literal["CAT", "mMRC"],
-    ) -> Optional[SurveyResponseModel]:
+    ) -> SurveyResponseModel | None:
         """Get the most recent survey response for a patient and survey type"""
         query = (
             select(SurveyResponseModel)
@@ -104,9 +103,9 @@ class SurveyRepositoryImpl(SurveyRepository):
     async def count_by_patient(
         self,
         patient_id: UUID,
-        survey_type: Optional[Literal["CAT", "mMRC"]] = None,
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None,
+        survey_type: Literal["CAT", "mMRC"] | None = None,
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
     ) -> int:
         """Count survey responses for a patient"""
         conditions = [SurveyResponseModel.patient_id == patient_id]
@@ -124,8 +123,10 @@ class SurveyRepositoryImpl(SurveyRepository):
 
     async def exists(self, response_id: UUID) -> bool:
         """Check if survey response exists"""
-        query = select(func.count()).select_from(SurveyResponseModel).where(
-            SurveyResponseModel.response_id == response_id
+        query = (
+            select(func.count())
+            .select_from(SurveyResponseModel)
+            .where(SurveyResponseModel.response_id == response_id)
         )
         result = await self.db.execute(query)
         count = result.scalar() or 0
@@ -144,9 +145,9 @@ class SurveyRepositoryImpl(SurveyRepository):
         self,
         patient_id: UUID,
         survey_type: Literal["CAT", "mMRC"],
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None,
-    ) -> Optional[float]:
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
+    ) -> float | None:
         """Calculate average score for a patient and survey type"""
         conditions = [
             SurveyResponseModel.patient_id == patient_id,
@@ -226,8 +227,8 @@ class SurveyRepositoryImpl(SurveyRepository):
         self,
         patient_id: UUID,
         survey_type: Literal["CAT", "mMRC"],
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None,
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
     ) -> dict[str, int]:
         """Get distribution of severity levels for a patient"""
         conditions = [

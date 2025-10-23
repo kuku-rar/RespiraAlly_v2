@@ -2,7 +2,8 @@
 User Repository Implementation (Infrastructure Layer)
 Concrete implementation of UserRepository interface using SQLAlchemy
 """
-from datetime import datetime, timezone
+
+from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy import select, update
@@ -42,7 +43,7 @@ class UserRepositoryImpl(UserRepository):
         """
         stmt = select(UserModel).where(
             UserModel.user_id == user_id,
-            UserModel.deleted_at.is_(None)  # Exclude soft-deleted users
+            UserModel.deleted_at.is_(None),  # Exclude soft-deleted users
         )
         result = await self.db.execute(stmt)
         return result.scalar_one_or_none()
@@ -58,8 +59,7 @@ class UserRepositoryImpl(UserRepository):
             UserModel if found and not deleted, None otherwise
         """
         stmt = select(UserModel).where(
-            UserModel.line_user_id == line_user_id,
-            UserModel.deleted_at.is_(None)
+            UserModel.line_user_id == line_user_id, UserModel.deleted_at.is_(None)
         )
         result = await self.db.execute(stmt)
         return result.scalar_one_or_none()
@@ -74,16 +74,11 @@ class UserRepositoryImpl(UserRepository):
         Returns:
             UserModel if found and not deleted, None otherwise
         """
-        stmt = select(UserModel).where(
-            UserModel.email == email,
-            UserModel.deleted_at.is_(None)
-        )
+        stmt = select(UserModel).where(UserModel.email == email, UserModel.deleted_at.is_(None))
         result = await self.db.execute(stmt)
         return result.scalar_one_or_none()
 
-    async def create_patient(
-        self, line_user_id: str, display_name: str | None = None
-    ) -> UserModel:
+    async def create_patient(self, line_user_id: str, display_name: str | None = None) -> UserModel:
         """
         Create a new patient user
 
@@ -107,9 +102,7 @@ class UserRepositoryImpl(UserRepository):
 
         return user
 
-    async def create_therapist(
-        self, email: str, password_hash: str, full_name: str
-    ) -> UserModel:
+    async def create_therapist(self, email: str, password_hash: str, full_name: str) -> UserModel:
         """
         Create a new therapist user
 
@@ -147,7 +140,7 @@ class UserRepositoryImpl(UserRepository):
         stmt = (
             update(UserModel)
             .where(UserModel.user_id == user_id)
-            .values(updated_at=datetime.now(timezone.utc))
+            .values(updated_at=datetime.now(UTC))
         )
         await self.db.execute(stmt)
         await self.db.flush()

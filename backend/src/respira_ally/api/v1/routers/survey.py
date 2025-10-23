@@ -12,6 +12,7 @@ Endpoints:
 - GET /surveys/cat/patient/{patient_id}/stats - Get CAT statistics
 - GET /surveys/mmrc/patient/{patient_id}/stats - Get mMRC statistics
 """
+
 from datetime import datetime
 from typing import Annotated, Literal
 from uuid import UUID
@@ -27,10 +28,10 @@ from respira_ally.core.dependencies import (
 from respira_ally.core.schemas.auth import TokenData, UserRole
 from respira_ally.core.schemas.survey import (
     CATSurveyCreate,
-    mMRCSurveyCreate,
-    SurveyResponse,
     SurveyListResponse,
+    SurveyResponse,
     SurveyStats,
+    mMRCSurveyCreate,
 )
 
 router = APIRouter()
