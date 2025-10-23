@@ -305,7 +305,7 @@ async def test_update_patient_success(
 
     # Act
     update_data = {
-        "name": "ô°Œ„W",
+        "name": "å¼µå°æ˜",
         "height_cm": 175,
         "weight_kg": Decimal("75.0"),
     }
@@ -316,7 +316,7 @@ async def test_update_patient_success(
 
     # Assert
     assert updated is not None
-    assert updated.name == "ô°Œ„W"
+    assert updated.name == "å¼µå°æ˜"
     assert updated.height_cm == 175
     assert updated.weight_kg == Decimal("75.0")
     # Unchanged fields
@@ -337,11 +337,11 @@ async def test_update_patient_partial(
     # Act
     updated = await patient_repository.update(
         user_id=sample_patient_data["user_id"],
-        update_data={"name": "ê9W"},
+        update_data={"name": "å¼µå°æ˜"},
     )
 
     # Assert
-    assert updated.name == "ê9W"
+    assert updated.name == "å¼µå°æ˜"
     assert updated.height_cm == sample_patient_data["height_cm"]
     assert updated.weight_kg == sample_patient_data["weight_kg"]
 
@@ -354,7 +354,7 @@ async def test_update_patient_not_found(
     # Act
     updated = await patient_repository.update(
         user_id=uuid4(),
-        update_data={"name": "X(„Å£"},
+        update_data={"name": "å¼µå°æ˜"},
     )
 
     # Assert

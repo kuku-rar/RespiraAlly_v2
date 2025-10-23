@@ -27,7 +27,7 @@ from respira_ally.core.schemas.auth import (
 )
 from respira_ally.infrastructure.cache.token_blacklist_service import token_blacklist_service
 from respira_ally.infrastructure.database.session import get_db
-from respira_ally.infrastructure.repositories.user_repository_impl import UserRepositoryImpl
+from respira_ally.infrastructure.repository_impls.user_repository_impl import UserRepositoryImpl
 
 router = APIRouter()
 

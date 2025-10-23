@@ -170,7 +170,7 @@ async def get_patient_service(
             return await patient_service.create_patient(...)
     """
     from respira_ally.application.patient.patient_service import PatientService
-    from respira_ally.infrastructure.repositories.patient_repository_impl import (
+    from respira_ally.infrastructure.repository_impls.patient_repository_impl import (
         PatientRepositoryImpl,
     )
 
@@ -200,7 +200,7 @@ async def get_daily_log_service(
             return await service.create_daily_log(...)
     """
     from respira_ally.application.daily_log.daily_log_service import DailyLogService
-    from respira_ally.infrastructure.repositories.daily_log_repository_impl import (
+    from respira_ally.infrastructure.repository_impls.daily_log_repository_impl import (
         DailyLogRepositoryImpl,
     )
     from respira_ally.infrastructure.message_queue.in_memory_event_bus import get_event_bus
@@ -284,10 +284,10 @@ async def get_survey_service(
             return await service.submit_cat_survey(...)
     """
     from respira_ally.application.survey.survey_service import SurveyService
-    from respira_ally.infrastructure.repositories.survey_repository_impl import (
+    from respira_ally.infrastructure.repository_impls.survey_repository_impl import (
         SurveyRepositoryImpl,
     )
-    from respira_ally.infrastructure.repositories.patient_repository_impl import (
+    from respira_ally.infrastructure.repository_impls.patient_repository_impl import (
         PatientRepositoryImpl,
     )
 
