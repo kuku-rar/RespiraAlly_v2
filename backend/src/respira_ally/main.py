@@ -155,9 +155,13 @@ app.include_router(notification.router, prefix="/api/v1/notifications", tags=["N
 if __name__ == "__main__":
     import uvicorn
 
+    # Security: Bind to 0.0.0.0 only in production (container environment)
+    # Development: Bind to 127.0.0.1 (localhost only) for security
+    host = "0.0.0.0" if settings.ENVIRONMENT == "production" else "127.0.0.1"
+
     uvicorn.run(
         "respira_ally.main:app",
-        host="0.0.0.0",
+        host=host,
         port=8000,
         reload=True,
         log_level="info",
