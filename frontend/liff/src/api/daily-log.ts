@@ -4,10 +4,11 @@
  */
 
 import { apiClient, isMockMode } from '../services/api-client'
-import type {
-  DailyLogCreate,
-  DailyLogResponse,
-  DailyLogListResponse,
+import {
+  type DailyLogCreate,
+  type DailyLogResponse,
+  type DailyLogListResponse,
+  Mood,
 } from '../types/daily-log'
 
 // ============================================================================
@@ -23,7 +24,7 @@ const MOCK_LOG_RESPONSE: DailyLogResponse = {
   exercise_minutes: 30,
   smoking_count: 0,
   symptoms: '輕微咳嗽，無其他不適',
-  mood: 'GOOD',
+  mood: Mood.GOOD,
   created_at: new Date().toISOString(),
   updated_at: new Date().toISOString(),
 }
@@ -38,7 +39,7 @@ const MOCK_LOGS: DailyLogResponse[] = [
     exercise_minutes: 30,
     smoking_count: 0,
     symptoms: '輕微咳嗽',
-    mood: 'GOOD',
+    mood: Mood.GOOD,
     created_at: '2025-10-20T08:30:00Z',
     updated_at: '2025-10-20T08:30:00Z',
   },
@@ -51,7 +52,7 @@ const MOCK_LOGS: DailyLogResponse[] = [
     exercise_minutes: 20,
     smoking_count: 2,
     symptoms: '呼吸順暢',
-    mood: 'GOOD',
+    mood: Mood.GOOD,
     created_at: '2025-10-19T09:00:00Z',
     updated_at: '2025-10-19T09:00:00Z',
   },
@@ -64,7 +65,7 @@ const MOCK_LOGS: DailyLogResponse[] = [
     exercise_minutes: 0,
     smoking_count: 5,
     symptoms: '呼吸急促，輕微胸悶',
-    mood: 'NEUTRAL',
+    mood: Mood.NEUTRAL,
     created_at: '2025-10-18T10:15:00Z',
     updated_at: '2025-10-18T10:15:00Z',
   },

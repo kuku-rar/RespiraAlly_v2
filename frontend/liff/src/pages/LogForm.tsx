@@ -6,7 +6,7 @@
 import { useState } from 'react'
 import { useLiff } from '../hooks/useLiff'
 import { dailyLogApi } from '../api/daily-log'
-import type { DailyLogFormData, Mood } from '../types/daily-log'
+import { type DailyLogFormData, Mood } from '../types/daily-log'
 
 export default function LogForm() {
   const { profile } = useLiff()
@@ -303,7 +303,7 @@ export default function LogForm() {
               {/* 好心情 */}
               <button
                 type="button"
-                onClick={() => handleMoodChange('GOOD')}
+                onClick={() => handleMoodChange(Mood.GOOD)}
                 className={`flex flex-col items-center justify-center py-6 rounded-xl border-2 transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                   formData.mood === 'GOOD'
                     ? 'border-green-500 bg-green-50'
@@ -318,7 +318,7 @@ export default function LogForm() {
               {/* 普通 */}
               <button
                 type="button"
-                onClick={() => handleMoodChange('NEUTRAL')}
+                onClick={() => handleMoodChange(Mood.NEUTRAL)}
                 className={`flex flex-col items-center justify-center py-6 rounded-xl border-2 transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                   formData.mood === 'NEUTRAL'
                     ? 'border-yellow-500 bg-yellow-50'
@@ -333,7 +333,7 @@ export default function LogForm() {
               {/* 不好 */}
               <button
                 type="button"
-                onClick={() => handleMoodChange('BAD')}
+                onClick={() => handleMoodChange(Mood.BAD)}
                 className={`flex flex-col items-center justify-center py-6 rounded-xl border-2 transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                   formData.mood === 'BAD'
                     ? 'border-red-500 bg-red-50'
