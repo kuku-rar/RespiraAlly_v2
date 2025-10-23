@@ -429,9 +429,7 @@ class DailyLogService:
     # Update Operations
     # ========================================================================
 
-    async def update_daily_log(
-        self, log_id: UUID, data: DailyLogUpdate
-    ) -> DailyLogResponse | None:
+    async def update_daily_log(self, log_id: UUID, data: DailyLogUpdate) -> DailyLogResponse | None:
         """
         Update daily log information (partial update)
 

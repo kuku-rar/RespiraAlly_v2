@@ -168,9 +168,7 @@ class LoginLockoutService:
             if lockout_duration_minutes:
                 # Trigger lockout
                 locked_key = self._get_locked_key(identifier)
-                locked_until = datetime.now(UTC) + timedelta(
-                    minutes=lockout_duration_minutes
-                )
+                locked_until = datetime.now(UTC) + timedelta(minutes=lockout_duration_minutes)
                 locked_until_ts = int(locked_until.timestamp())
 
                 # Store lockout expiration with TTL

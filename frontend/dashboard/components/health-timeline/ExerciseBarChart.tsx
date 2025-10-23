@@ -28,6 +28,14 @@ interface ExerciseBarChartProps {
   logs: DailyLog[]
 }
 
+type ExerciseDataPoint = {
+  date: string
+  fullDate: string
+  minutes: number
+  status: 'excellent' | 'good' | 'low' | 'none'
+  hasData: boolean
+}
+
 export default function ExerciseBarChart({ logs }: ExerciseBarChartProps) {
   // Transform data for chart
   const chartData = useMemo(() => {

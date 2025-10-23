@@ -5,7 +5,6 @@ Tests PATCH and DELETE endpoints for Patient API
 Run with: pytest tests/integration/api/test_patient_api_update_delete.py -v
 """
 
-
 import pytest
 from fastapi.testclient import TestClient
 

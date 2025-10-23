@@ -37,7 +37,15 @@ export default function MedicationAdherenceChart({ logs }: MedicationAdherenceCh
   }, [logs])
 
   // Custom tooltip (Elder-First: Large text)
-  const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: Array<{ payload: { date: string; fullDate: string; taken: boolean; value: number; label: string } }> }) => {
+  type MedicationDataPoint = {
+    date: string
+    fullDate: string
+    taken: boolean
+    value: number
+    label: string
+  }
+
+  const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: Array<{ payload: MedicationDataPoint }> }) => {
     if (active && payload && payload[0]) {
       const data = payload[0].payload
       return (

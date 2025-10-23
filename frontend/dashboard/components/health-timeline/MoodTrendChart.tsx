@@ -115,7 +115,7 @@ export default function MoodTrendChart({ logs }: MoodTrendChartProps) {
   // Custom dot to show mood color
   const CustomDot = (props: { cx?: number; cy?: number; payload?: { mood: DailyLogMood | null; hasData: boolean } }) => {
     const { cx, cy, payload } = props
-    if (!payload.hasData) return null
+    if (!payload || !payload.hasData) return null
 
     const moodColor = getMoodColor(payload.mood)
     return (

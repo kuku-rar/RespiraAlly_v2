@@ -5,7 +5,6 @@ Tests all Survey API endpoints (CAT and mMRC) with database integration
 Run with: pytest tests/integration/api/test_survey_api.py -v
 """
 
-
 import pytest
 from fastapi.testclient import TestClient
 

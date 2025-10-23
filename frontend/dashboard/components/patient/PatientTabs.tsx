@@ -164,10 +164,10 @@ function DailyLogsTab({ dailyLogs }: { dailyLogs?: DailyLogListResponse }) {
                   })}
                 </p>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3 text-sm">
-                  {log.water_ml !== undefined && (
+                  {log.water_intake_ml !== undefined && (
                     <div>
                       <p className="text-gray-600">飲水量</p>
-                      <p className="font-medium text-blue-600">{log.water_ml} ml</p>
+                      <p className="font-medium text-blue-600">{log.water_intake_ml} ml</p>
                     </div>
                   )}
                   {log.exercise_minutes !== undefined && (
@@ -184,10 +184,10 @@ function DailyLogsTab({ dailyLogs }: { dailyLogs?: DailyLogListResponse }) {
                       </p>
                     </div>
                   )}
-                  {log.mood !== undefined && (
+                  {log.mood !== undefined && log.mood !== null && (
                     <div>
                       <p className="text-gray-600">心情</p>
-                      <p className="font-medium">{getMoodEmoji(log.mood)} {log.mood}/5</p>
+                      <p className="font-medium">{getMoodEmoji(log.mood)}</p>
                     </div>
                   )}
                 </div>
@@ -279,9 +279,17 @@ function SurveysTab({ surveys }: { surveys?: SurveyListResponse }) {
 // Helper Functions
 // ============================================================================
 
-function getMoodEmoji(mood: number): string {
-  const emojis = ['😢', '🙁', '😐', '🙂', '😊', '😄']
-  return emojis[mood] || '😐'
+function getMoodEmoji(mood: string): string {
+  switch (mood) {
+    case 'GOOD':
+      return '😊 良好'
+    case 'NEUTRAL':
+      return '😐 普通'
+    case 'BAD':
+      return '😟 不佳'
+    default:
+      return '😐 未記錄'
+  }
 }
 
 function getSeverityColor(surveyType: string, score: number): string {
