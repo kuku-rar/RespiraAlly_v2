@@ -47,7 +47,7 @@ export default function WaterIntakeChart({ logs }: WaterIntakeChartProps) {
   }, [logs])
 
   // Custom tooltip (Elder-First: Large text)
-  const CustomTooltip = ({ active, payload }: any) => {
+  const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: Array<{ payload: { date: string; fullDate: string; water: number; hasData: boolean } }> }) => {
     if (active && payload && payload[0]) {
       const data = payload[0].payload
       if (!data.hasData) {

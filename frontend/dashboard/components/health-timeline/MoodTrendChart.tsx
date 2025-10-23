@@ -85,7 +85,7 @@ export default function MoodTrendChart({ logs }: MoodTrendChartProps) {
   }, [logs])
 
   // Custom tooltip (Elder-First: Large text)
-  const CustomTooltip = ({ active, payload }: any) => {
+  const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: Array<{ payload: { date: string; fullDate: string; mood: DailyLogMood | null; moodScore: number | null; moodLabel: string; hasData: boolean } }> }) => {
     if (active && payload && payload[0]) {
       const data = payload[0].payload
       if (!data.hasData) {
@@ -113,7 +113,7 @@ export default function MoodTrendChart({ logs }: MoodTrendChartProps) {
   }
 
   // Custom dot to show mood color
-  const CustomDot = (props: any) => {
+  const CustomDot = (props: { cx?: number; cy?: number; payload?: { mood: DailyLogMood | null; hasData: boolean } }) => {
     const { cx, cy, payload } = props
     if (!payload.hasData) return null
 

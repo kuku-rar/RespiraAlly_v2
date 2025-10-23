@@ -71,7 +71,7 @@ export default function SmokingAlertChart({ logs }: SmokingAlertChartProps) {
   }
 
   // Custom tooltip (Elder-First: Large text with STRONG warnings)
-  const CustomTooltip = ({ active, payload }: any) => {
+  const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: Array<{ payload: { date: string; fullDate: string; count: number; status: string; hasData: boolean } }> }) => {
     if (active && payload && payload[0]) {
       const data = payload[0].payload
       if (!data.hasData) {

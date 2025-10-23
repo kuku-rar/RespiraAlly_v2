@@ -31,7 +31,6 @@ export default function PatientDetailPage() {
   const {
     data: dailyLogs,
     isLoading: logsLoading,
-    error: logsError,
   } = useDailyLogs(patientId, {
     page_size: 7,
   })
@@ -40,7 +39,6 @@ export default function PatientDetailPage() {
   const {
     data: surveys,
     isLoading: surveysLoading,
-    error: surveysError,
   } = useSurveys(patientId, {
     page_size: 10,
   })

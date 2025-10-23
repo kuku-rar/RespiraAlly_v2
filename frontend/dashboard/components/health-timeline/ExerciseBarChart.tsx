@@ -74,7 +74,7 @@ export default function ExerciseBarChart({ logs }: ExerciseBarChartProps) {
   }
 
   // Custom tooltip (Elder-First: Large text)
-  const CustomTooltip = ({ active, payload }: any) => {
+  const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: Array<{ payload: ExerciseDataPoint }> }) => {
     if (active && payload && payload[0]) {
       const data = payload[0].payload
       if (!data.hasData) {
