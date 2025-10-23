@@ -3,7 +3,7 @@
  * Mock 模式支援前端獨立開發
  */
 
-import { apiClient, IS_MOCK_MODE } from '../services/api-client'
+import { apiClient, isMockMode } from '../services/api-client'
 import type {
   DailyLogCreate,
   DailyLogResponse,
@@ -75,7 +75,7 @@ export const dailyLogApi = {
    * 提交每日日誌（LIFF 表單）
    */
   async createLog(data: DailyLogCreate): Promise<DailyLogResponse> {
-    if (IS_MOCK_MODE) {
+    if (isMockMode) {
       // 模擬延遲 (600-1200ms)
       await new Promise((resolve) =>
         setTimeout(resolve, 600 + Math.random() * 600)
@@ -122,7 +122,7 @@ export const dailyLogApi = {
     page?: number
     page_size?: number
   }): Promise<DailyLogListResponse> {
-    if (IS_MOCK_MODE) {
+    if (isMockMode) {
       await new Promise((resolve) =>
         setTimeout(resolve, 600 + Math.random() * 600)
       )
@@ -155,7 +155,7 @@ export const dailyLogApi = {
     patient_id: string,
     log_date: string
   ): Promise<DailyLogResponse | null> {
-    if (IS_MOCK_MODE) {
+    if (isMockMode) {
       await new Promise((resolve) =>
         setTimeout(resolve, 300 + Math.random() * 300)
       )
