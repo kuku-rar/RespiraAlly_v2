@@ -162,8 +162,11 @@ export default function SurveyPage() {
       // TODO: Replace with actual API call
       // const response = await submitSurvey({ surveyType, answers })
 
-      // Mock submission delay
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+      // Mock submission delay (realistic random delay)
+      const mockDelay = import.meta.env.VITE_MOCK_MODE === 'true'
+        ? Math.random() * 1000 + 500 // 500-1500ms
+        : 0
+      await new Promise((resolve) => setTimeout(resolve, mockDelay))
 
       // Calculate score
       let score: number
@@ -191,7 +194,9 @@ export default function SurveyPage() {
           speak(mmrcQuestions[0].ttsText)
         }
 
-        console.log('✅ CAT completed, auto-redirecting to mMRC')
+        if (import.meta.env.DEV) {
+          console.log('✅ CAT completed, auto-redirecting to mMRC')
+        }
       } else {
         // mMRC completed
         score = calculateMMRCScore(answers as MMRCSurveyCreate['responses'])
@@ -208,7 +213,9 @@ export default function SurveyPage() {
         const thankYouText = `問卷填寫完成！感謝您的配合。`
         speak(thankYouText)
 
-        console.log('✅ mMRC completed, navigating to Thank You page')
+        if (import.meta.env.DEV) {
+          console.log('✅ mMRC completed, navigating to Thank You page')
+        }
       }
 
     } catch (err) {

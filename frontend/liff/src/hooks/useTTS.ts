@@ -95,7 +95,7 @@ export const useTTS = (options: UseTTSOptions = {}): UseTTSReturn => {
     (text: string) => {
       if (!isSupported) {
         console.warn('[useTTS] Cannot speak: Web Speech API not supported')
-        setError('語音朗讀功能不可用')
+        setError('您的瀏覽器不支援語音朗讀，但仍可正常填寫問卷')
         return
       }
 
