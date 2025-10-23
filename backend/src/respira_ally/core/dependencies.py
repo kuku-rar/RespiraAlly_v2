@@ -79,7 +79,7 @@ async def get_current_user(token: Annotated[str, Depends(get_token_from_header)]
         user_id = UUID(user_id_str)
         role = UserRole(role_str)
     except (ValueError, KeyError):
-        raise UnauthorizedError("Invalid token: malformed user data")
+        raise UnauthorizedError("Invalid token: malformed user data") from None
 
     # Check if token is blacklisted
     is_blacklisted = await token_blacklist_service.is_blacklisted(token, user_id=user_id_str)

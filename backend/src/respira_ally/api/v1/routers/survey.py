@@ -81,7 +81,7 @@ async def submit_cat_survey(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
-        )
+        ) from e
 
 
 @router.post("/mmrc", response_model=SurveyResponse, status_code=status.HTTP_201_CREATED)
@@ -126,7 +126,7 @@ async def submit_mmrc_survey(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
-        )
+        ) from e
 
 
 # ============================================================================

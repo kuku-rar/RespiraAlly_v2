@@ -118,7 +118,7 @@ class InMemoryEventBus(EventPublisher):
         except Exception as e:
             error_msg = f"Failed to publish event {event.event_type}: {str(e)}"
             logger.error(error_msg, exc_info=True)
-            raise PublishError(error_msg, event=event, original_error=e)
+            raise PublishError(error_msg, event=event, original_error=e) from e
 
     async def publish_batch(self, events: list[DomainEvent]) -> None:
         """

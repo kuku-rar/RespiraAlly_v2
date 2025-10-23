@@ -95,7 +95,7 @@ async def create_patient(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to create patient: {str(e)}",
-        )
+        ) from e
 
 
 @router.get("/{user_id}", response_model=PatientResponse)

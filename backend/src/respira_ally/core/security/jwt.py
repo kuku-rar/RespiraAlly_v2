@@ -97,7 +97,7 @@ def decode_token(token: str) -> dict[str, Any]:
         )
         return payload
     except JWTError as e:
-        raise UnauthorizedError(f"Invalid token format: {str(e)}")
+        raise UnauthorizedError(f"Invalid token format: {str(e)}") from e
 
 
 def verify_token(token: str, expected_type: str = "access") -> dict[str, Any]:
@@ -131,11 +131,11 @@ def verify_token(token: str, expected_type: str = "access") -> dict[str, Any]:
 
         return payload
 
-    except ExpiredSignatureError:
-        raise UnauthorizedError("Token has expired")
+    except ExpiredSignatureError as e:
+        raise UnauthorizedError("Token has expired") from e
 
     except JWTError as e:
-        raise UnauthorizedError(f"Invalid token: {str(e)}")
+        raise UnauthorizedError(f"Invalid token: {str(e)}") from e
 
 
 def get_token_expiration(token: str) -> datetime | None:
