@@ -11,12 +11,14 @@ export enum Mood {
 
 /**
  * 基礎日誌資訊（共用欄位）
+ * Updated per ADR-009: steps_count → exercise_minutes, added smoking_count
  */
 export interface DailyLogBase {
   log_date: string // ISO 8601 date format (YYYY-MM-DD)
   medication_taken: boolean // 是否服藥
   water_intake_ml: number // 飲水量（毫升），範圍 0-10000
-  steps_count?: number | null // 步數（選填），範圍 0-100000
+  exercise_minutes?: number | null // 運動分鐘數（選填），範圍 0-480
+  smoking_count?: number | null // 吸菸支數（選填），範圍 0-100
   symptoms?: string | null // 症狀描述（選填），最多 500 字
   mood?: Mood | null // 心情（選填）
 }
@@ -51,12 +53,14 @@ export interface DailyLogListResponse {
 
 /**
  * 日誌表單資料（前端狀態）
+ * Updated per ADR-009
  */
 export interface DailyLogFormData {
   log_date: string // YYYY-MM-DD
   medication_taken: boolean
   water_intake_ml: string // 輸入時為字串，提交時轉為數字
-  steps_count: string // 輸入時為字串
+  exercise_minutes: string // 運動分鐘數（輸入時為字串）
+  smoking_count: string // 吸菸支數（輸入時為字串）
   symptoms: string
   mood: Mood | ''
 }

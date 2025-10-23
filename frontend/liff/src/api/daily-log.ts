@@ -20,7 +20,8 @@ const MOCK_LOG_RESPONSE: DailyLogResponse = {
   log_date: new Date().toISOString().split('T')[0],
   medication_taken: true,
   water_intake_ml: 2000,
-  steps_count: 5000,
+  exercise_minutes: 30,
+  smoking_count: 0,
   symptoms: '輕微咳嗽，無其他不適',
   mood: 'GOOD',
   created_at: new Date().toISOString(),
@@ -34,7 +35,8 @@ const MOCK_LOGS: DailyLogResponse[] = [
     log_date: '2025-10-20',
     medication_taken: true,
     water_intake_ml: 2000,
-    steps_count: 5000,
+    exercise_minutes: 30,
+    smoking_count: 0,
     symptoms: '輕微咳嗽',
     mood: 'GOOD',
     created_at: '2025-10-20T08:30:00Z',
@@ -46,7 +48,8 @@ const MOCK_LOGS: DailyLogResponse[] = [
     log_date: '2025-10-19',
     medication_taken: true,
     water_intake_ml: 1800,
-    steps_count: 4500,
+    exercise_minutes: 20,
+    smoking_count: 2,
     symptoms: '呼吸順暢',
     mood: 'GOOD',
     created_at: '2025-10-19T09:00:00Z',
@@ -58,7 +61,8 @@ const MOCK_LOGS: DailyLogResponse[] = [
     log_date: '2025-10-18',
     medication_taken: false,
     water_intake_ml: 1500,
-    steps_count: 3000,
+    exercise_minutes: 0,
+    smoking_count: 5,
     symptoms: '呼吸急促，輕微胸悶',
     mood: 'NEUTRAL',
     created_at: '2025-10-18T10:15:00Z',
@@ -93,9 +97,15 @@ export const dailyLogApi = {
         throw new Error('飲水量必須在 0-10000 毫升之間')
       }
 
-      if (data.steps_count !== undefined && data.steps_count !== null) {
-        if (data.steps_count < 0 || data.steps_count > 100000) {
-          throw new Error('步數必須在 0-100000 之間')
+      if (data.exercise_minutes !== undefined && data.exercise_minutes !== null) {
+        if (data.exercise_minutes < 0 || data.exercise_minutes > 480) {
+          throw new Error('運動分鐘數必須在 0-480 之間')
+        }
+      }
+
+      if (data.smoking_count !== undefined && data.smoking_count !== null) {
+        if (data.smoking_count < 0 || data.smoking_count > 100) {
+          throw new Error('吸菸支數必須在 0-100 之間')
         }
       }
 

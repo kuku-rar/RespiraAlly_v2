@@ -7,7 +7,6 @@ import {
   LoginResponse,
   PatientRegisterRequest,
   UserRole,
-  COPDStage,
 } from '../types/auth'
 
 // ============================================================================
@@ -52,8 +51,23 @@ export const authApi = {
         throw new Error('請選擇性別')
       }
 
-      if (data.copd_stage === COPDStage.UNKNOWN) {
-        throw new Error('請選擇 COPD 分期')
+      // Validate optional numeric fields (if provided)
+      if (data.height_cm !== undefined && data.height_cm !== null) {
+        if (data.height_cm < 100 || data.height_cm > 250) {
+          throw new Error('身高必須在 100-250 cm 之間')
+        }
+      }
+
+      if (data.weight_kg !== undefined && data.weight_kg !== null) {
+        if (data.weight_kg < 30 || data.weight_kg > 200) {
+          throw new Error('體重必須在 30-200 kg 之間')
+        }
+      }
+
+      if (data.smoking_years !== undefined && data.smoking_years !== null) {
+        if (data.smoking_years < 0 || data.smoking_years > 80) {
+          throw new Error('菸齡必須在 0-80 年之間')
+        }
       }
 
       // Return mock response with registered user data

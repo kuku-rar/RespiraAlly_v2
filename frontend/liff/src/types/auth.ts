@@ -37,8 +37,10 @@ export interface PatientRegisterRequest {
   phone_number?: string
 
   // Medical Information
-  copd_stage: COPDStage
-  diagnosis_date?: string // YYYY-MM-DD format
+  hospital_patient_id?: string // 醫院病歷號
+  height_cm?: number // 身高 (cm)
+  weight_kg?: number // 體重 (kg)
+  smoking_years?: number // 菸齡 (年)
 
   // Emergency Contact
   emergency_contact_name?: string

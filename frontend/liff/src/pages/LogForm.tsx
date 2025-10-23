@@ -13,10 +13,11 @@ export default function LogForm() {
 
   // 表單狀態
   const [formData, setFormData] = useState<DailyLogFormData>({
-    log_date: new Date().toISOString().split('T')[0], // 今天日期 YYYY-MM-DD
+    log_date: new Date().toISOString().split('T')[0], // 今天日期 YYYY-MM-DD (自動設定)
     medication_taken: false,
     water_intake_ml: '',
-    steps_count: '',
+    exercise_minutes: '',
+    smoking_count: '',
     symptoms: '',
     mood: '',
   })
@@ -62,10 +63,19 @@ export default function LogForm() {
       return '飲水量必須在 0-10000 毫升之間'
     }
 
-    if (formData.steps_count !== '') {
-      const steps = parseInt(formData.steps_count)
-      if (isNaN(steps) || steps < 0 || steps > 100000) {
-        return '步數必須在 0-100000 之間'
+    // 驗證運動分鐘數（選填）
+    if (formData.exercise_minutes !== '') {
+      const exerciseMinutes = parseInt(formData.exercise_minutes)
+      if (isNaN(exerciseMinutes) || exerciseMinutes < 0 || exerciseMinutes > 480) {
+        return '運動分鐘數必須在 0-480 之間'
+      }
+    }
+
+    // 驗證吸菸支數（選填）
+    if (formData.smoking_count !== '') {
+      const smokingCount = parseInt(formData.smoking_count)
+      if (isNaN(smokingCount) || smokingCount < 0 || smokingCount > 100) {
+        return '吸菸支數必須在 0-100 之間'
       }
     }
 
@@ -97,8 +107,10 @@ export default function LogForm() {
         log_date: formData.log_date,
         medication_taken: formData.medication_taken,
         water_intake_ml: parseInt(formData.water_intake_ml),
-        steps_count:
-          formData.steps_count !== '' ? parseInt(formData.steps_count) : null,
+        exercise_minutes:
+          formData.exercise_minutes !== '' ? parseInt(formData.exercise_minutes) : null,
+        smoking_count:
+          formData.smoking_count !== '' ? parseInt(formData.smoking_count) : null,
         symptoms: formData.symptoms || null,
         mood: formData.mood !== '' ? formData.mood : null,
       }
@@ -117,7 +129,8 @@ export default function LogForm() {
           log_date: new Date().toISOString().split('T')[0],
           medication_taken: false,
           water_intake_ml: '',
-          steps_count: '',
+          exercise_minutes: '',
+          smoking_count: '',
           symptoms: '',
           mood: '',
         })
@@ -175,26 +188,6 @@ export default function LogForm() {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* 日期 */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <label
-              htmlFor="log_date"
-              className="block text-xl font-semibold text-gray-900 mb-3"
-            >
-              📅 日期
-            </label>
-            <input
-              type="date"
-              id="log_date"
-              name="log_date"
-              value={formData.log_date}
-              onChange={handleInputChange}
-              className="w-full px-4 py-3 text-lg border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              style={{ minHeight: '52px' }}
-              required
-            />
-          </div>
-
           {/* 用藥狀態 (Toggle) */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <div className="flex items-center justify-between">
@@ -251,28 +244,53 @@ export default function LogForm() {
             </div>
           </div>
 
-          {/* 步數 (選填) */}
+          {/* 運動分鐘數 (選填) */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <label
-              htmlFor="steps_count"
+              htmlFor="exercise_minutes"
               className="block text-xl font-semibold text-gray-900 mb-3"
             >
-              🚶 今日步數（選填）
+              🏃 今日運動分鐘數（選填）
             </label>
             <input
               type="number"
-              id="steps_count"
-              name="steps_count"
-              value={formData.steps_count}
+              id="exercise_minutes"
+              name="exercise_minutes"
+              value={formData.exercise_minutes}
               onChange={handleInputChange}
-              placeholder="例如：5000"
+              placeholder="例如：30"
               min="0"
-              max="100000"
+              max="480"
               className="w-full px-4 py-3 text-lg border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               style={{ minHeight: '52px' }}
             />
             <div className="text-sm text-gray-500 mt-2">
-              建議每日步數 5000-10000 步
+              建議每日運動 20-60 分鐘
+            </div>
+          </div>
+
+          {/* 吸菸支數 (選填) */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <label
+              htmlFor="smoking_count"
+              className="block text-xl font-semibold text-gray-900 mb-3"
+            >
+              🚬 今日吸菸支數（選填）
+            </label>
+            <input
+              type="number"
+              id="smoking_count"
+              name="smoking_count"
+              value={formData.smoking_count}
+              onChange={handleInputChange}
+              placeholder="例如：0"
+              min="0"
+              max="100"
+              className="w-full px-4 py-3 text-lg border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              style={{ minHeight: '52px' }}
+            />
+            <div className="text-sm text-gray-500 mt-2">
+              建議戒菸以改善健康
             </div>
           </div>
 

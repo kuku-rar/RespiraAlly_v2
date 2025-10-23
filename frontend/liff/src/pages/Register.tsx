@@ -8,7 +8,6 @@ import { useForm } from 'react-hook-form'
 import { useLiff } from '../hooks/useLiff'
 import { authApi, tokenManager } from '../api/auth'
 import type { PatientRegisterRequest } from '../types/auth'
-import { COPDStage } from '../types/auth'
 
 export default function RegisterPage() {
   const { isReady, isLoggedIn, profile, login } = useLiff()
@@ -20,8 +19,11 @@ export default function RegisterPage() {
     register,
     handleSubmit,
     setValue,
+    watch,
     formState: { errors },
   } = useForm<PatientRegisterRequest>()
+
+  const selectedGender = watch('gender')
 
   // Check if already registered
   useEffect(() => {
@@ -202,7 +204,14 @@ export default function RegisterPage() {
                 ].map((option) => (
                   <label
                     key={option.value}
-                    className="flex flex-col items-center p-4 border-2 border-gray-300 rounded-lg cursor-pointer hover:border-green-500 hover:bg-green-50 transition-colors"
+                    className={`
+                      flex flex-col items-center p-4 border-2 rounded-lg cursor-pointer transition-all
+                      ${
+                        selectedGender === option.value
+                          ? 'border-green-600 bg-green-50 shadow-md'
+                          : 'border-gray-300 hover:border-green-500 hover:bg-green-50'
+                      }
+                    `}
                     style={{ minHeight: '80px' }}
                   >
                     <input
@@ -212,7 +221,14 @@ export default function RegisterPage() {
                       className="sr-only"
                     />
                     <span className="text-3xl mb-1">{option.icon}</span>
-                    <span className="text-lg font-medium">{option.label}</span>
+                    <span className={`text-lg font-medium ${
+                      selectedGender === option.value ? 'text-green-700' : 'text-gray-700'
+                    }`}>
+                      {option.label}
+                    </span>
+                    {selectedGender === option.value && (
+                      <span className="text-2xl mt-1">✓</span>
+                    )}
                   </label>
                 ))}
               </div>
@@ -236,41 +252,86 @@ export default function RegisterPage() {
               />
             </div>
 
-            {/* COPD Stage */}
+            {/* Hospital Patient ID */}
             <div>
-              <label htmlFor="copd_stage" className="block text-lg font-medium text-gray-700 mb-2">
-                COPD 分期 <span className="text-red-500">*</span>
-              </label>
-              <select
-                id="copd_stage"
-                {...register('copd_stage', { required: '請選擇 COPD 分期' })}
-                className="w-full px-4 py-3 text-lg border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                style={{ minHeight: '52px' }}
-              >
-                <option value="">請選擇...</option>
-                <option value={COPDStage.STAGE_1}>第一期（輕度）</option>
-                <option value={COPDStage.STAGE_2}>第二期（中度）</option>
-                <option value={COPDStage.STAGE_3}>第三期（重度）</option>
-                <option value={COPDStage.STAGE_4}>第四期（極重度）</option>
-                <option value={COPDStage.UNKNOWN}>不確定</option>
-              </select>
-              {errors.copd_stage && (
-                <p className="text-base text-red-600 mt-1">⚠️ {errors.copd_stage.message}</p>
-              )}
-            </div>
-
-            {/* Diagnosis Date */}
-            <div>
-              <label htmlFor="diagnosis_date" className="block text-lg font-medium text-gray-700 mb-2">
-                確診日期
+              <label htmlFor="hospital_patient_id" className="block text-lg font-medium text-gray-700 mb-2">
+                醫院病歷號
               </label>
               <input
-                id="diagnosis_date"
-                type="date"
-                {...register('diagnosis_date')}
+                id="hospital_patient_id"
+                type="text"
+                {...register('hospital_patient_id')}
                 className="w-full px-4 py-3 text-lg border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                placeholder="請輸入您的病歷號"
                 style={{ minHeight: '52px' }}
               />
+            </div>
+
+            {/* Height and Weight */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="height_cm" className="block text-lg font-medium text-gray-700 mb-2">
+                  身高 (cm)
+                </label>
+                <input
+                  id="height_cm"
+                  type="number"
+                  {...register('height_cm', {
+                    valueAsNumber: true,
+                    min: { value: 100, message: '身高至少 100 cm' },
+                    max: { value: 250, message: '身高最多 250 cm' }
+                  })}
+                  className="w-full px-4 py-3 text-lg border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  placeholder="170"
+                  style={{ minHeight: '52px' }}
+                />
+                {errors.height_cm && (
+                  <p className="text-base text-red-600 mt-1">⚠️ {errors.height_cm.message}</p>
+                )}
+              </div>
+
+              <div>
+                <label htmlFor="weight_kg" className="block text-lg font-medium text-gray-700 mb-2">
+                  體重 (kg)
+                </label>
+                <input
+                  id="weight_kg"
+                  type="number"
+                  {...register('weight_kg', {
+                    valueAsNumber: true,
+                    min: { value: 30, message: '體重至少 30 kg' },
+                    max: { value: 200, message: '體重最多 200 kg' }
+                  })}
+                  className="w-full px-4 py-3 text-lg border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  placeholder="65"
+                  style={{ minHeight: '52px' }}
+                />
+                {errors.weight_kg && (
+                  <p className="text-base text-red-600 mt-1">⚠️ {errors.weight_kg.message}</p>
+                )}
+              </div>
+            </div>
+
+            {/* Smoking Years */}
+            <div>
+              <label htmlFor="smoking_years" className="block text-lg font-medium text-gray-700 mb-2">
+                菸齡（年）
+              </label>
+              <input
+                id="smoking_years"
+                type="number"
+                {...register('smoking_years', {
+                  valueAsNumber: true,
+                  min: { value: 0, message: '菸齡不可為負數' },
+                  max: { value: 80, message: '菸齡最多 80 年' }
+                })}
+                className="w-full px-4 py-3 text-lg border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                placeholder="若無吸菸可填 0"
+                style={{ minHeight: '52px' }}
+              />
+              {errors.smoking_years && (
+                <p className="text-base text-red-600 mt-1">⚠️ {errors.smoking_years.message}</p>
+              )}
             </div>
 
             {/* Emergency Contact */}
