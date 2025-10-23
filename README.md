@@ -444,6 +444,13 @@ See [Parallel Development Strategy](docs/PARALLEL_DEV_STRATEGY.md) for detailed 
 - **[Module Specification](docs/07_module_specification_and_tests.md)** - Detailed module design
 - **[WBS Development Plan](docs/16_wbs_development_plan.md)** - Project timeline and tasks
 
+### Development Guides
+
+- **[Code Review & Refactoring Guide](docs/11_code_review_and_refactoring_guide.md)** - Code review standards and refactoring strategies
+- **[Security & Readiness Checklists](docs/13_security_and_readiness_checklists.md)** - Security compliance (HIPAA, GDPR, PDPA) and production readiness
+- **[Documentation & Maintenance Guide](docs/15_documentation_and_maintenance_guide.md)** - Documentation standards and maintenance workflows
+- **[API MVP Development Guide](docs/dev-guide-api-mvp.md)** - Router-first approach for Sprint 2-4 rapid iteration
+
 ### Project Management Documentation
 
 - **[Development Workflow](docs/01_development_workflow.md)** - Development process and quality gates
@@ -458,6 +465,9 @@ See [Parallel Development Strategy](docs/PARALLEL_DEV_STRATEGY.md) for detailed 
 - [ADR-003: MongoDB for Event Logs](docs/adr/ADR-003-mongodb-for-event-logs.md)
 - [ADR-004: LINE as Patient Entrypoint](docs/adr/ADR-004-line-as-patient-entrypoint.md)
 - [ADR-005: RabbitMQ for Message Queue](docs/adr/ADR-005-rabbitmq-for-message-queue.md)
+- [ADR-006: Zustand for State Management](docs/adr/ADR-006-zustand-for-state-management.md)
+- [ADR-007: JWT Authentication](docs/adr/ADR-007-jwt-authentication.md)
+- [ADR-008: Elder-First Design Principles](docs/adr/ADR-008-elder-first-design-principles.md)
 
 ### BDD Scenarios
 

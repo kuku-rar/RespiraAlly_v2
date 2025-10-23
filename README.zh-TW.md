@@ -635,6 +635,13 @@ npm run type-check               # TypeScript 檢查
 - **[WBS 開發計畫](docs/16_wbs_development_plan.md)** - 專案時程與任務
 - **[CHANGELOG](CHANGELOG.md)** - 版本變更紀錄
 
+### 開發指南
+
+- **[程式碼審查與重構指南](docs/11_code_review_and_refactoring_guide.md)** - 程式碼審查標準與重構策略
+- **[安全與準備就緒檢查清單](docs/13_security_and_readiness_checklists.md)** - 安全合規（HIPAA, GDPR, PDPA）與生產環境就緒標準
+- **[文檔與維護指南](docs/15_documentation_and_maintenance_guide.md)** - 文檔標準與維護工作流程
+- **[API MVP 開發指南](docs/dev-guide-api-mvp.md)** - Sprint 2-4 快速迭代的 Router 優先開發方法
+
 ### 專案管理文件
 
 - **[開發工作流程](docs/01_development_workflow.md)** - 開發流程與品質閘門
