@@ -52,7 +52,6 @@ class TestJWTCreation:
 
         token = create_access_token(data, expires_delta=custom_expires)
 
-        payload = decode_token(token)
         # Expiration should be approximately 30 minutes from now
         exp_time = get_token_expiration(token)
         assert exp_time is not None

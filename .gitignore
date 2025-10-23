@@ -321,4 +321,5 @@ VibeCoding_Workflow_Templates/INDEX.md
 ## MCP 設定檔案 (本地版本包含真實 token)
 .mcp.json.local
 
-# cat_form.html
+# Large binary files
+*.deb

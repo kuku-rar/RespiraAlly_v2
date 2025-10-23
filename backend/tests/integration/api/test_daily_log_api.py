@@ -51,7 +51,7 @@ async def test_create_daily_log_success(
     data = response.json()
     assert data["patient_id"] == str(patient_user.user_id)
     assert data["log_date"] == log_data["log_date"]
-    assert data["medication_taken"] == True
+    assert data["medication_taken"] is True
     assert data["water_intake_ml"] == 2000
     assert "log_id" in data
     assert "created_at" in data
@@ -100,7 +100,7 @@ async def test_upsert_daily_log_same_date(
     assert response2.status_code == 201
     data = response2.json()
     assert data["water_intake_ml"] == 2500  # Updated value
-    assert data["medication_taken"] == False  # Updated value
+    assert data["medication_taken"] is False  # Updated value
     # Should be same log ID (updated, not created)
     assert data["log_id"] == log_id_1
 
@@ -268,7 +268,6 @@ async def test_list_daily_logs_with_date_filter(
     """
     # Arrange
     today = date.today()
-    yesterday = today - timedelta(days=1)
 
     # Create log for today
     client.post(
@@ -501,7 +500,7 @@ async def test_update_daily_log_success(
     assert data["water_intake_ml"] == 2500  # Updated
     assert data["exercise_minutes"] == 45  # Updated
     assert data["mood"] == "NEUTRAL"  # Updated
-    assert data["medication_taken"] == True  # Unchanged
+    assert data["medication_taken"] is True  # Unchanged
 
 
 @pytest.mark.asyncio
@@ -548,7 +547,7 @@ async def test_update_daily_log_partial_fields(
     assert response.status_code == 200, f"Failed to update: {response.text}"
     data = response.json()
     assert data["mood"] == "BAD"  # Updated
-    assert data["medication_taken"] == True  # Unchanged
+    assert data["medication_taken"] is True  # Unchanged
     assert data["water_intake_ml"] == 2000  # Unchanged
     assert data["exercise_minutes"] == 30  # Unchanged
     assert data["symptoms"] == "Mild cough"  # Unchanged
