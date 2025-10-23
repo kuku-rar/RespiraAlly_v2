@@ -26,12 +26,17 @@ import {
   type MMRCSurveyCreate,
 } from '../types/survey'
 
-type SurveyPageView = 'select' | 'form' | 'result'
+type SurveyPageView = 'select' | 'form' | 'result' | 'thankyou'
 
 interface SurveyResult {
   surveyType: SurveyType
   score: number
   scoreLabel: string
+}
+
+interface CompletedSurveys {
+  cat: SurveyResult | null
+  mmrc: SurveyResult | null
 }
 
 export default function SurveyPage() {
@@ -44,6 +49,10 @@ export default function SurveyPage() {
   const [currentStep, setCurrentStep] = useState<number>(0)
   const [answers, setAnswers] = useState<Record<string, number>>({})
   const [result, setResult] = useState<SurveyResult | null>(null)
+  const [completedSurveys, setCompletedSurveys] = useState<CompletedSurveys>({
+    cat: null,
+    mmrc: null,
+  })
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -134,7 +143,7 @@ export default function SurveyPage() {
   }
 
   /**
-   * Submit survey
+   * Submit survey with auto-redirect: CAT → mMRC → Thank You
    */
   const handleSubmit = async () => {
     if (!surveyType) return
@@ -163,18 +172,44 @@ export default function SurveyPage() {
       if (surveyType === SurveyType.CAT) {
         score = calculateCATScore(answers as CATSurveyCreate['responses'])
         scoreLabel = getCATScoreLabel(score)
+
+        // Save CAT result
+        const catResult: SurveyResult = { surveyType, score, scoreLabel }
+        setCompletedSurveys(prev => ({ ...prev, cat: catResult }))
+
+        // Auto-redirect to mMRC (不顯示結果頁面)
+        stop() // Stop TTS
+        setSurveyType(SurveyType.MMRC)
+        setView('form')
+        setCurrentStep(0)
+        setAnswers({})
+        setError(null)
+
+        // Read first mMRC question with TTS
+        const mmrcQuestions = getSurveyQuestions(SurveyType.MMRC)
+        if (mmrcQuestions[0]?.ttsText) {
+          speak(mmrcQuestions[0].ttsText)
+        }
+
+        console.log('✅ CAT completed, auto-redirecting to mMRC')
       } else {
+        // mMRC completed
         score = calculateMMRCScore(answers as MMRCSurveyCreate['responses'])
         scoreLabel = getMMRCGradeLabel(score)
+
+        // Save mMRC result
+        const mmrcResult: SurveyResult = { surveyType, score, scoreLabel }
+        setCompletedSurveys(prev => ({ ...prev, mmrc: mmrcResult }))
+
+        // Navigate to Thank You page
+        setView('thankyou')
+
+        // Read Thank You message with TTS
+        const thankYouText = `問卷填寫完成！感謝您的配合。`
+        speak(thankYouText)
+
+        console.log('✅ mMRC completed, navigating to Thank You page')
       }
-
-      // Show result
-      setResult({ surveyType, score, scoreLabel })
-      setView('result')
-
-      // Read result with TTS
-      const resultText = `您的${surveyType === SurveyType.CAT ? 'CAT 評估測試' : 'mMRC 呼吸困難分級'}已完成。分數為 ${score}，${scoreLabel}`
-      speak(resultText)
 
     } catch (err) {
       console.error('Survey submission error:', err)
@@ -194,6 +229,7 @@ export default function SurveyPage() {
     setCurrentStep(0)
     setAnswers({})
     setResult(null)
+    setCompletedSurveys({ cat: null, mmrc: null })
     setError(null)
   }
 
@@ -363,7 +399,109 @@ export default function SurveyPage() {
   )
 
   /**
-   * Render survey result (placeholder - will be implemented in Task 5.3.3)
+   * Render Thank You page with CAT + mMRC scores
+   */
+  const renderThankYou = () => (
+    <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-blue-50 px-4 py-8">
+      <div className="max-w-3xl mx-auto">
+        {/* Success Header */}
+        <div className="text-center mb-8">
+          <div className="text-7xl mb-4">✅</div>
+          <h1 className="text-4xl font-bold text-green-600 mb-3">
+            問卷填寫完成！
+          </h1>
+          <p className="text-xl text-gray-600">
+            感謝您的配合，以下是您的評估結果
+          </p>
+        </div>
+
+        {/* CAT Score Card */}
+        {completedSurveys.cat && (
+          <div className="bg-white rounded-2xl shadow-xl p-8 mb-6 border-2 border-blue-200">
+            <div className="flex items-start gap-4">
+              <span className="text-5xl">📋</span>
+              <div className="flex-1">
+                <h2 className="text-2xl font-bold text-gray-900 mb-3">
+                  CAT 評估測試
+                </h2>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-base text-gray-600 mb-1">總分</p>
+                    <p className="text-4xl font-bold text-blue-600">
+                      {completedSurveys.cat.score}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-base text-gray-600 mb-1">評估</p>
+                    <p className="text-xl font-semibold text-gray-800">
+                      {completedSurveys.cat.scoreLabel}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* mMRC Score Card */}
+        {completedSurveys.mmrc && (
+          <div className="bg-white rounded-2xl shadow-xl p-8 mb-8 border-2 border-green-200">
+            <div className="flex items-start gap-4">
+              <span className="text-5xl">🫁</span>
+              <div className="flex-1">
+                <h2 className="text-2xl font-bold text-gray-900 mb-3">
+                  mMRC 呼吸困難分級
+                </h2>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-base text-gray-600 mb-1">等級</p>
+                    <p className="text-4xl font-bold text-green-600">
+                      {completedSurveys.mmrc.score}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-base text-gray-600 mb-1">描述</p>
+                    <p className="text-xl font-semibold text-gray-800">
+                      {completedSurveys.mmrc.scoreLabel}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Action Buttons */}
+        <div className="space-y-4">
+          <button
+            onClick={() => window.location.href = '/'}
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white text-xl font-semibold py-4 rounded-xl shadow-lg transition-colors"
+          >
+            返回首頁
+          </button>
+
+          <button
+            onClick={handleReset}
+            className="w-full bg-gray-200 hover:bg-gray-300 text-gray-800 text-xl font-semibold py-4 rounded-xl transition-colors"
+          >
+            重新填寫問卷
+          </button>
+        </div>
+
+        {/* Mock Mode Indicator */}
+        {import.meta.env.VITE_MOCK_MODE === 'true' && (
+          <div className="mt-6 bg-yellow-50 border-2 border-yellow-200 rounded-lg p-4">
+            <p className="text-base text-yellow-800 text-center">
+              🧪 <strong>Mock 模式</strong> - 測試環境，分數僅供參考
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+
+  /**
+   * Render survey result (kept for backwards compatibility if needed)
    */
   const renderSurveyResult = () => (
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-blue-50 px-4 py-8">
@@ -403,6 +541,10 @@ export default function SurveyPage() {
 
   if (view === 'result') {
     return renderSurveyResult()
+  }
+
+  if (view === 'thankyou') {
+    return renderThankYou()
   }
 
   return null
