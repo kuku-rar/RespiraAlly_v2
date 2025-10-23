@@ -1,5 +1,100 @@
 # Changelog - 2025-10-22
 
+## 📦 2025-10-23 更新: Sprint 3 Week 6 完成 - LIFF Survey + 表單修正 ✅
+
+**版本**: v3.3.2
+**日期**: 2025-10-23 14:30
+**狀態**: Sprint 3 Week 6 完成，進度 91.7%
+
+### 🎉 完成任務
+
+**Task 5.3 - LIFF 問卷頁** (24h)
+- ✅ CAT 8 題表單 UI (elder-friendly design)
+- ✅ mMRC 1 題表單 + 結果顯示
+- ✅ CAT → mMRC → Thank You 自動導向流程
+- ✅ Thank You 頁面顯示雙問卷分數
+
+**Task 5.6 - CAT 量表無障礙設計 (TTS)** (8h)
+- ✅ Web Speech API 整合 (useTTS Hook)
+- ✅ 問卷頁朗讀按鈕整合 (CAT + mMRC)
+- ✅ 基本樣式與無障礙標籤
+
+**用戶反饋修正** (額外工作)
+1. ✅ 註冊頁面欄位更新：
+   - 移除：COPD 分期、確診日期
+   - 新增：醫院病歷號、身高、體重、菸齡
+   - 驗證範圍：身高 100-250cm, 體重 30-200kg, 菸齡 0-80年
+2. ✅ 性別按鈕 UX 改善：
+   - 添加選中狀態視覺指示器
+   - 綠色邊框、背景、陰影效果
+   - 選中時顯示 ✓ 標記
+3. ✅ 每日日誌符合 ADR-009：
+   - 移除：日期選擇器 (自動設為今日)、steps_count
+   - 新增：exercise_minutes (0-480), smoking_count (0-100)
+4. ✅ Survey 流程自動化：
+   - CAT 填寫完自動導向 mMRC (不顯示結果頁)
+   - mMRC 完成後導向 Thank You 頁面
+   - Thank You 頁面同時顯示 CAT 和 mMRC 分數
+
+### 📊 更新進度
+
+| 項目 | 數值 | 變化 |
+|------|------|------|
+| **Sprint 3 已完成** | 88h | +32h |
+| **Sprint 3 進度** | 91.7% | +33.4% |
+| **Sprint 3 剩餘** | 8h | -32h |
+| **專案總完成** | 443.75h | +32h |
+| **專案總進度** | ~43.0% | +3.1% |
+
+### 🔗 詳細文檔
+
+- **Git Commits**:
+  - `a1dea9e` - fix(liff): update registration and daily log forms per user feedback
+  - `8dbfb5c` - feat(liff): implement CAT → mMRC → Thank You survey flow
+- **相關 ADR**:
+  - ADR-009: Daily Log Schema Redesign
+  - ADR-010: Sprint 3 MVP Scope Reduction
+  - ADR-011: CAT Accessibility TTS Solution
+
+### 🎯 技術亮點
+
+**1. 表單驗證增強** (Register.tsx, LogForm.tsx)
+- TypeScript 型別更新：PatientRegisterRequest, DailyLogBase
+- 數值範圍驗證：身高、體重、菸齡、運動、吸菸
+- React Hook Form 整合：watch() 追蹤選擇狀態
+
+**2. UX 設計改善** (Register.tsx)
+- 性別按鈕條件樣式：`selectedGender === value ? 'border-green-600 bg-green-50 shadow-md' : 'border-gray-300'`
+- 選中指示器：✓ 標記 + 高對比配色
+- 保持 hover 效果：未選中按鈕 hover 時預覽選中樣式
+
+**3. Survey 流程狀態管理** (SurveyPage.tsx)
+- 新增 `CompletedSurveys` 介面儲存雙問卷結果
+- 條件導向邏輯：CAT → mMRC (setView('form')), mMRC → Thank You (setView('thankyou'))
+- TTS 整合：每個步驟自動朗讀問題文字
+
+**4. Thank You 頁面設計** (SurveyPage.tsx lines 403-500)
+- 雙卡片顯示：CAT 分數卡 (藍色) + mMRC 等級卡 (綠色)
+- 高對比配色：易讀性優化，符合長者友善設計
+- 兩個行動按鈕：返回首頁 (主要)、重新填寫 (次要)
+
+### 📝 檔案變更摘要
+
+**類型定義更新**:
+- `frontend/liff/src/types/auth.ts` - 移除 COPDStage, 更新 PatientRegisterRequest
+- `frontend/liff/src/types/daily-log.ts` - 更新 DailyLogBase, DailyLogFormData
+
+**API & Mock 更新**:
+- `frontend/liff/src/api/auth.ts` - 更新 mock 驗證邏輯
+- `frontend/liff/src/api/daily-log.ts` - 更新 mock 資料和驗證
+
+**UI 組件更新**:
+- `frontend/liff/src/pages/Register.tsx` - 表單欄位替換 + 性別按鈕 UX
+- `frontend/liff/src/pages/LogForm.tsx` - 移除日期選擇 + 更新欄位
+- `frontend/liff/src/pages/SurveyPage.tsx` - 流程自動化 + Thank You 頁面
+
+---
+
 ## 📦 2025-10-23 更新: Task 5.1 完成 ✅
 
 **版本**: v3.3.1
