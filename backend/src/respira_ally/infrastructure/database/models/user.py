@@ -46,9 +46,16 @@ class UserModel(Base):
 
     # Role
     role: Mapped[str] = mapped_column(
-        Enum("PATIENT", "THERAPIST", name="user_role_enum", create_type=True),
+        Enum(
+            "PATIENT",
+            "THERAPIST",
+            "SUPERVISOR",
+            "ADMIN",
+            name="user_role_enum",
+            create_type=False,  # Don't create - managed by migrations
+        ),
         nullable=False,
-        comment="User role",
+        comment="User role: PATIENT (LINE auth), THERAPIST (email/password), SUPERVISOR (MVP unrestricted access), ADMIN (system admin)",
     )
 
     # Timestamps

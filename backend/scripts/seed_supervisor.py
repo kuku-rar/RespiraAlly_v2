@@ -23,11 +23,15 @@ from pathlib import Path
 # Add backend src to Python path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
+# Load .env file
+from dotenv import load_dotenv
+load_dotenv(Path(__file__).parent.parent / ".env")
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
-from respira_ally.core.security import hash_password
+from respira_ally.application.auth.use_cases.login_use_case import hash_password
 from respira_ally.infrastructure.database.models.user import UserModel
 
 
@@ -69,7 +73,6 @@ async def seed_supervisor():
                 hashed_password=hashed_password,
                 role="SUPERVISOR",
                 line_user_id=None,  # SUPERVISOR uses email/password, not LINE
-                is_active=True,
             )
 
             session.add(supervisor_user)
