@@ -184,8 +184,8 @@ class PatientRepositoryImpl(PatientRepository):
                 PatientProfileModel.weight_kg / func.pow(PatientProfileModel.height_cm / 100.0, 2),
                 Float,
             )
-        else:  # default: created_at
-            order_column = PatientProfileModel.created_at
+        else:  # default: user_id (UUIDs have timestamp component)
+            order_column = PatientProfileModel.user_id
 
         # Apply sort order
         if sort_order == "asc":
