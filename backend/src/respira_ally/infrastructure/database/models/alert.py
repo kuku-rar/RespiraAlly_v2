@@ -89,7 +89,7 @@ class AlertModel(Base):
     )
 
     # Related Data (JSON format)
-    metadata: Mapped[dict | None] = mapped_column(
+    alert_metadata: Mapped[dict | None] = mapped_column(
         JSONB,
         nullable=True,
         comment="JSON metadata: {old_group: 'A', new_group: 'E', trigger_reason: '...'}",

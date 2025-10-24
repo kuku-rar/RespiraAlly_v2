@@ -18,6 +18,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from respira_ally.application.patient.kpi_service import KPIService
 from respira_ally.application.patient.patient_service import PatientService
 from respira_ally.core.authorization import can_access_patient, can_modify_patient
 from respira_ally.core.dependencies import (
@@ -26,6 +27,7 @@ from respira_ally.core.dependencies import (
     get_patient_service,
 )
 from respira_ally.core.schemas.auth import TokenData, UserRole
+from respira_ally.core.schemas.kpi import PatientKPIResponse
 from respira_ally.core.schemas.patient import (
     PatientCreate,
     PatientListResponse,
@@ -322,9 +324,6 @@ async def get_patient_kpi(
     - Legacy risk (risk_score, risk_level) - backward compatible
     - Activity tracking (last log date, days since)
     """
-    from respira_ally.application.patient.kpi_service import KPIService
-    from respira_ally.core.schemas.kpi import PatientKPIResponse
-
     # Check patient exists
     patient = await db.get(PatientProfileModel, patient_id)
     if not patient:

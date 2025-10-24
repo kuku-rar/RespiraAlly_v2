@@ -29,9 +29,9 @@ class GoldAbeClassificationEngine:
     - Group E (High Risk): CAT>=10 AND mMRC>=2
 
     Hybrid Strategy Mapping (Backward Compatibility):
-    - A ’ risk_score: 25, risk_level: 'low'
-    - B ’ risk_score: 50, risk_level: 'medium'
-    - E ’ risk_score: 75, risk_level: 'high'
+    - A -> risk_score: 25, risk_level: 'low'
+    - B -> risk_score: 50, risk_level: 'medium'
+    - E -> risk_score: 75, risk_level: 'high'
 
     ADR References: ADR-013 v2.0 (GOLD ABE), ADR-014 (Hybrid Strategy)
     """

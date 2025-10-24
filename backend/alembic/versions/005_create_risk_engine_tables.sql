@@ -204,7 +204,7 @@ CREATE TABLE alerts (
     status alert_status_enum DEFAULT 'ACTIVE',
 
     -- 相關資料 (JSONB 格式)
-    metadata JSONB,
+    alert_metadata JSONB,
 
     -- 處理資訊
     acknowledged_at TIMESTAMP WITH TIME ZONE,
@@ -227,7 +227,7 @@ COMMENT ON COLUMN alerts.severity IS '警示嚴重程度';
 COMMENT ON COLUMN alerts.title IS '警示標題 (簡短描述)';
 COMMENT ON COLUMN alerts.message IS '警示詳細訊息';
 COMMENT ON COLUMN alerts.status IS '警示狀態 (ACTIVE/ACKNOWLEDGED/RESOLVED)';
-COMMENT ON COLUMN alerts.metadata IS 'JSON 格式的額外資訊 (如: {old_group: "A", new_group: "E", trigger_reason: "..."}';
+COMMENT ON COLUMN alerts.alert_metadata IS 'JSON 格式的額外資訊 (如: {old_group: "A", new_group: "E", trigger_reason: "..."}';
 COMMENT ON COLUMN alerts.acknowledged_at IS '確認時間';
 COMMENT ON COLUMN alerts.acknowledged_by IS '確認者';
 COMMENT ON COLUMN alerts.resolved_at IS '解決時間';
