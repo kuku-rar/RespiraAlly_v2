@@ -19,6 +19,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from respira_ally.application.exacerbation.exacerbation_service import ExacerbationService
+from respira_ally.core.authorization import can_access_patient, can_modify_patient
 from respira_ally.core.dependencies import get_current_therapist, get_current_user
 from respira_ally.core.schemas.auth import TokenData, UserRole
 from respira_ally.core.schemas.exacerbation import (
@@ -78,11 +79,11 @@ async def create_exacerbation(
     if not patient:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Patient not found")
 
-    # Permission check: Therapist can only create records for their own patients
-    if patient.therapist_id != current_user.user_id:
+    # Permission check using centralized authorization helper
+    if not can_modify_patient(current_user, patient.therapist_id):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="You can only create exacerbation records for your own patients",
+            detail="You do not have permission to create exacerbation records for this patient",
         )
 
     # Create exacerbation record
@@ -129,21 +130,14 @@ async def get_exacerbation(
     if not patient:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Patient not found")
 
-    # Permission check
-    if current_user.role == UserRole.THERAPIST:
-        # Therapist can only view their own patients' exacerbations
-        if patient.therapist_id != current_user.user_id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You can only view exacerbations for your own patients",
-            )
-    elif current_user.role == UserRole.PATIENT:
-        # Patient can only view their own exacerbations
-        if exacerbation_response.patient_id != current_user.user_id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You can only view your own exacerbations",
-            )
+    # Permission check using centralized authorization helper
+    if not can_access_patient(
+        current_user, exacerbation_response.patient_id, patient.therapist_id
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to view this exacerbation record",
+        )
 
     return exacerbation_response
 
@@ -191,21 +185,12 @@ async def list_patient_exacerbations(
     if not patient:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Patient not found")
 
-    # Permission check
-    if current_user.role == UserRole.THERAPIST:
-        # Therapist can only view their own patients' exacerbations
-        if patient.therapist_id != current_user.user_id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You can only view exacerbations for your own patients",
-            )
-    elif current_user.role == UserRole.PATIENT:
-        # Patient can only view their own exacerbations
-        if patient_id != current_user.user_id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You can only view your own exacerbations",
-            )
+    # Permission check using centralized authorization helper
+    if not can_access_patient(current_user, patient_id, patient.therapist_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to view this patient's exacerbation records",
+        )
 
     # List exacerbations with filters
     exacerbations = await exacerbation_service.list_patient_exacerbations(
@@ -244,21 +229,12 @@ async def get_exacerbation_stats(
     if not patient:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Patient not found")
 
-    # Permission check
-    if current_user.role == UserRole.THERAPIST:
-        # Therapist can only view their own patients' stats
-        if patient.therapist_id != current_user.user_id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You can only view stats for your own patients",
-            )
-    elif current_user.role == UserRole.PATIENT:
-        # Patient can only view their own stats
-        if patient_id != current_user.user_id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You can only view your own stats",
-            )
+    # Permission check using centralized authorization helper
+    if not can_access_patient(current_user, patient_id, patient.therapist_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to view this patient's exacerbation statistics",
+        )
 
     # Get stats
     stats = await exacerbation_service.get_exacerbation_stats(patient_id)
@@ -300,11 +276,11 @@ async def update_exacerbation(
     if not patient:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Patient not found")
 
-    # Permission check: Therapist can only update records for their own patients
-    if patient.therapist_id != current_user.user_id:
+    # Permission check using centralized authorization helper
+    if not can_modify_patient(current_user, patient.therapist_id):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="You can only update exacerbation records for your own patients",
+            detail="You do not have permission to update this exacerbation record",
         )
 
     # Update exacerbation
@@ -350,11 +326,11 @@ async def delete_exacerbation(
     if not patient:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Patient not found")
 
-    # Permission check: Therapist can only delete records for their own patients
-    if patient.therapist_id != current_user.user_id:
+    # Permission check using centralized authorization helper
+    if not can_modify_patient(current_user, patient.therapist_id):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="You can only delete exacerbation records for your own patients",
+            detail="You do not have permission to delete this exacerbation record",
         )
 
     # Delete exacerbation

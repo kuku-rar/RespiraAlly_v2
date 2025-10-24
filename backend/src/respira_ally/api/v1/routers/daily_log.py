@@ -16,8 +16,10 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from respira_ally.application.daily_log.daily_log_service import DailyLogService
+from respira_ally.core.authorization import can_access_patient
 from respira_ally.core.dependencies import (
     get_current_patient,
     get_current_user,
@@ -26,6 +28,8 @@ from respira_ally.core.dependencies import (
     get_idempotency_service,
 )
 from respira_ally.core.schemas.auth import TokenData, UserRole
+from respira_ally.infrastructure.database.models.patient_profile import PatientProfileModel
+from respira_ally.infrastructure.database.session import get_db
 from respira_ally.core.schemas.daily_log import (
     DailyLogCreate,
     DailyLogListResponse,
@@ -105,6 +109,7 @@ async def create_or_update_daily_log(
 @router.get("/{log_id}", response_model=DailyLogResponse)
 async def get_daily_log(
     log_id: UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
     service: Annotated[DailyLogService, Depends(get_daily_log_service)],
     current_user: Annotated[TokenData, Depends(get_current_user)],
 ):
@@ -114,6 +119,7 @@ async def get_daily_log(
     **Authorization**:
     - Therapists can view logs of their patients
     - Patients can only view their own logs
+    - SUPERVISOR/ADMIN can view all logs
 
     **Returns**:
     - 200: Daily log information
@@ -127,24 +133,27 @@ async def get_daily_log(
             detail="Daily log not found",
         )
 
-    # Permission check
-    if current_user.role == UserRole.PATIENT:
-        if log.patient_id != current_user.user_id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You can only view your own logs",
-            )
-    # Note: Therapist permission check would require patient_service to verify
-    # if the patient belongs to this therapist. Skipped for simplicity.
+    # Get patient to retrieve therapist_id for permission check
+    patient = await db.get(PatientProfileModel, log.patient_id)
+    if not patient:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Patient not found")
+
+    # Permission check using centralized authorization helper
+    if not can_access_patient(current_user, log.patient_id, patient.therapist_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to view this daily log",
+        )
 
     return log
 
 
 @router.get("/", response_model=DailyLogListResponse)
 async def list_daily_logs(
+    db: Annotated[AsyncSession, Depends(get_db)],
     service: Annotated[DailyLogService, Depends(get_daily_log_service)],
     current_user: Annotated[TokenData, Depends(get_current_user)],
-    patient_id: UUID | None = Query(None, description="Filter by patient ID (therapists only)"),
+    patient_id: UUID | None = Query(None, description="Filter by patient ID (therapists/supervisors only)"),
     start_date: date | None = Query(None, description="Start date (inclusive)"),
     end_date: date | None = Query(None, description="End date (inclusive)"),
     page: int = Query(0, ge=0, description="Page number (0-indexed)"),
@@ -155,7 +164,8 @@ async def list_daily_logs(
 
     **Authorization**:
     - Patients: Can only list their own logs (patient_id is ignored)
-    - Therapists: Can list logs for specific patient (patient_id required)
+    - Therapists: Can list logs for specific patient (patient_id required, must be their patient)
+    - SUPERVISOR/ADMIN: Can list logs for any patient (patient_id required)
 
     **Returns**:
     - 200: Paginated daily log list
@@ -164,19 +174,27 @@ async def list_daily_logs(
     if current_user.role == UserRole.PATIENT:
         # Patients can only see their own logs
         target_patient_id = current_user.user_id
-    elif current_user.role == UserRole.THERAPIST:
-        # Therapists must specify patient_id
+    else:
+        # Therapists/Supervisors/Admins must specify patient_id
         if not patient_id:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="patient_id is required for therapists",
+                detail="patient_id is required for therapists and supervisors",
             )
+
+        # Get patient to verify permission
+        patient = await db.get(PatientProfileModel, patient_id)
+        if not patient:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Patient not found")
+
+        # Permission check using centralized authorization helper
+        if not can_access_patient(current_user, patient_id, patient.therapist_id):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have permission to view this patient's daily logs",
+            )
+
         target_patient_id = patient_id
-    else:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Invalid user role",
-        )
 
     return await service.list_daily_logs_by_patient(
         patient_id=target_patient_id,
@@ -190,6 +208,7 @@ async def list_daily_logs(
 @router.get("/patient/{patient_id}/stats", response_model=DailyLogStats)
 async def get_patient_statistics(
     patient_id: UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
     service: Annotated[DailyLogService, Depends(get_daily_log_service)],
     current_user: Annotated[TokenData, Depends(get_current_user)],
     start_date: date = Query(..., description="Start date for statistics"),
@@ -201,19 +220,24 @@ async def get_patient_statistics(
     **Authorization**:
     - Therapists can view statistics for their patients
     - Patients can only view their own statistics
+    - SUPERVISOR/ADMIN can view all patient statistics
 
     **Returns**:
     - 200: Daily log statistics
     - 403: Access denied
+    - 404: Patient not found
     """
-    # Permission check
-    if current_user.role == UserRole.PATIENT:
-        if patient_id != current_user.user_id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You can only view your own statistics",
-            )
-    # Note: Therapist permission check would require verifying patient ownership
+    # Get patient to verify permission
+    patient = await db.get(PatientProfileModel, patient_id)
+    if not patient:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Patient not found")
+
+    # Permission check using centralized authorization helper
+    if not can_access_patient(current_user, patient_id, patient.therapist_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to view this patient's statistics",
+        )
 
     return await service.get_patient_statistics(
         patient_id=patient_id,
@@ -225,6 +249,7 @@ async def get_patient_statistics(
 @router.get("/patient/{patient_id}/latest", response_model=DailyLogResponse)
 async def get_latest_log(
     patient_id: UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
     service: Annotated[DailyLogService, Depends(get_daily_log_service)],
     current_user: Annotated[TokenData, Depends(get_current_user)],
 ):
@@ -234,19 +259,24 @@ async def get_latest_log(
     **Authorization**:
     - Therapists can view latest log for their patients
     - Patients can only view their own latest log
+    - SUPERVISOR/ADMIN can view any patient's latest log
 
     **Returns**:
     - 200: Latest daily log
     - 403: Access denied
-    - 404: No logs found for patient
+    - 404: Patient or log not found
     """
-    # Permission check
-    if current_user.role == UserRole.PATIENT:
-        if patient_id != current_user.user_id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You can only view your own logs",
-            )
+    # Get patient to verify permission
+    patient = await db.get(PatientProfileModel, patient_id)
+    if not patient:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Patient not found")
+
+    # Permission check using centralized authorization helper
+    if not can_access_patient(current_user, patient_id, patient.therapist_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to view this patient's daily logs",
+        )
 
     log = await service.get_latest_log(patient_id)
     if not log:

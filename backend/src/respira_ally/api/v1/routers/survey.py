@@ -18,14 +18,18 @@ from typing import Annotated, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from respira_ally.application.survey.survey_service import SurveyService
+from respira_ally.core.authorization import can_access_patient
 from respira_ally.core.dependencies import (
     get_current_patient,
     get_current_user,
     get_survey_service,
 )
 from respira_ally.core.schemas.auth import TokenData, UserRole
+from respira_ally.infrastructure.database.models.patient_profile import PatientProfileModel
+from respira_ally.infrastructure.database.session import get_db
 from respira_ally.core.schemas.survey import (
     CATSurveyCreate,
     SurveyListResponse,
@@ -137,6 +141,7 @@ async def submit_mmrc_survey(
 @router.get("/{response_id}", response_model=SurveyResponse)
 async def get_survey(
     response_id: UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
     service: Annotated[SurveyService, Depends(get_survey_service)],
     current_user: Annotated[TokenData, Depends(get_current_user)],
 ):
@@ -146,6 +151,7 @@ async def get_survey(
     **Authorization**:
     - Therapists can view surveys of their patients
     - Patients can only view their own surveys
+    - SUPERVISOR/ADMIN can view all surveys
 
     **Returns**:
     - 200: Survey response information
@@ -159,14 +165,17 @@ async def get_survey(
             detail="Survey response not found",
         )
 
-    # Permission check
-    if current_user.role == UserRole.PATIENT:
-        if survey.patient_id != current_user.user_id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You can only view your own surveys",
-            )
-    # TODO: Therapist permission check (verify patient belongs to therapist)
+    # Get patient to retrieve therapist_id for permission check
+    patient = await db.get(PatientProfileModel, survey.patient_id)
+    if not patient:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Patient not found")
+
+    # Permission check using centralized authorization helper
+    if not can_access_patient(current_user, survey.patient_id, patient.therapist_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to view this survey",
+        )
 
     return survey
 
@@ -174,6 +183,7 @@ async def get_survey(
 @router.get("/patient/{patient_id}", response_model=SurveyListResponse)
 async def list_patient_surveys(
     patient_id: UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
     service: Annotated[SurveyService, Depends(get_survey_service)],
     current_user: Annotated[TokenData, Depends(get_current_user)],
     survey_type: Literal["CAT", "mMRC"] | None = Query(None, description="Filter by survey type"),
@@ -188,6 +198,7 @@ async def list_patient_surveys(
     **Authorization**:
     - Patients can only list their own surveys (patient_id must match)
     - Therapists can list surveys for their patients
+    - SUPERVISOR/ADMIN can list surveys for any patient
 
     **Query Parameters**:
     - survey_type: Filter by "CAT" or "mMRC" (optional)
@@ -199,15 +210,19 @@ async def list_patient_surveys(
     **Returns**:
     - 200: Paginated list of surveys
     - 403: Access denied
+    - 404: Patient not found
     """
-    # Permission check
-    if current_user.role == UserRole.PATIENT:
-        if patient_id != current_user.user_id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You can only view your own surveys",
-            )
-    # TODO: Therapist permission check
+    # Get patient to verify permission
+    patient = await db.get(PatientProfileModel, patient_id)
+    if not patient:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Patient not found")
+
+    # Permission check using centralized authorization helper
+    if not can_access_patient(current_user, patient_id, patient.therapist_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to view this patient's surveys",
+        )
 
     return await service.list_surveys(
         patient_id=patient_id,
@@ -222,6 +237,7 @@ async def list_patient_surveys(
 @router.get("/cat/patient/{patient_id}/latest", response_model=SurveyResponse | None)
 async def get_latest_cat_survey(
     patient_id: UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
     service: Annotated[SurveyService, Depends(get_survey_service)],
     current_user: Annotated[TokenData, Depends(get_current_user)],
 ):
@@ -231,18 +247,24 @@ async def get_latest_cat_survey(
     **Authorization**:
     - Patients can only get their own latest survey
     - Therapists can get latest survey for their patients
+    - SUPERVISOR/ADMIN can get latest survey for any patient
 
     **Returns**:
     - 200: Latest CAT survey (or null if none exists)
     - 403: Access denied
+    - 404: Patient not found
     """
-    # Permission check
-    if current_user.role == UserRole.PATIENT:
-        if patient_id != current_user.user_id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You can only view your own surveys",
-            )
+    # Get patient to verify permission
+    patient = await db.get(PatientProfileModel, patient_id)
+    if not patient:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Patient not found")
+
+    # Permission check using centralized authorization helper
+    if not can_access_patient(current_user, patient_id, patient.therapist_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to view this patient's surveys",
+        )
 
     return await service.get_latest_survey(patient_id=patient_id, survey_type="CAT")
 
@@ -250,6 +272,7 @@ async def get_latest_cat_survey(
 @router.get("/mmrc/patient/{patient_id}/latest", response_model=SurveyResponse | None)
 async def get_latest_mmrc_survey(
     patient_id: UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
     service: Annotated[SurveyService, Depends(get_survey_service)],
     current_user: Annotated[TokenData, Depends(get_current_user)],
 ):
@@ -259,18 +282,24 @@ async def get_latest_mmrc_survey(
     **Authorization**:
     - Patients can only get their own latest survey
     - Therapists can get latest survey for their patients
+    - SUPERVISOR/ADMIN can get latest survey for any patient
 
     **Returns**:
     - 200: Latest mMRC survey (or null if none exists)
     - 403: Access denied
+    - 404: Patient not found
     """
-    # Permission check
-    if current_user.role == UserRole.PATIENT:
-        if patient_id != current_user.user_id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You can only view your own surveys",
-            )
+    # Get patient to verify permission
+    patient = await db.get(PatientProfileModel, patient_id)
+    if not patient:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Patient not found")
+
+    # Permission check using centralized authorization helper
+    if not can_access_patient(current_user, patient_id, patient.therapist_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to view this patient's surveys",
+        )
 
     return await service.get_latest_survey(patient_id=patient_id, survey_type="mMRC")
 
@@ -283,6 +312,7 @@ async def get_latest_mmrc_survey(
 @router.get("/cat/patient/{patient_id}/stats", response_model=SurveyStats)
 async def get_cat_survey_stats(
     patient_id: UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
     service: Annotated[SurveyService, Depends(get_survey_service)],
     current_user: Annotated[TokenData, Depends(get_current_user)],
     start_date: datetime | None = Query(None, description="Start datetime filter"),
@@ -294,6 +324,7 @@ async def get_cat_survey_stats(
     **Authorization**:
     - Patients can only get their own stats
     - Therapists can get stats for their patients
+    - SUPERVISOR/ADMIN can get stats for any patient
 
     **Statistics Include**:
     - Total number of responses
@@ -305,14 +336,19 @@ async def get_cat_survey_stats(
     **Returns**:
     - 200: Survey statistics
     - 403: Access denied
+    - 404: Patient not found
     """
-    # Permission check
-    if current_user.role == UserRole.PATIENT:
-        if patient_id != current_user.user_id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You can only view your own statistics",
-            )
+    # Get patient to verify permission
+    patient = await db.get(PatientProfileModel, patient_id)
+    if not patient:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Patient not found")
+
+    # Permission check using centralized authorization helper
+    if not can_access_patient(current_user, patient_id, patient.therapist_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to view this patient's statistics",
+        )
 
     return await service.get_survey_stats(
         patient_id=patient_id,
@@ -325,6 +361,7 @@ async def get_cat_survey_stats(
 @router.get("/mmrc/patient/{patient_id}/stats", response_model=SurveyStats)
 async def get_mmrc_survey_stats(
     patient_id: UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
     service: Annotated[SurveyService, Depends(get_survey_service)],
     current_user: Annotated[TokenData, Depends(get_current_user)],
     start_date: datetime | None = Query(None, description="Start datetime filter"),
@@ -336,6 +373,7 @@ async def get_mmrc_survey_stats(
     **Authorization**:
     - Patients can only get their own stats
     - Therapists can get stats for their patients
+    - SUPERVISOR/ADMIN can get stats for any patient
 
     **Statistics Include**:
     - Total number of responses
@@ -347,14 +385,19 @@ async def get_mmrc_survey_stats(
     **Returns**:
     - 200: Survey statistics
     - 403: Access denied
+    - 404: Patient not found
     """
-    # Permission check
-    if current_user.role == UserRole.PATIENT:
-        if patient_id != current_user.user_id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You can only view your own statistics",
-            )
+    # Get patient to verify permission
+    patient = await db.get(PatientProfileModel, patient_id)
+    if not patient:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Patient not found")
+
+    # Permission check using centralized authorization helper
+    if not can_access_patient(current_user, patient_id, patient.therapist_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to view this patient's statistics",
+        )
 
     return await service.get_survey_stats(
         patient_id=patient_id,

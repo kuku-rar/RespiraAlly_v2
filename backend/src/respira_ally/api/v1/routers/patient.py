@@ -19,6 +19,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from respira_ally.application.patient.patient_service import PatientService
+from respira_ally.core.authorization import can_access_patient, can_modify_patient
 from respira_ally.core.dependencies import (
     get_current_therapist,
     get_current_user,
@@ -121,21 +122,12 @@ async def get_patient(
     if not patient:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Patient not found")
 
-    # Permission check
-    if current_user.role == UserRole.THERAPIST:
-        # Therapist can only view their own patients
-        if patient.therapist_id != current_user.user_id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You can only view your own patients",
-            )
-    elif current_user.role == UserRole.PATIENT:
-        # Patient can only view themselves
-        if patient.user_id != current_user.user_id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You can only view your own profile",
-            )
+    # Permission check using centralized authorization helper
+    if not can_access_patient(current_user, patient.user_id, patient.therapist_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to view this patient's data",
+        )
 
     return patient
 
@@ -228,11 +220,11 @@ async def update_patient(
     if not existing_patient:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Patient not found")
 
-    # Permission check: Therapist can only update their own patients
-    if existing_patient.therapist_id != current_user.user_id:
+    # Permission check using centralized authorization helper
+    if not can_modify_patient(current_user, existing_patient.therapist_id):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="You can only update your own patients",
+            detail="You do not have permission to modify this patient's data",
         )
 
     # Update using service
@@ -274,11 +266,11 @@ async def delete_patient(
     if not existing_patient:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Patient not found")
 
-    # Permission check: Therapist can only delete their own patients
-    if existing_patient.therapist_id != current_user.user_id:
+    # Permission check using centralized authorization helper
+    if not can_modify_patient(current_user, existing_patient.therapist_id):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="You can only delete your own patients",
+            detail="You do not have permission to delete this patient's data",
         )
 
     # Delete using service
@@ -338,21 +330,12 @@ async def get_patient_kpi(
     if not patient:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Patient not found")
 
-    # Permission check
-    if current_user.role == UserRole.THERAPIST:
-        # Therapist can only view their own patients
-        if patient.therapist_id != current_user.user_id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You can only view KPIs for your own patients",
-            )
-    elif current_user.role == UserRole.PATIENT:
-        # Patient can only view themselves
-        if patient_id != current_user.user_id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You can only view your own KPIs",
-            )
+    # Permission check using centralized authorization helper
+    if not can_access_patient(current_user, patient_id, patient.therapist_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to view this patient's KPI data",
+        )
 
     # Get KPI metrics using service
     kpi_service = KPIService(db)

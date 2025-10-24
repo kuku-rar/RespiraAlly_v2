@@ -12,10 +12,22 @@ from pydantic import BaseModel, EmailStr, Field
 
 
 class UserRole(str, Enum):
-    """User role enumeration"""
+    """
+    User role enumeration with hierarchical permissions
+
+    Role Hierarchy (lowest to highest):
+    - PATIENT: Can only access their own data (read-only for profiles)
+    - THERAPIST: Can access and modify their assigned patients' data
+    - SUPERVISOR: Can access and modify ALL patients' data (MVP mode)
+    - ADMIN: Full system access (future: user management, system config)
+
+    Design Decision: ADR-015 - RBAC Extension for MVP Flexibility
+    """
 
     PATIENT = "PATIENT"
     THERAPIST = "THERAPIST"
+    SUPERVISOR = "SUPERVISOR"  # MVP: Can access all patients
+    ADMIN = "ADMIN"  # Future: Full system administration
 
 
 # ============================================================================
