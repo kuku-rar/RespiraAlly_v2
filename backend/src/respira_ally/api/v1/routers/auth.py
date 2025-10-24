@@ -14,12 +14,16 @@ from respira_ally.application.auth.use_cases.login_use_case import (
 )
 from respira_ally.application.auth.use_cases.logout_use_case import LogoutUseCase
 from respira_ally.application.auth.use_cases.refresh_token_use_case import RefreshTokenUseCase
-from respira_ally.application.auth.use_cases.register_use_case import TherapistRegisterUseCase
+from respira_ally.application.auth.use_cases.register_use_case import (
+    PatientRegisterUseCase,
+    TherapistRegisterUseCase,
+)
 from respira_ally.core.dependencies import get_current_user, get_token_from_header
 from respira_ally.core.schemas.auth import (
     LoginResponse,
     LogoutRequest,
     PatientLoginRequest,
+    PatientRegisterRequest,
     RefreshTokenRequest,
     RefreshTokenResponse,
     TherapistLoginRequest,
@@ -28,6 +32,9 @@ from respira_ally.core.schemas.auth import (
 )
 from respira_ally.infrastructure.cache.token_blacklist_service import token_blacklist_service
 from respira_ally.infrastructure.database.session import get_db
+from respira_ally.infrastructure.repository_impls.patient_repository_impl import (
+    PatientRepositoryImpl,
+)
 from respira_ally.infrastructure.repository_impls.user_repository_impl import UserRepositoryImpl
 
 router = APIRouter()
@@ -51,6 +58,21 @@ def get_user_repository(db: Annotated[AsyncSession, Depends(get_db)]) -> UserRep
     return UserRepositoryImpl(db)
 
 
+def get_patient_repository(
+    db: Annotated[AsyncSession, Depends(get_db)]
+) -> PatientRepositoryImpl:
+    """
+    Dependency to inject PatientRepository implementation
+
+    Args:
+        db: Database session from FastAPI dependency
+
+    Returns:
+        PatientRepositoryImpl instance
+    """
+    return PatientRepositoryImpl(db)
+
+
 def get_patient_login_use_case(
     user_repository: Annotated[UserRepositoryImpl, Depends(get_user_repository)],
 ) -> PatientLoginUseCase:
@@ -70,6 +92,15 @@ def get_therapist_register_use_case(
 ) -> TherapistRegisterUseCase:
     """Dependency to inject TherapistRegisterUseCase"""
     return TherapistRegisterUseCase(user_repository)
+
+
+def get_patient_register_use_case(
+    user_repository: Annotated[UserRepositoryImpl, Depends(get_user_repository)],
+    patient_repository: Annotated[PatientRepositoryImpl, Depends(get_patient_repository)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> PatientRegisterUseCase:
+    """Dependency to inject PatientRegisterUseCase"""
+    return PatientRegisterUseCase(user_repository, patient_repository, db)
 
 
 def get_logout_use_case() -> LogoutUseCase:
@@ -121,6 +152,43 @@ async def patient_login(
     return await use_case.execute(
         line_user_id=request.line_user_id, line_access_token=request.line_access_token
     )
+
+
+@router.post(
+    "/patient/register",
+    response_model=LoginResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Patient Initial Registration (LINE LIFF)",
+    description="""
+    Register a new patient with complete profile data via LINE LIFF.
+
+    - Requires LINE User ID, full name, date of birth, and gender
+    - Optional fields: hospital medical record number, health metrics, emergency contact
+    - LINE User ID must be unique
+    - Automatically logs in after registration (returns JWT tokens)
+    - Creates both UserModel and PatientProfileModel in a single transaction
+    """,
+    tags=["Authentication"],
+)
+async def patient_register(
+    request: PatientRegisterRequest,
+    use_case: Annotated[PatientRegisterUseCase, Depends(get_patient_register_use_case)],
+) -> LoginResponse:
+    """
+    Patient registration endpoint with complete profile data
+
+    Args:
+        request: PatientRegisterRequest with all patient data
+        use_case: Injected PatientRegisterUseCase
+
+    Returns:
+        LoginResponse with tokens and user info (auto-login after registration)
+
+    Raises:
+        ValidationError: If required fields are missing or invalid
+        ConflictError: If LINE User ID already exists
+    """
+    return await use_case.execute(request)
 
 
 @router.post(

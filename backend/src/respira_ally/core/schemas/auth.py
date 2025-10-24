@@ -3,7 +3,8 @@ Authentication Schemas
 Pydantic models for JWT authentication and authorization
 """
 
-from datetime import datetime
+from datetime import date, datetime
+from decimal import Decimal
 from enum import Enum
 from typing import Literal
 from uuid import UUID
@@ -190,3 +191,63 @@ class TherapistRegisterRequest(BaseModel):
         ..., min_length=8, max_length=128, description="Password (min 8 characters)"
     )
     full_name: str = Field(..., min_length=2, max_length=100, description="Full name")
+
+
+class PatientRegisterRequest(BaseModel):
+    """
+    Patient Initial Registration Request (LINE LIFF)
+
+    This schema is used when a patient completes their initial registration via LINE LIFF.
+    It includes all necessary fields for patient profile creation, including optional hospital
+    medical record number (hospital_patient_id), health metrics, and emergency contact information.
+
+    Design Decision:
+    - Patients register with complete profile data in one step (not auto-register with minimal data)
+    - hospital_patient_id maps to database field hospital_medical_record_number
+    - Returns JWT tokens upon successful registration for immediate login
+    """
+
+    # LINE Authentication Data
+    line_user_id: str = Field(
+        ..., min_length=1, max_length=100, description="LINE User ID (unique identifier)"
+    )
+    line_display_name: str | None = Field(
+        None, max_length=100, description="LINE display name (optional)"
+    )
+    line_picture_url: str | None = Field(
+        None, max_length=255, description="LINE profile picture URL (optional)"
+    )
+
+    # Required Basic Information
+    full_name: str = Field(..., min_length=2, max_length=100, description="Patient full name")
+    date_of_birth: date = Field(..., description="Date of birth (YYYY-MM-DD)")
+    gender: Literal["MALE", "FEMALE", "OTHER"] = Field(..., description="Gender")
+
+    # Optional Contact Information
+    phone_number: str | None = Field(None, max_length=20, description="Contact phone number")
+
+    # Optional Hospital Integration
+    hospital_patient_id: str | None = Field(
+        None,
+        max_length=50,
+        description="Hospital medical record number (maps to hospital_medical_record_number in DB)",
+    )
+
+    # Optional Health Metrics
+    height_cm: int | None = Field(
+        None, ge=100, le=250, description="Height in centimeters (100-250 cm)"
+    )
+    weight_kg: Decimal | None = Field(
+        None, ge=30, le=200, description="Weight in kilograms (30-200 kg)"
+    )
+    smoking_years: int | None = Field(
+        None, ge=0, le=80, description="Years of smoking (0-80 years, 0 if never smoked)"
+    )
+
+    # Optional Emergency Contact
+    emergency_contact_name: str | None = Field(
+        None, max_length=100, description="Emergency contact person name"
+    )
+    emergency_contact_phone: str | None = Field(
+        None, max_length=20, description="Emergency contact phone number"
+    )
