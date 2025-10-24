@@ -44,13 +44,14 @@
 
 ### 📊 實際進度追蹤 (Progress Tracking)
 
-**整體進度**: 8.5h / 104h (8.2% 完成)
-**最後更新**: 2025-10-24 13:05
-**當前狀態**: 🟡 進行中 - Phase 1 GOLD ABE Classification 完成
+**整體進度**: 12.5h / 104h (12.0% 完成)
+**最後更新**: 2025-10-24 18:39
+**當前狀態**: 🟡 進行中 - Phase 1 GOLD ABE + RBAC Extension 完成
 
 **重要決策變更**:
 - ⚠️ **ADR-013 修訂**: 採用 GOLD 2011 ABE Classification 取代原計劃的自訂風險評分公式
 - ✅ **ADR-014**: 實施 Hybrid 向後兼容策略 (GOLD ABE + Legacy risk fields)
+- ✅ **ADR-015**: RBAC Extension for MVP Flexibility - SUPERVISOR/ADMIN 角色擴展
 
 **已完成任務** (2025-10-24):
 - ✅ **Frontend Hybrid Strategy** [3.5h]
@@ -62,11 +63,17 @@
   - GOLD ABE Classification Engine 實作 (3-tier: A/B/E)
   - KPI Service 數據聚合 (5 data sources integration)
   - KPI API endpoint (/patients/{id}/kpis with authorization)
+- ✅ **RBAC Extension - MVP Flexibility** [4.0h] ⭐ NEW
+  - Phase 1: Foundation (1.5h) - UserRole enum 擴展、authorization.py 中央化授權模組、Database migration
+  - Phase 2: API Refactoring (2.0h) - 20 endpoints 重構（patient/exacerbation/daily_log/survey 4個 router）
+  - Phase 3: Documentation (0.5h) - seed_supervisor.py 腳本、ADR-015 完整設計文檔 (1200+ lines)
+  - Code Quality: 73% 減少重複代碼（15行→4行 per endpoint），單一事實來源，Linus "Good Taste" 原則
 
 **下一步任務** (待執行):
 - ⏳ Migration 005 執行 (新增 4 個表：exacerbations, risk_assessments, alerts, patient_profiles updates)
 - ⏳ Exacerbation Management API [12h] (CRUD endpoints)
 - ⏳ Unit Tests for GOLD Classification Engine [P2 - non-blocking]
+- ⏳ RBAC System Testing with SUPERVISOR user
 
 **技術債務**: 無
 
