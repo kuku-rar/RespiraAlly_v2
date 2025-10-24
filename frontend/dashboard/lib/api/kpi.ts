@@ -23,8 +23,14 @@ const MOCK_KPI_DATA: Record<string, PatientKPI> = {
     latest_diastolic_bp: 85,
     latest_cat_score: 18,
     latest_mmrc_score: 2,
-    risk_score: 45,
-    risk_level: 'medium',
+    // GOLD ABE: CAT>=10 AND mMRC>=2 → Group E (high risk)
+    gold_group: 'E',
+    exacerbation_count_last_12m: 2,
+    hospitalization_count_last_12m: 1,
+    last_exacerbation_date: '2025-08-15',
+    // Legacy fields (mapped from gold_group E)
+    risk_score: 75,
+    risk_level: 'high',
     last_log_date: '2025-10-21',
     days_since_last_log: 0,
   },
@@ -41,8 +47,14 @@ const MOCK_KPI_DATA: Record<string, PatientKPI> = {
     latest_diastolic_bp: 80,
     latest_cat_score: 12,
     latest_mmrc_score: 1,
-    risk_score: 28,
-    risk_level: 'low',
+    // GOLD ABE: CAT>=10 but mMRC<2 → Group B (medium risk)
+    gold_group: 'B',
+    exacerbation_count_last_12m: 1,
+    hospitalization_count_last_12m: 0,
+    last_exacerbation_date: '2025-05-20',
+    // Legacy fields (mapped from gold_group B)
+    risk_score: 50,
+    risk_level: 'medium',
     last_log_date: '2025-10-21',
     days_since_last_log: 0,
   },
@@ -59,7 +71,13 @@ const MOCK_KPI_DATA: Record<string, PatientKPI> = {
     latest_diastolic_bp: 92,
     latest_cat_score: 25,
     latest_mmrc_score: 3,
-    risk_score: 72,
+    // GOLD ABE: CAT>=10 AND mMRC>=2 → Group E (high risk)
+    gold_group: 'E',
+    exacerbation_count_last_12m: 3,
+    hospitalization_count_last_12m: 2,
+    last_exacerbation_date: '2025-09-28',
+    // Legacy fields (mapped from gold_group E)
+    risk_score: 75,
     risk_level: 'high',
     last_log_date: '2025-10-18',
     days_since_last_log: 3,

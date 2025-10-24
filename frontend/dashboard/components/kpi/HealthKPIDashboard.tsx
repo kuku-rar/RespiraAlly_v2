@@ -279,7 +279,11 @@ export function HealthKPIDashboard({ patientId }: HealthKPIDashboardProps) {
             unit=""
             status={getRiskStatus(kpi.risk_level)}
             icon="🎯"
-            description={`風險分數: ${kpi.risk_score?.toFixed(0) || '-'}`}
+            description={
+              kpi.gold_group
+                ? `GOLD ${kpi.gold_group} 級 | CAT: ${kpi.latest_cat_score ?? '-'}, mMRC: ${kpi.latest_mmrc_score ?? '-'}`
+                : `風險分數: ${kpi.risk_score?.toFixed(0) || '-'}`
+            }
           />
         </div>
       </div>

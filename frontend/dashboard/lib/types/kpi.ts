@@ -27,9 +27,17 @@ export interface PatientKPI {
   latest_cat_score?: number // COPD Assessment Test (0-40)
   latest_mmrc_score?: number // Modified Medical Research Council (0-4)
 
-  // Risk Assessment
-  risk_score?: number // 0-100
-  risk_level?: 'low' | 'medium' | 'high' | 'critical'
+  // Risk Assessment (GOLD 2011 ABE Classification) - Sprint 4
+  gold_group?: 'A' | 'B' | 'E' // GOLD 2011 ABE classification (A=low, B=medium, E=high)
+  exacerbation_count_last_12m?: number // Acute exacerbation count in last 12 months
+  hospitalization_count_last_12m?: number // Hospitalization count in last 12 months
+  last_exacerbation_date?: string // YYYY-MM-DD format
+
+  // Risk Assessment (Legacy - Backward Compatible) - Deprecated in Sprint 4
+  // These fields are mapped from gold_group for backward compatibility
+  // Will be removed in future versions - prefer using gold_group instead
+  risk_score?: number // 0-100 (Mapped: A=25, B=50, E=75)
+  risk_level?: 'low' | 'medium' | 'high' | 'critical' // Mapped from gold_group
 
   // Activity
   last_log_date?: string // YYYY-MM-DD
