@@ -226,6 +226,300 @@ async def test_patient_login_auto_register(
 
 
 # ============================================================================
+# POST /api/v1/auth/patient/register - Patient Initial Registration
+# ============================================================================
+
+
+@pytest.mark.asyncio
+async def test_patient_register_success_with_all_fields(
+    client: TestClient,
+):
+    """
+    Test patient registration with all fields (Happy Path)
+
+    Scenario: New patient completes registration via LINE LIFF with full data
+    Expected: 201 Created, tokens returned, patient profile created
+    """
+    # Arrange
+    from datetime import date
+    from decimal import Decimal
+
+    register_data = {
+        "line_user_id": "U_new_patient_123456",
+        "line_display_name": "測試病患",
+        "line_picture_url": "https://example.com/picture.jpg",
+        "full_name": "王小明",
+        "date_of_birth": "1980-05-15",
+        "gender": "MALE",
+        "phone_number": "0912345678",
+        "hospital_patient_id": "WF2024001",
+        "height_cm": 170,
+        "weight_kg": "70.5",
+        "smoking_years": 15,
+        "emergency_contact_name": "王大明",
+        "emergency_contact_phone": "0987654321",
+    }
+
+    # Act
+    response = client.post("/api/v1/auth/patient/register", json=register_data)
+
+    # Assert
+    assert (
+        response.status_code == 201
+    ), f"Expected 201, got {response.status_code}: {response.text}"
+    data = response.json()
+
+    # Verify tokens
+    assert "access_token" in data
+    assert "refresh_token" in data
+    assert data["token_type"] == "bearer"
+
+    # Verify user info
+    assert data["user"]["role"] == "PATIENT"
+    assert data["user"]["line_user_id"] == "U_new_patient_123456"
+    assert data["user"]["display_name"] == "王小明"
+
+
+@pytest.mark.asyncio
+async def test_patient_register_success_with_minimal_fields(
+    client: TestClient,
+):
+    """
+    Test patient registration with only required fields (Happy Path)
+
+    Scenario: Patient registers with minimal data
+    Expected: 201 Created, tokens returned
+    """
+    # Arrange
+    register_data = {
+        "line_user_id": "U_minimal_patient_789",
+        "full_name": "陳小華",
+        "date_of_birth": "1990-03-20",
+        "gender": "FEMALE",
+    }
+
+    # Act
+    response = client.post("/api/v1/auth/patient/register", json=register_data)
+
+    # Assert
+    assert (
+        response.status_code == 201
+    ), f"Expected 201, got {response.status_code}: {response.text}"
+    data = response.json()
+
+    # Verify tokens
+    assert "access_token" in data
+    assert "refresh_token" in data
+
+    # Verify user info
+    assert data["user"]["role"] == "PATIENT"
+    assert data["user"]["display_name"] == "陳小華"
+
+
+@pytest.mark.asyncio
+async def test_patient_register_duplicate_line_user_id(
+    client: TestClient,
+    patient_user: UserModel,
+):
+    """
+    Test patient registration with duplicate LINE User ID (Error Case - 409)
+
+    Scenario: Register with existing LINE User ID
+    Expected: 409 Conflict
+    """
+    # Arrange
+    register_data = {
+        "line_user_id": patient_user.line_user_id,  # Existing LINE User ID
+        "full_name": "重複病患",
+        "date_of_birth": "1985-08-10",
+        "gender": "MALE",
+    }
+
+    # Act
+    response = client.post("/api/v1/auth/patient/register", json=register_data)
+
+    # Assert
+    assert response.status_code == 409, f"Expected 409, got {response.status_code}: {response.text}"
+
+
+@pytest.mark.asyncio
+async def test_patient_register_missing_required_fields(
+    client: TestClient,
+):
+    """
+    Test patient registration with missing required fields (Error Case - 422)
+
+    Scenario: Register without required fields (full_name, date_of_birth, gender)
+    Expected: 422 Validation Error
+    """
+    # Arrange - Missing full_name
+    register_data = {
+        "line_user_id": "U_invalid_patient_001",
+        "date_of_birth": "1985-08-10",
+        "gender": "MALE",
+    }
+
+    # Act
+    response = client.post("/api/v1/auth/patient/register", json=register_data)
+
+    # Assert
+    assert response.status_code == 422, f"Expected 422, got {response.status_code}: {response.text}"
+
+
+@pytest.mark.asyncio
+async def test_patient_register_invalid_name_too_short(
+    client: TestClient,
+):
+    """
+    Test patient registration with name < 2 characters (Error Case - 422)
+
+    Scenario: Register with too short name
+    Expected: 422 Validation Error
+    """
+    # Arrange
+    register_data = {
+        "line_user_id": "U_short_name_patient",
+        "full_name": "A",  # Too short (< 2 characters)
+        "date_of_birth": "1985-08-10",
+        "gender": "MALE",
+    }
+
+    # Act
+    response = client.post("/api/v1/auth/patient/register", json=register_data)
+
+    # Assert
+    assert response.status_code == 422, f"Expected 422, got {response.status_code}: {response.text}"
+
+
+@pytest.mark.asyncio
+async def test_patient_register_smoking_status_determination(
+    client: TestClient,
+    db_session: AsyncSession,
+):
+    """
+    Test smoking_status is correctly determined from smoking_years (Business Logic)
+
+    Scenario: Register with smoking_years = 15
+    Expected: 201 Created, smoking_status = "CURRENT"
+    """
+    # Arrange
+    register_data = {
+        "line_user_id": "U_smoker_patient_555",
+        "full_name": "吸菸病患",
+        "date_of_birth": "1970-01-15",
+        "gender": "MALE",
+        "smoking_years": 15,
+    }
+
+    # Act
+    response = client.post("/api/v1/auth/patient/register", json=register_data)
+
+    # Assert
+    assert (
+        response.status_code == 201
+    ), f"Expected 201, got {response.status_code}: {response.text}"
+
+    # Verify smoking_status in database (requires querying PatientProfileModel)
+    from respira_ally.infrastructure.database.models.patient_profile import PatientProfileModel
+    from sqlalchemy import select
+
+    result = await db_session.execute(
+        select(PatientProfileModel).where(PatientProfileModel.name == "吸菸病患")
+    )
+    patient_profile = result.scalars().first()
+
+    assert patient_profile is not None
+    assert patient_profile.smoking_years == 15
+    assert patient_profile.smoking_status == "CURRENT"
+
+
+@pytest.mark.asyncio
+async def test_patient_register_field_mapping_hospital_id(
+    client: TestClient,
+    db_session: AsyncSession,
+):
+    """
+    Test hospital_patient_id correctly maps to hospital_medical_record_number
+
+    Scenario: Register with hospital_patient_id
+    Expected: 201 Created, field correctly stored in database
+    """
+    # Arrange
+    register_data = {
+        "line_user_id": "U_hospital_patient_999",
+        "full_name": "醫院病患",
+        "date_of_birth": "1978-12-05",
+        "gender": "FEMALE",
+        "hospital_patient_id": "WF2024999",
+    }
+
+    # Act
+    response = client.post("/api/v1/auth/patient/register", json=register_data)
+
+    # Assert
+    assert (
+        response.status_code == 201
+    ), f"Expected 201, got {response.status_code}: {response.text}"
+
+    # Verify field mapping in database
+    from respira_ally.infrastructure.database.models.patient_profile import PatientProfileModel
+    from sqlalchemy import select
+
+    result = await db_session.execute(
+        select(PatientProfileModel).where(PatientProfileModel.name == "醫院病患")
+    )
+    patient_profile = result.scalars().first()
+
+    assert patient_profile is not None
+    assert patient_profile.hospital_medical_record_number == "WF2024999"
+
+
+@pytest.mark.asyncio
+async def test_patient_register_emergency_contact_jsonb(
+    client: TestClient,
+    db_session: AsyncSession,
+):
+    """
+    Test emergency contact info is correctly stored in contact_info JSONB
+
+    Scenario: Register with emergency contact information
+    Expected: 201 Created, contact_info JSONB contains all fields
+    """
+    # Arrange
+    register_data = {
+        "line_user_id": "U_emergency_contact_patient",
+        "full_name": "緊急聯絡病患",
+        "date_of_birth": "1982-07-20",
+        "gender": "OTHER",
+        "phone_number": "0912345678",
+        "emergency_contact_name": "緊急聯絡人",
+        "emergency_contact_phone": "0987654321",
+    }
+
+    # Act
+    response = client.post("/api/v1/auth/patient/register", json=register_data)
+
+    # Assert
+    assert (
+        response.status_code == 201
+    ), f"Expected 201, got {response.status_code}: {response.text}"
+
+    # Verify contact_info JSONB in database
+    from respira_ally.infrastructure.database.models.patient_profile import PatientProfileModel
+    from sqlalchemy import select
+
+    result = await db_session.execute(
+        select(PatientProfileModel).where(PatientProfileModel.name == "緊急聯絡病患")
+    )
+    patient_profile = result.scalars().first()
+
+    assert patient_profile is not None
+    assert patient_profile.contact_info["phone"] == "0912345678"
+    assert patient_profile.contact_info["emergency_contact"] == "緊急聯絡人"
+    assert patient_profile.contact_info["emergency_phone"] == "0987654321"
+
+
+# ============================================================================
 # POST /api/v1/auth/logout - Logout
 # ============================================================================
 
