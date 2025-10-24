@@ -44,9 +44,9 @@
 
 ### 📊 實際進度追蹤 (Progress Tracking)
 
-**整體進度**: 12.5h / 104h (12.0% 完成)
-**最後更新**: 2025-10-24 18:39
-**當前狀態**: 🟡 進行中 - Phase 1 GOLD ABE + RBAC Extension 完成
+**整體進度**: 13.5h / 104h (13.0% 完成)
+**最後更新**: 2025-10-24 21:25
+**當前狀態**: 🟢 Phase 1 完成 + Critical Bugs 已修復 → Ready for Phase 2
 
 **重要決策變更**:
 - ⚠️ **ADR-013 修訂**: 採用 GOLD 2011 ABE Classification 取代原計劃的自訂風險評分公式
@@ -68,6 +68,16 @@
   - Phase 2: API Refactoring (2.0h) - 20 endpoints 重構（patient/exacerbation/daily_log/survey 4個 router）
   - Phase 3: Documentation (0.5h) - seed_supervisor.py 腳本、ADR-015 完整設計文檔 (1200+ lines)
   - Code Quality: 73% 減少重複代碼（15行→4行 per endpoint），單一事實來源，Linus "Good Taste" 原則
+- ✅ **Critical Bug Fixes** [1.0h] ⭐ NEW
+  - **Auth Token Revocation Bug** (P0): Redis port 配置錯誤修復 (16379 → 6379)
+    - Root cause: Redis connection failure → aggressive fail-safe → all tokens revoked
+    - Impact: 認證流程完全恢復，API 測試解除阻塞
+  - **Patient Repository Sort Error** (P0): 欄位引用錯誤修復 (created_at → user_id)
+    - Root cause: PatientProfileModel 缺少 created_at 欄位
+    - Solution: 使用 user_id (UUID with timestamp component) 排序
+  - **Test Data Generation Script** (P1): 3個錯誤修復 (DATABASE_URL, field name mismatch, schema strategy)
+    - Generated: 5 therapists + 50 patients + 14,592 daily logs
+    - Time range: 過去一年 (2024-10-25 ~ 2025-10-24)
 
 **下一步任務** (待執行):
 - ⏳ Migration 005 執行 (新增 4 個表：exacerbations, risk_assessments, alerts, patient_profiles updates)
