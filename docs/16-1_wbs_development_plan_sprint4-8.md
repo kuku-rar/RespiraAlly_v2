@@ -2,11 +2,11 @@
 
 ---
 
-**文件版本 (Document Version):** `v1.0` - Sprint 4-8 詳細規劃
-**最後更新 (Last Updated):** `2025-10-23 19:50`
+**文件版本 (Document Version):** `v1.1` - Sprint 4-8 詳細規劃 + Sprint 4 進度追蹤
+**最後更新 (Last Updated):** `2025-10-24 13:05`
 **主要作者 (Lead Author):** `TaskMaster Hub / Claude Code AI`
 **審核者 (Reviewers):** `Technical Lead, Product Manager, Architecture Team`
-**狀態 (Status):** `規劃中 - Sprint 4-8 詳細任務分解`
+**狀態 (Status):** `進行中 - Sprint 4 實作中 (8.5h/104h 完成)`
 **父文件 (Parent Document):** `16_wbs_development_plan.md`
 
 ---
@@ -41,6 +41,36 @@
 ---
 
 ## Sprint 4: 風險引擎 & 預警系統 [104h]
+
+### 📊 實際進度追蹤 (Progress Tracking)
+
+**整體進度**: 8.5h / 104h (8.2% 完成)
+**最後更新**: 2025-10-24 13:05
+**當前狀態**: 🟡 進行中 - Phase 1 GOLD ABE Classification 完成
+
+**重要決策變更**:
+- ⚠️ **ADR-013 修訂**: 採用 GOLD 2011 ABE Classification 取代原計劃的自訂風險評分公式
+- ✅ **ADR-014**: 實施 Hybrid 向後兼容策略 (GOLD ABE + Legacy risk fields)
+
+**已完成任務** (2025-10-24):
+- ✅ **Frontend Hybrid Strategy** [3.5h]
+  - TypeScript interfaces 擴展 (PatientKPI + GOLD ABE fields)
+  - Mock data 更新 (3 patients with correct GOLD classification)
+  - UI component 修改 (HealthKPIDashboard Hybrid display)
+- ✅ **Backend GOLD ABE Engine** [5h]
+  - ORM models 創建 (ExacerbationModel, RiskAssessmentModel, AlertModel, PatientProfile updates)
+  - GOLD ABE Classification Engine 實作 (3-tier: A/B/E)
+  - KPI Service 數據聚合 (5 data sources integration)
+  - KPI API endpoint (/patients/{id}/kpis with authorization)
+
+**下一步任務** (待執行):
+- ⏳ Migration 005 執行 (新增 4 個表：exacerbations, risk_assessments, alerts, patient_profiles updates)
+- ⏳ Exacerbation Management API [12h] (CRUD endpoints)
+- ⏳ Unit Tests for GOLD Classification Engine [P2 - non-blocking]
+
+**技術債務**: 無
+
+---
 
 **Sprint 目標**: 建立 COPD 風險評分引擎、異常規則引擎、任務管理系統，實現智能預警與治療師工作流自動化。
 
