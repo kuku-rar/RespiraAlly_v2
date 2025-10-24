@@ -6,7 +6,7 @@ Run with: pytest tests/integration/api/test_auth_api.py -v
 """
 
 import pytest
-from fastapi.testclient import TestClient
+from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from respira_ally.infrastructure.database.models.user import UserModel
@@ -18,7 +18,7 @@ from respira_ally.infrastructure.database.models.user import UserModel
 
 @pytest.mark.asyncio
 async def test_therapist_register_success(
-    client: TestClient,
+    client: AsyncClient,
     db_session: AsyncSession,
 ):
     """
@@ -35,7 +35,7 @@ async def test_therapist_register_success(
     }
 
     # Act
-    response = client.post("/api/v1/auth/therapist/register", json=register_data)
+    response = await client.post("/api/v1/auth/therapist/register", json=register_data)
 
     # Assert
     assert response.status_code == 201, f"Expected 201, got {response.status_code}: {response.text}"
@@ -50,7 +50,7 @@ async def test_therapist_register_success(
 
 @pytest.mark.asyncio
 async def test_therapist_register_duplicate_email(
-    client: TestClient,
+    client: AsyncClient,
     therapist_user: UserModel,
 ):
     """
@@ -67,7 +67,7 @@ async def test_therapist_register_duplicate_email(
     }
 
     # Act
-    response = client.post("/api/v1/auth/therapist/register", json=register_data)
+    response = await client.post("/api/v1/auth/therapist/register", json=register_data)
 
     # Assert
     assert response.status_code == 409, f"Expected 409, got {response.status_code}"
@@ -75,7 +75,7 @@ async def test_therapist_register_duplicate_email(
 
 @pytest.mark.asyncio
 async def test_therapist_register_weak_password(
-    client: TestClient,
+    client: AsyncClient,
 ):
     """
     Test therapist registration with weak password (Error Case - 422)
@@ -91,7 +91,7 @@ async def test_therapist_register_weak_password(
     }
 
     # Act
-    response = client.post("/api/v1/auth/therapist/register", json=register_data)
+    response = await client.post("/api/v1/auth/therapist/register", json=register_data)
 
     # Assert
     assert response.status_code == 422, f"Expected 422, got {response.status_code}"
@@ -104,7 +104,7 @@ async def test_therapist_register_weak_password(
 
 @pytest.mark.asyncio
 async def test_therapist_login_success(
-    client: TestClient,
+    client: AsyncClient,
     therapist_user: UserModel,
 ):
     """
@@ -117,7 +117,7 @@ async def test_therapist_login_success(
     login_data = {"email": therapist_user.email, "password": "SecurePass123!"}  # From fixture
 
     # Act
-    response = client.post("/api/v1/auth/therapist/login", json=login_data)
+    response = await client.post("/api/v1/auth/therapist/login", json=login_data)
 
     # Assert
     assert response.status_code == 200, f"Expected 200, got {response.status_code}: {response.text}"
@@ -130,7 +130,7 @@ async def test_therapist_login_success(
 
 @pytest.mark.asyncio
 async def test_therapist_login_invalid_password(
-    client: TestClient,
+    client: AsyncClient,
     therapist_user: UserModel,
 ):
     """
@@ -143,7 +143,7 @@ async def test_therapist_login_invalid_password(
     login_data = {"email": therapist_user.email, "password": "WrongPassword123!"}
 
     # Act
-    response = client.post("/api/v1/auth/therapist/login", json=login_data)
+    response = await client.post("/api/v1/auth/therapist/login", json=login_data)
 
     # Assert
     assert response.status_code == 401, f"Expected 401, got {response.status_code}"
@@ -151,7 +151,7 @@ async def test_therapist_login_invalid_password(
 
 @pytest.mark.asyncio
 async def test_therapist_login_invalid_email(
-    client: TestClient,
+    client: AsyncClient,
 ):
     """
     Test therapist login with non-existent email (Error Case - 401)
@@ -163,7 +163,7 @@ async def test_therapist_login_invalid_email(
     login_data = {"email": "nonexistent@test.com", "password": "SomePassword123!"}
 
     # Act
-    response = client.post("/api/v1/auth/therapist/login", json=login_data)
+    response = await client.post("/api/v1/auth/therapist/login", json=login_data)
 
     # Assert
     assert response.status_code == 401, f"Expected 401, got {response.status_code}"
@@ -176,7 +176,7 @@ async def test_therapist_login_invalid_email(
 
 @pytest.mark.asyncio
 async def test_patient_login_success(
-    client: TestClient,
+    client: AsyncClient,
     patient_user: UserModel,
 ):
     """
@@ -192,7 +192,7 @@ async def test_patient_login_success(
     }
 
     # Act
-    response = client.post("/api/v1/auth/patient/login", json=login_data)
+    response = await client.post("/api/v1/auth/patient/login", json=login_data)
 
     # Assert
     assert response.status_code == 200, f"Expected 200, got {response.status_code}: {response.text}"
@@ -204,7 +204,7 @@ async def test_patient_login_success(
 
 @pytest.mark.asyncio
 async def test_patient_login_auto_register(
-    client: TestClient,
+    client: AsyncClient,
 ):
     """
     Test patient auto-registration on first login (Happy Path)
@@ -216,7 +216,7 @@ async def test_patient_login_auto_register(
     login_data = {"line_user_id": "new_line_user_12345", "line_access_token": "mock_line_token"}
 
     # Act
-    response = client.post("/api/v1/auth/patient/login", json=login_data)
+    response = await client.post("/api/v1/auth/patient/login", json=login_data)
 
     # Assert
     assert response.status_code == 200, f"Expected 200, got {response.status_code}: {response.text}"
@@ -232,7 +232,7 @@ async def test_patient_login_auto_register(
 
 @pytest.mark.asyncio
 async def test_patient_register_success_with_all_fields(
-    client: TestClient,
+    client: AsyncClient,
 ):
     """
     Test patient registration with all fields (Happy Path)
@@ -261,7 +261,7 @@ async def test_patient_register_success_with_all_fields(
     }
 
     # Act
-    response = client.post("/api/v1/auth/patient/register", json=register_data)
+    response = await client.post("/api/v1/auth/patient/register", json=register_data)
 
     # Assert
     assert (
@@ -282,7 +282,7 @@ async def test_patient_register_success_with_all_fields(
 
 @pytest.mark.asyncio
 async def test_patient_register_success_with_minimal_fields(
-    client: TestClient,
+    client: AsyncClient,
 ):
     """
     Test patient registration with only required fields (Happy Path)
@@ -299,7 +299,7 @@ async def test_patient_register_success_with_minimal_fields(
     }
 
     # Act
-    response = client.post("/api/v1/auth/patient/register", json=register_data)
+    response = await client.post("/api/v1/auth/patient/register", json=register_data)
 
     # Assert
     assert (
@@ -318,7 +318,7 @@ async def test_patient_register_success_with_minimal_fields(
 
 @pytest.mark.asyncio
 async def test_patient_register_duplicate_line_user_id(
-    client: TestClient,
+    client: AsyncClient,
     patient_user: UserModel,
 ):
     """
@@ -336,7 +336,7 @@ async def test_patient_register_duplicate_line_user_id(
     }
 
     # Act
-    response = client.post("/api/v1/auth/patient/register", json=register_data)
+    response = await client.post("/api/v1/auth/patient/register", json=register_data)
 
     # Assert
     assert response.status_code == 409, f"Expected 409, got {response.status_code}: {response.text}"
@@ -344,7 +344,7 @@ async def test_patient_register_duplicate_line_user_id(
 
 @pytest.mark.asyncio
 async def test_patient_register_missing_required_fields(
-    client: TestClient,
+    client: AsyncClient,
 ):
     """
     Test patient registration with missing required fields (Error Case - 422)
@@ -360,7 +360,7 @@ async def test_patient_register_missing_required_fields(
     }
 
     # Act
-    response = client.post("/api/v1/auth/patient/register", json=register_data)
+    response = await client.post("/api/v1/auth/patient/register", json=register_data)
 
     # Assert
     assert response.status_code == 422, f"Expected 422, got {response.status_code}: {response.text}"
@@ -368,7 +368,7 @@ async def test_patient_register_missing_required_fields(
 
 @pytest.mark.asyncio
 async def test_patient_register_invalid_name_too_short(
-    client: TestClient,
+    client: AsyncClient,
 ):
     """
     Test patient registration with name < 2 characters (Error Case - 422)
@@ -385,7 +385,7 @@ async def test_patient_register_invalid_name_too_short(
     }
 
     # Act
-    response = client.post("/api/v1/auth/patient/register", json=register_data)
+    response = await client.post("/api/v1/auth/patient/register", json=register_data)
 
     # Assert
     assert response.status_code == 422, f"Expected 422, got {response.status_code}: {response.text}"
@@ -393,7 +393,7 @@ async def test_patient_register_invalid_name_too_short(
 
 @pytest.mark.asyncio
 async def test_patient_register_smoking_status_determination(
-    client: TestClient,
+    client: AsyncClient,
     db_session: AsyncSession,
 ):
     """
@@ -412,7 +412,7 @@ async def test_patient_register_smoking_status_determination(
     }
 
     # Act
-    response = client.post("/api/v1/auth/patient/register", json=register_data)
+    response = await client.post("/api/v1/auth/patient/register", json=register_data)
 
     # Assert
     assert (
@@ -435,7 +435,7 @@ async def test_patient_register_smoking_status_determination(
 
 @pytest.mark.asyncio
 async def test_patient_register_field_mapping_hospital_id(
-    client: TestClient,
+    client: AsyncClient,
     db_session: AsyncSession,
 ):
     """
@@ -454,7 +454,7 @@ async def test_patient_register_field_mapping_hospital_id(
     }
 
     # Act
-    response = client.post("/api/v1/auth/patient/register", json=register_data)
+    response = await client.post("/api/v1/auth/patient/register", json=register_data)
 
     # Assert
     assert (
@@ -476,7 +476,7 @@ async def test_patient_register_field_mapping_hospital_id(
 
 @pytest.mark.asyncio
 async def test_patient_register_emergency_contact_jsonb(
-    client: TestClient,
+    client: AsyncClient,
     db_session: AsyncSession,
 ):
     """
@@ -497,7 +497,7 @@ async def test_patient_register_emergency_contact_jsonb(
     }
 
     # Act
-    response = client.post("/api/v1/auth/patient/register", json=register_data)
+    response = await client.post("/api/v1/auth/patient/register", json=register_data)
 
     # Assert
     assert (
@@ -526,7 +526,7 @@ async def test_patient_register_emergency_contact_jsonb(
 
 @pytest.mark.asyncio
 async def test_logout_success(
-    client: TestClient,
+    client: AsyncClient,
     therapist_token: str,
 ):
     """
@@ -539,7 +539,7 @@ async def test_logout_success(
     logout_data = {"revoke_all_tokens": False}
 
     # Act
-    response = client.post(
+    response = await client.post(
         "/api/v1/auth/logout",
         json=logout_data,
         headers={"Authorization": f"Bearer {therapist_token}"},
@@ -551,7 +551,7 @@ async def test_logout_success(
 
 @pytest.mark.asyncio
 async def test_logout_revoke_all_tokens(
-    client: TestClient,
+    client: AsyncClient,
     therapist_token: str,
 ):
     """
@@ -564,7 +564,7 @@ async def test_logout_revoke_all_tokens(
     logout_data = {"revoke_all_tokens": True}
 
     # Act
-    response = client.post(
+    response = await client.post(
         "/api/v1/auth/logout",
         json=logout_data,
         headers={"Authorization": f"Bearer {therapist_token}"},
@@ -576,7 +576,7 @@ async def test_logout_revoke_all_tokens(
 
 @pytest.mark.asyncio
 async def test_logout_without_auth(
-    client: TestClient,
+    client: AsyncClient,
 ):
     """
     Test logout without authentication (Error Case - 401)
@@ -588,7 +588,7 @@ async def test_logout_without_auth(
     logout_data = {"revoke_all_tokens": False}
 
     # Act
-    response = client.post("/api/v1/auth/logout", json=logout_data)
+    response = await client.post("/api/v1/auth/logout", json=logout_data)
 
     # Assert
     assert response.status_code == 401, f"Expected 401, got {response.status_code}"
@@ -596,7 +596,7 @@ async def test_logout_without_auth(
 
 @pytest.mark.asyncio
 async def test_access_after_logout(
-    client: TestClient,
+    client: AsyncClient,
     therapist_user: UserModel,
 ):
     """
@@ -606,21 +606,21 @@ async def test_access_after_logout(
     Expected: 401 Unauthorized (token blacklisted)
     """
     # Arrange - Login first
-    login_response = client.post(
+    login_response = await client.post(
         "/api/v1/auth/therapist/login",
         json={"email": therapist_user.email, "password": "SecurePass123!"},
     )
     token = login_response.json()["access_token"]
 
     # Logout
-    client.post(
+    await client.post(
         "/api/v1/auth/logout",
         json={"revoke_all_tokens": False},
         headers={"Authorization": f"Bearer {token}"},
     )
 
     # Act - Try to access protected endpoint
-    response = client.get("/api/v1/patients", headers={"Authorization": f"Bearer {token}"})
+    response = await client.get("/api/v1/patients/", headers={"Authorization": f"Bearer {token}"})
 
     # Assert
     assert response.status_code == 401, f"Expected 401, got {response.status_code}"
@@ -633,7 +633,7 @@ async def test_access_after_logout(
 
 @pytest.mark.asyncio
 async def test_refresh_token_success(
-    client: TestClient,
+    client: AsyncClient,
     therapist_user: UserModel,
 ):
     """
@@ -643,14 +643,14 @@ async def test_refresh_token_success(
     Expected: 200 OK, new access token returned
     """
     # Arrange - Login to get refresh token
-    login_response = client.post(
+    login_response = await client.post(
         "/api/v1/auth/therapist/login",
         json={"email": therapist_user.email, "password": "SecurePass123!"},
     )
     refresh_token = login_response.json()["refresh_token"]
 
     # Act
-    response = client.post("/api/v1/auth/refresh", json={"refresh_token": refresh_token})
+    response = await client.post("/api/v1/auth/refresh", json={"refresh_token": refresh_token})
 
     # Assert
     assert response.status_code == 200, f"Expected 200, got {response.status_code}: {response.text}"
@@ -661,7 +661,7 @@ async def test_refresh_token_success(
 
 @pytest.mark.asyncio
 async def test_refresh_with_invalid_token(
-    client: TestClient,
+    client: AsyncClient,
 ):
     """
     Test refreshing with invalid token (Error Case - 401)
@@ -673,7 +673,7 @@ async def test_refresh_with_invalid_token(
     fake_refresh_token = "fake.refresh.token"
 
     # Act
-    response = client.post("/api/v1/auth/refresh", json={"refresh_token": fake_refresh_token})
+    response = await client.post("/api/v1/auth/refresh", json={"refresh_token": fake_refresh_token})
 
     # Assert
     assert response.status_code == 401, f"Expected 401, got {response.status_code}"
@@ -681,7 +681,7 @@ async def test_refresh_with_invalid_token(
 
 @pytest.mark.asyncio
 async def test_refresh_with_access_token(
-    client: TestClient,
+    client: AsyncClient,
     therapist_token: str,
 ):
     """
@@ -691,7 +691,7 @@ async def test_refresh_with_access_token(
     Expected: 401 Unauthorized (wrong token type)
     """
     # Act
-    response = client.post(
+    response = await client.post(
         "/api/v1/auth/refresh", json={"refresh_token": therapist_token}  # Wrong token type
     )
 
@@ -706,7 +706,7 @@ async def test_refresh_with_access_token(
 
 @pytest.mark.asyncio
 async def test_login_with_expired_token(
-    client: TestClient,
+    client: AsyncClient,
 ):
     """
     Test accessing API with expired token (Error Case - 401)
@@ -725,7 +725,7 @@ async def test_login_with_expired_token(
     )
 
     # Act
-    response = client.get("/api/v1/patients", headers={"Authorization": f"Bearer {expired_token}"})
+    response = await client.get("/api/v1/patients/", headers={"Authorization": f"Bearer {expired_token}"})
 
     # Assert
     assert response.status_code == 401, f"Expected 401, got {response.status_code}"
@@ -733,7 +733,7 @@ async def test_login_with_expired_token(
 
 @pytest.mark.asyncio
 async def test_malformed_authorization_header(
-    client: TestClient,
+    client: AsyncClient,
 ):
     """
     Test malformed Authorization header (Error Case - 401)
@@ -742,7 +742,7 @@ async def test_malformed_authorization_header(
     Expected: 401 Unauthorized
     """
     # Act - Missing "Bearer" prefix
-    response = client.get("/api/v1/patients", headers={"Authorization": "InvalidTokenFormat"})
+    response = await client.get("/api/v1/patients/", headers={"Authorization": "InvalidTokenFormat"})
 
     # Assert
     assert response.status_code == 401, f"Expected 401, got {response.status_code}"

@@ -106,25 +106,47 @@ async def db_session() -> AsyncGenerator[AsyncSession, None]:
 # ============================================================================
 
 
-@pytest.fixture
-def client():
+@pytest_asyncio.fixture
+async def client(db_session: AsyncSession):
     """
-    Create FastAPI test client (synchronous)
+    Create async HTTP client for FastAPI with overridden database dependency
 
-    Use for synchronous tests with TestClient
+    This ensures the client uses the same test database session as the tests,
+    providing proper test isolation and data visibility.
+
+    IMPORTANT: Uses AsyncClient (not TestClient) to avoid event loop conflicts
     """
-    with TestClient(app) as test_client:
+    from httpx import ASGITransport
+
+    from respira_ally.infrastructure.database.session import get_db
+
+    async def override_get_db():
+        """Override get_db dependency to use test db_session"""
+        yield db_session
+
+    # Override the dependency
+    app.dependency_overrides[get_db] = override_get_db
+
+    # Use AsyncClient with ASGITransport for async testing
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as test_client:
         yield test_client
+
+    # Clean up override
+    app.dependency_overrides.clear()
 
 
 @pytest_asyncio.fixture
 async def async_client():
     """
-    Create async HTTP client for FastAPI
+    Create async HTTP client for FastAPI (without database override)
 
-    Use for async tests with AsyncClient
+    Use for async tests that don't need database override
     """
-    async with AsyncClient(app=app, base_url="http://test") as client:
+    from httpx import ASGITransport
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
         yield client
 
 
@@ -245,20 +267,20 @@ async def other_patient_user(db_session: AsyncSession, therapist_user: UserModel
 # ============================================================================
 
 
-@pytest.fixture
-def therapist_token(therapist_user: UserModel) -> str:
+@pytest_asyncio.fixture
+async def therapist_token(therapist_user: UserModel) -> str:
     """Create JWT token for therapist user"""
     return create_access_token({"sub": str(therapist_user.user_id), "role": "THERAPIST"})
 
 
-@pytest.fixture
-def patient_token(patient_user: UserModel) -> str:
+@pytest_asyncio.fixture
+async def patient_token(patient_user: UserModel) -> str:
     """Create JWT token for patient user"""
     return create_access_token({"sub": str(patient_user.user_id), "role": "PATIENT"})
 
 
-@pytest.fixture
-def other_patient_token(other_patient_user: UserModel) -> str:
+@pytest_asyncio.fixture
+async def other_patient_token(other_patient_user: UserModel) -> str:
     """Create JWT token for other patient user (for permission testing)"""
     return create_access_token({"sub": str(other_patient_user.user_id), "role": "PATIENT"})
 
