@@ -291,3 +291,76 @@ async def delete_patient(
 
     # Return 204 No Content (no response body)
     return None
+
+
+# ============================================================================
+# Sprint 4: KPI Endpoints
+# ============================================================================
+
+
+@router.get("/{patient_id}/kpis", response_model=PatientKPIResponse)
+async def get_patient_kpi(
+    patient_id: UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[TokenData, Depends(get_current_user)],
+    refresh: bool = Query(False, description="Force recalculate risk assessment"),
+):
+    """
+    Get patient KPI metrics for dashboard
+
+    **Authorization**:
+    - Therapists can view their own patients' KPIs
+    - Patients can only view their own KPIs
+
+    **Sprint 4**: Returns GOLD ABE classification + backward-compatible legacy risk fields
+
+    **Query Parameters**:
+    - `refresh`: If True, force recalculate risk assessment (default: False)
+
+    **Returns**:
+    - 200: Patient KPI metrics (Hybrid: GOLD ABE + Legacy)
+    - 403: Access denied (not your patient)
+    - 404: Patient not found
+
+    **Response includes**:
+    - Adherence metrics (medication, logs, surveys)
+    - Health vitals (BMI, SpO2, BP, HR)
+    - Survey scores (CAT, mMRC)
+    - GOLD ABE risk (gold_group, exacerbation counts)
+    - Legacy risk (risk_score, risk_level) - backward compatible
+    - Activity tracking (last log date, days since)
+    """
+    from respira_ally.application.patient.kpi_service import KPIService
+    from respira_ally.core.schemas.kpi import PatientKPIResponse
+
+    # Check patient exists
+    patient = await db.get(PatientProfileModel, patient_id)
+    if not patient:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Patient not found")
+
+    # Permission check
+    if current_user.role == UserRole.THERAPIST:
+        # Therapist can only view their own patients
+        if patient.therapist_id != current_user.user_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You can only view KPIs for your own patients",
+            )
+    elif current_user.role == UserRole.PATIENT:
+        # Patient can only view themselves
+        if patient_id != current_user.user_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You can only view your own KPIs",
+            )
+
+    # Get KPI metrics using service
+    kpi_service = KPIService(db)
+    try:
+        kpi_metrics = await kpi_service.get_patient_kpi(patient_id, refresh=refresh)
+        return kpi_metrics
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        ) from e

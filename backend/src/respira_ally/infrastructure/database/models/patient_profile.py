@@ -69,6 +69,23 @@ class PatientProfileModel(Base):
         Integer, nullable=True, comment="Years of smoking"
     )
 
+    # Sprint 4: Exacerbation Summary (Auto-updated by trigger)
+    exacerbation_count_last_12m: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        server_default=text("0"),
+        comment="Number of acute exacerbations in last 12 months (auto-updated)",
+    )
+    hospitalization_count_last_12m: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        server_default=text("0"),
+        comment="Number of hospitalizations in last 12 months (auto-updated)",
+    )
+    last_exacerbation_date: Mapped[date | None] = mapped_column(
+        Date, nullable=True, comment="Date of last exacerbation (auto-updated)"
+    )
+
     # Extended Information (JSONB for flexibility)
     medical_history: Mapped[dict] = mapped_column(
         JSONB,
