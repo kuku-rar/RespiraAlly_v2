@@ -16,6 +16,7 @@ from fastapi.responses import JSONResponse
 from respira_ally.api.v1.routers import (
     auth,
     daily_log,
+    exacerbation,
     notification,
     patient,
     rag,
@@ -142,7 +143,7 @@ async def health_check() -> JSONResponse:
     )
 
 
-# Include API Routers (7 Bounded Contexts)
+# Include API Routers (7 Bounded Contexts + Sprint 4 Exacerbation)
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Auth"])
 app.include_router(patient.router, prefix="/api/v1/patients", tags=["Patients"])
 app.include_router(daily_log.router, prefix="/api/v1/daily-logs", tags=["Daily Logs"])
@@ -150,6 +151,7 @@ app.include_router(survey.router, prefix="/api/v1/surveys", tags=["Surveys"])
 app.include_router(risk.router, prefix="/api/v1/risk", tags=["Risk"])
 app.include_router(rag.router, prefix="/api/v1/rag", tags=["RAG"])
 app.include_router(notification.router, prefix="/api/v1/notifications", tags=["Notifications"])
+app.include_router(exacerbation.router, prefix="/api/v1/exacerbations", tags=["Exacerbations"])
 
 
 if __name__ == "__main__":
