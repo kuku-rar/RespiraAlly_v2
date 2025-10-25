@@ -44,9 +44,9 @@
 
 ### 📊 實際進度追蹤 (Progress Tracking)
 
-**整體進度**: 24.5h / 104h (23.6% ≈ 24% 完成)
-**最後更新**: 2025-10-26 00:15
-**當前狀態**: 🟢 Phase 1.7 完成 - Real API 整合 + GOLD ABE 代碼審查
+**整體進度**: 44.5h / 104h (42.8% ≈ 43% 完成)
+**最後更新**: 2025-10-26 14:20
+**當前狀態**: 🟢 Phase 2.0 完成 - Risk Assessment API + Frontend GOLD ABE 完整整合
 
 **重要決策變更**:
 - ⚠️ **ADR-013 修訂**: 採用 GOLD 2011 ABE Classification 取代原計劃的自訂風險評分公式
@@ -173,18 +173,47 @@
     - CHANGELOG_20251025.md: 新增 2.0.0-sprint4.1.7 版本 (完整審查報告)
     - WBS: 更新 Sprint 4 進度 20.5h → 24.5h (23.6%)
 
-**下一步任務** (待執行):
-- ⏳ **Dashboard 手動 UI 測試** [0.5h] - 使用測試帳號驗證風險篩選功能
-- ⏳ **Risk Assessment API 完整實作** [12h] - 整合 CalculateRiskUseCase 到 API layer
-  - `POST /api/v1/risk/assessments/calculate` - 觸發 GOLD ABE 計算
-  - `GET /api/v1/patients/{id}/risk` - 獲取最新風險評估（包含 gold_group）
-- ⏳ **Frontend GOLD ABE 整合** [8h] - 替換簡化邏輯為完整 GOLD ABE
-  - 更新 `PatientResponse` interface 包含 `gold_group` 和 `latest_risk_assessment`
-  - 替換 `risk.ts` 邏輯為 API 調用
-  - UI 顯示 A/B/E 分級 badge (綠/黃/紅色系)
-- ⏳ **Exacerbation Management API** [12h] - CRUD endpoints，需 exacerbations 表格
-- ⏳ Unit Tests for GOLD Classification Engine [P2 - non-blocking]
-- ⏳ RBAC System Testing with SUPERVISOR user
+- ✅ **Risk Assessment API 完整實作** [12h] ⭐ NEW (2025-10-26 14:20)
+  - **Phase 2.1: Backend API Implementation** [12h]
+    - `POST /api/v1/risk/assessments/calculate` - 觸發 GOLD ABE 風險評估計算
+    - `GET /api/v1/patients/{patient_id}/risk` - 獲取患者最新風險評估
+    - Risk Assessment Schemas 實作 (185 lines)
+      - RiskAssessmentResponse, RiskAssessmentSummary
+      - PatientRiskSummary, RiskStatistics (Dashboard 支援)
+    - PatientResponse Schema 擴展 (gold_group, latest_risk_assessment, exacerbation 統計)
+    - PatientService.enrich_patient_response() 增強（自動填充風險評估數據）
+    - 完整授權機制 (can_access_patient) + 詳細錯誤處理 (400/403/404/500)
+  - **Git Commit**: `4169c03` - feat(api): implement Risk Assessment API with GOLD ABE classification
+
+- ✅ **Frontend GOLD ABE 整合** [8h] ⭐ NEW (2025-10-26 14:20)
+  - **Phase 2.2: Frontend Integration** [8h]
+    - PatientResponse Type 擴展 (GoldGroup enum, RiskAssessmentSummary interface)
+    - risk.ts 重構 (153 lines)
+      - goldGroupToRiskLevel(): GOLD ABE → RiskLevel 映射
+      - getRiskLevel(): Hybrid 邏輯 (優先 GOLD ABE，fallback 到 exacerbation-based)
+      - getGoldGroupLabel/Color/Emoji(): GOLD ABE 顯示工具函數
+    - PatientTable UI 更新
+      - 優先顯示 GOLD ABE badge (A級/B級/E級) - 綠/黃/紅色系
+      - Fallback 到風險等級 badge（向後兼容無評估患者）
+    - 向後兼容策略：支援無 GOLD ABE 評估的患者
+  - **Git Commit**: `bb04419` - feat(frontend): integrate GOLD ABE classification in Dashboard
+
+- ✅ **文檔更新** [0.5h] ⭐ NEW (2025-10-26 14:20)
+  - CHANGELOG_20251025.md: 新增 2.0.0-sprint4.2.0 版本
+  - 完整記錄 Backend + Frontend 實作內容 (167 lines)
+  - 技術決策、架構說明、已知限制、下一步任務
+  - **Git Commit**: `8288823` - docs(changelog): add Sprint 4 P0 Risk Assessment API implementation
+
+**下一步任務** (待執行 - Priority P1):
+- ⏳ **Dashboard 手動 UI 測試** [0.5h] - 完整 GOLD ABE 功能驗證
+- ⏳ **Exacerbation Management API** [12h] - CRUD endpoints + 自動觸發 risk recalculation
+  - `POST /api/v1/exacerbations` - 創建急性惡化記錄
+  - `GET /api/v1/patients/{id}/exacerbations` - 獲取患者急性惡化歷史
+  - `PATCH /api/v1/exacerbations/{id}` - 更新記錄
+  - `DELETE /api/v1/exacerbations/{id}` - 刪除記錄
+- ⏳ **Alert System** [12h] - 預警規則引擎 + 高風險患者通知
+- ⏳ **Unit Tests for GOLD Classification Engine** [P2 - non-blocking]
+- ⏳ **RBAC System Testing with SUPERVISOR user** [P2]
 
 **技術債務**: 無
 

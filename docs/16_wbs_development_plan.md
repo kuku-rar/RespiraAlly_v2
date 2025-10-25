@@ -755,13 +755,13 @@
 | 3.0 Sprint 1 ⭐ | 104h (+8h) | 89h | 85.6% | 🔄 | - |
 | 4.0 Sprint 2 ⭐ | 155.75h (+27.75h) | 133.75h | 85.9% | 🔄 | ADR-009 |
 | 5.0 Sprint 3 ⭐ | 96h (-80h) | 96h | 100% | ✅ | ADR-010, ADR-011 |
-| 6.0 Sprint 4 ⭐ | 67h (-37h) | 0h | 0% | ⬜ | ADR-013 v2.0, ADR-014 |
+| 6.0 Sprint 4 ⭐ | 67h (-37h) | 44.5h | 66.4% | 🔄 | ADR-013 v2.0, ADR-014 |
 | 7.0 Sprint 5 | 80h | 0h | 0% | ⬜ | - |
 | 8.0 Sprint 6 | 88h (+56h 營養) | 0h | 0% | ⬜ | - |
 | 9.0 Sprint 7 | 72h | 0h | 0% | ⬜ | - |
 | 10.0 Sprint 8 | 96h | 0h | 0% | ⬜ | - |
 | 11.0 測試品保 | 80h | 0h | 0% | ⬜ | - |
-| **總計** | **996h** ⭐ v3.4 (-37h) | **459.75h** | **~46.2%** | **🔄** | **14 ADRs** |
+| **總計** | **996h** ⭐ v3.4 (-37h) | **479.75h** | **~48.2%** | **🔄** | **14 ADRs** |
 
 ### 📅 Sprint 進度分析
 
@@ -800,8 +800,28 @@
   - ✅ 前端基礎架構完成 (Dashboard + LIFF 初始化, API Client)
 - **延後項目**: 登入/註冊頁面 UI (6h) → Sprint 2 Week 1
 
-#### ⏳ Sprint 2-8 (Week 3-16) - [未開始]
-- **預期進度**: +664h (4.0-10.0 模組)
+#### 🔄 Sprint 4 (Week 7-8) - [66.4% 完成] ⭐ GOLD ABE 風險引擎
+- **實際進度**: 44.5h/67h (節省 22.5h)
+- **已達成里程碑** (Phase 2.0 完成 - 2025-01-25):
+  - ✅ **Risk Assessment API 實作** (12h):
+    - ✅ POST /api/v1/risk/assessments/calculate - GOLD ABE 計算端點
+    - ✅ GET /api/v1/patients/{id}/risk - 獲取最新風險評估
+    - ✅ RiskAssessmentResponse/Summary schemas 定義
+    - ✅ 整合 CalculateRiskUseCase 到 API layer
+    - ✅ 權限控制整合 (can_access_patient)
+  - ✅ **Frontend GOLD ABE 整合** (8h):
+    - ✅ GoldGroup enum & RiskAssessmentSummary TypeScript types
+    - ✅ risk.ts 重構為 hybrid 邏輯 (GOLD ABE 優先 + exacerbation fallback)
+    - ✅ PatientTable UI 顯示 A/B/E 分級 badge (綠/黃/紅色系)
+    - ✅ goldGroupToRiskLevel() mapping 實作
+    - ✅ 向後相容性保證 (graceful degradation)
+- **Git Commits**: 4169c03, bb04419, 8288823
+- **待辦項目 (P1)**: Exacerbation Management API (12h), Alert System (12h)
+
+#### ⏳ Sprint 2-3, 5-8 (其他衝刺) - [部分完成/待開始]
+- **Sprint 2**: 133.75h/155.75h (85.9%)
+- **Sprint 3**: 96h/96h (100%) ✅
+- **Sprint 5-8**: 0h/336h (0%)
 - **關鍵里程碑**: 參見各 Sprint 詳細說明
 
 ---
