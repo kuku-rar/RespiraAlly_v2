@@ -20,6 +20,13 @@ export enum RiskLevel {
   CRITICAL = 'critical',
 }
 
+// GOLD ABE Classification (Sprint 4)
+export enum GoldGroup {
+  A = 'A', // Low risk: CAT<10 AND mMRC<2
+  B = 'B', // Medium risk: CAT>=10 OR mMRC>=2
+  E = 'E', // High risk: CAT>=10 AND mMRC>=2
+}
+
 export enum COPDStage {
   STAGE_1 = 'stage_1',
   STAGE_2 = 'stage_2',
@@ -45,6 +52,21 @@ export interface PatientBase {
 }
 
 // ============================================================================
+// Risk Assessment Types (Sprint 4 - GOLD ABE)
+// ============================================================================
+
+export interface RiskAssessmentSummary {
+  gold_group: GoldGroup // GOLD ABE group (A, B, E)
+  risk_level: RiskLevel // Mapped risk level (low, medium, high)
+  risk_score: number // Mapped risk score (25, 50, 75)
+  cat_score: number // CAT score (0-40)
+  mmrc_grade: number // mMRC grade (0-4)
+  exacerbation_count_12m: number // Exacerbations in last 12 months
+  hospitalization_count_12m: number // Hospitalizations in last 12 months
+  assessed_at: string // ISO 8601 timestamp
+}
+
+// ============================================================================
 // Patient Response Types
 // ============================================================================
 
@@ -67,6 +89,10 @@ export interface PatientResponse extends PatientBase {
   // Computed fields
   bmi?: number
   age?: number
+
+  // GOLD ABE Risk Assessment (Sprint 4)
+  gold_group?: GoldGroup // GOLD ABE group (A, B, E)
+  latest_risk_assessment?: RiskAssessmentSummary // Latest risk assessment details
 }
 
 export interface PatientListResponse {

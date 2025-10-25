@@ -4,7 +4,7 @@
  */
 
 import type { PatientResponse } from '@/lib/types/patient'
-import { calculateRiskLevel, getRiskLevelLabel, getRiskLevelColor, getRiskLevelEmoji } from '@/lib/utils/risk'
+import { getRiskLevel, getRiskLevelLabel, getRiskLevelColor, getRiskLevelEmoji, getGoldGroupLabel, getGoldGroupColor, getGoldGroupEmoji } from '@/lib/utils/risk'
 
 interface PatientTableProps {
   patients: PatientResponse[]
@@ -73,7 +73,8 @@ export default function PatientTable({ patients, isLoading = false, onPatientCli
               </tr>
             ) : (
               patients.map((patient) => {
-                const riskLevel = calculateRiskLevel({
+                const riskLevel = getRiskLevel({
+                  gold_group: patient.gold_group,
                   exacerbation_count_last_12m: patient.exacerbation_count_last_12m,
                   hospitalization_count_last_12m: patient.hospitalization_count_last_12m,
                 })
@@ -92,9 +93,17 @@ export default function PatientTable({ patients, isLoading = false, onPatientCli
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-base font-medium border-2 ${getRiskLevelColor(riskLevel)}`}>
-                        {getRiskLevelEmoji(riskLevel)} {getRiskLevelLabel(riskLevel)}
-                      </span>
+                      {patient.gold_group ? (
+                        // Display GOLD ABE group if available
+                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-base font-medium border-2 ${getGoldGroupColor(patient.gold_group)}`}>
+                          {getGoldGroupEmoji(patient.gold_group)} {getGoldGroupLabel(patient.gold_group)}
+                        </span>
+                      ) : (
+                        // Fallback to risk level display
+                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-base font-medium border-2 ${getRiskLevelColor(riskLevel)}`}>
+                          {getRiskLevelEmoji(riskLevel)} {getRiskLevelLabel(riskLevel)}
+                        </span>
+                      )}
                     </td>
                     <td className="px-6 py-4">
                       <div className="text-lg text-gray-700">

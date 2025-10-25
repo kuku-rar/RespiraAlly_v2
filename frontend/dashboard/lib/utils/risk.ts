@@ -1,32 +1,57 @@
 /**
- * Risk Assessment Utilities
- * Simple risk calculation based on exacerbation history (Sprint 4 Quick Validation)
- *
- * TODO: Replace with full GOLD ABE classification engine in complete implementation
+ * Risk Assessment Utilities - GOLD ABE Classification
+ * Sprint 4: Complete GOLD ABE classification system integration
  */
 
-import { RiskLevel } from '@/lib/types/patient'
+import { RiskLevel, GoldGroup } from '@/lib/types/patient'
 
-export interface RiskCalculationInput {
-  exacerbation_count_last_12m?: number
-  hospitalization_count_last_12m?: number
+// ============================================================================
+// GOLD ABE to Risk Level Mapping
+// ============================================================================
+
+/**
+ * Map GOLD ABE group to Risk Level
+ *
+ * GOLD 2011 ABE Classification:
+ * - Group A: CAT<10 AND mMRC<2 (Low risk) → risk_level='low'
+ * - Group B: CAT>=10 OR mMRC>=2 (Medium risk) → risk_level='medium'
+ * - Group E: CAT>=10 AND mMRC>=2 (High risk) → risk_level='high'
+ *
+ * @param goldGroup - GOLD ABE group (A, B, E)
+ * @returns RiskLevel enum value
+ */
+export function goldGroupToRiskLevel(goldGroup: GoldGroup): RiskLevel {
+  const mapping: Record<GoldGroup, RiskLevel> = {
+    [GoldGroup.A]: RiskLevel.LOW,
+    [GoldGroup.B]: RiskLevel.MEDIUM,
+    [GoldGroup.E]: RiskLevel.HIGH,
+  }
+  return mapping[goldGroup]
 }
 
 /**
- * Calculate patient risk level based on exacerbation history
+ * Get risk level from patient data (prefers GOLD ABE, falls back to exacerbation-based)
  *
- * Risk Criteria (Simplified for quick validation):
- * - CRITICAL: ≥3 exacerbations OR ≥2 hospitalizations
- * - HIGH: ≥2 exacerbations OR ≥1 hospitalization
- * - MEDIUM: 1 exacerbation
- * - LOW: 0 exacerbations
+ * Priority:
+ * 1. Use gold_group if available (from latest risk assessment)
+ * 2. Fallback to simplified exacerbation-based calculation
  *
- * @param input - Patient exacerbation data
+ * @param patient - Patient data with optional gold_group and exacerbation data
  * @returns RiskLevel enum value
  */
-export function calculateRiskLevel(input: RiskCalculationInput): RiskLevel {
-  const exacerbations = input.exacerbation_count_last_12m ?? 0
-  const hospitalizations = input.hospitalization_count_last_12m ?? 0
+export function getRiskLevel(patient: {
+  gold_group?: GoldGroup
+  exacerbation_count_last_12m?: number
+  hospitalization_count_last_12m?: number
+}): RiskLevel {
+  // Priority 1: Use GOLD ABE group if available
+  if (patient.gold_group) {
+    return goldGroupToRiskLevel(patient.gold_group)
+  }
+
+  // Priority 2: Fallback to simplified exacerbation-based calculation
+  const exacerbations = patient.exacerbation_count_last_12m ?? 0
+  const hospitalizations = patient.hospitalization_count_last_12m ?? 0
 
   // CRITICAL: High frequency or severe cases
   if (exacerbations >= 3 || hospitalizations >= 2) {
@@ -47,6 +72,10 @@ export function calculateRiskLevel(input: RiskCalculationInput): RiskLevel {
   return RiskLevel.LOW
 }
 
+// ============================================================================
+// Display Utilities
+// ============================================================================
+
 /**
  * Get risk level display label (Chinese)
  */
@@ -58,6 +87,18 @@ export function getRiskLevelLabel(riskLevel: RiskLevel): string {
     [RiskLevel.CRITICAL]: '緊急',
   }
   return labels[riskLevel]
+}
+
+/**
+ * Get GOLD ABE group display label (Chinese)
+ */
+export function getGoldGroupLabel(goldGroup: GoldGroup): string {
+  const labels: Record<GoldGroup, string> = {
+    [GoldGroup.A]: 'A級 (低風險)',
+    [GoldGroup.B]: 'B級 (中風險)',
+    [GoldGroup.E]: 'E級 (高風險)',
+  }
+  return labels[goldGroup]
 }
 
 /**
@@ -74,6 +115,18 @@ export function getRiskLevelColor(riskLevel: RiskLevel): string {
 }
 
 /**
+ * Get GOLD ABE group badge color (Tailwind classes)
+ */
+export function getGoldGroupColor(goldGroup: GoldGroup): string {
+  const colors: Record<GoldGroup, string> = {
+    [GoldGroup.A]: 'bg-green-100 text-green-800 border-green-300',
+    [GoldGroup.B]: 'bg-yellow-100 text-yellow-800 border-yellow-300',
+    [GoldGroup.E]: 'bg-red-100 text-red-800 border-red-300',
+  }
+  return colors[goldGroup]
+}
+
+/**
  * Get risk level emoji indicator
  */
 export function getRiskLevelEmoji(riskLevel: RiskLevel): string {
@@ -84,4 +137,16 @@ export function getRiskLevelEmoji(riskLevel: RiskLevel): string {
     [RiskLevel.CRITICAL]: '🚨',
   }
   return emojis[riskLevel]
+}
+
+/**
+ * Get GOLD ABE group emoji indicator
+ */
+export function getGoldGroupEmoji(goldGroup: GoldGroup): string {
+  const emojis: Record<GoldGroup, string> = {
+    [GoldGroup.A]: '✅',
+    [GoldGroup.B]: '⚠️',
+    [GoldGroup.E]: '🚨',
+  }
+  return emojis[goldGroup]
 }
