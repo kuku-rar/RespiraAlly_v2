@@ -118,13 +118,16 @@ export default function PatientTable({ patients, isLoading = false, onPatientCli
                   </td>
                   <td className="px-6 py-4">
                     <div className="text-lg text-gray-700">
-                      {patient.bmi ? (
-                        <span className={getBMIColor(patient.bmi)}>
-                          {patient.bmi.toFixed(1)}
-                        </span>
-                      ) : (
-                        '-'
-                      )}
+                      {(() => {
+                        const numBMI = normalizeBMI(patient.bmi)
+                        return numBMI !== null ? (
+                          <span className={getBMIColor(patient.bmi)}>
+                            {numBMI.toFixed(1)}
+                          </span>
+                        ) : (
+                          '-'
+                        )
+                      })()}
                     </div>
                   </td>
                   <td className="px-6 py-4">
@@ -154,15 +157,25 @@ export default function PatientTable({ patients, isLoading = false, onPatientCli
   )
 }
 
+// Helper function: Normalize BMI value (handle both number and string from API)
+function normalizeBMI(bmi: number | string | null | undefined): number | null {
+  if (bmi === null || bmi === undefined) return null
+  const numBMI = typeof bmi === 'string' ? parseFloat(bmi) : bmi
+  return isNaN(numBMI) ? null : numBMI
+}
+
 // Helper function: BMI color coding
-function getBMIColor(bmi: number): string {
-  if (bmi < 18.5) {
+function getBMIColor(bmi: number | string | null | undefined): string {
+  const numBMI = normalizeBMI(bmi)
+  if (numBMI === null) return 'text-gray-600'
+
+  if (numBMI < 18.5) {
     return 'text-blue-600 font-semibold' // Underweight
-  } else if (bmi < 24) {
+  } else if (numBMI < 24) {
     return 'text-green-600 font-semibold' // Normal
-  } else if (bmi < 27) {
+  } else if (numBMI < 27) {
     return 'text-yellow-600 font-semibold' // Overweight
-  } else if (bmi < 30) {
+  } else if (numBMI < 30) {
     return 'text-orange-600 font-semibold' // Obese Class I
   } else {
     return 'text-red-600 font-semibold' // Obese Class II+

@@ -18,7 +18,12 @@ class Base(DeclarativeBase):
     pass
 
 
-# Async Engine
+# Determine schema based on environment
+# Development: use 'development' schema for testing
+# Production: use 'production' schema for live data
+_schema = "development" if settings.ENVIRONMENT == "development" else "production"
+
+# Async Engine with schema-aware connection
 engine = create_async_engine(
     settings.DATABASE_URL,
     echo=settings.DB_ECHO,
@@ -26,6 +31,11 @@ engine = create_async_engine(
     max_overflow=settings.DB_MAX_OVERFLOW,
     pool_pre_ping=True,  # Verify connections before using
     pool_recycle=3600,  # Recycle connections after 1 hour
+    connect_args={
+        "server_settings": {
+            "search_path": f"{_schema}, public"  # Set schema based on environment
+        }
+    },
 )
 
 # Async Session Factory
