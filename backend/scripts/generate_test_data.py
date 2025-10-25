@@ -5,12 +5,15 @@ Uses Faker to create realistic test data in development schema
 Run with: uv run python scripts/generate_test_data.py
 
 Generated Data:
-- 5 Therapists
-- 50 Patients (10 per therapist)
-- 18,250 Daily Logs (365 days per patient)
+- 5 Therapists (Taiwan names, 萬芳醫院, 胸腔內科)
+- 50 Patients (Taiwan names, 10 per therapist)
+  - All with 6-digit hospital medical record numbers
+  - ~10% with exacerbation history (high-risk for dashboard testing)
+- ~15,550 Daily Logs (365 days per patient × 85% fill rate)
 
-Note: Sprint 4 tables (exacerbations, risk_assessments) require migration 005
-      and will be generated after that migration is applied.
+Sprint 4 Features (Migration 005):
+- ✅ Patient exacerbation fields populated (exacerbation_count, hospitalization_count, last_exacerbation_date)
+- ⏳ Exacerbations & Risk Assessments tables (TODO - full Sprint 4 implementation)
 
 All data is inserted into 'development' schema for testing
 """
@@ -52,7 +55,8 @@ DATABASE_URL = "postgresql+asyncpg://admin:admin@localhost:15432/respirally_db"
 TARGET_SCHEMA = "development"  # Insert data into development schema
 
 # Data generation settings
-fake = Faker(["zh_TW", "en_US"])
+fake = Faker(["zh_TW", "en_US"])  # General faker for mixed data
+fake_tw = Faker("zh_TW")  # Taiwan Chinese names only for patients
 Faker.seed(42)
 random.seed(42)
 
@@ -175,13 +179,26 @@ async def create_therapists(session: AsyncSession) -> list[UserModel]:
         session.add(user)
 
         # Create therapist profile
-        specialties_list = ["COPD", "Pulmonology", "Respiratory Therapy", "ICU", "Internal Medicine"]
+        # Taiwan hospital departments (科別)
+        departments_list = [
+            "胸腔內科",  # Pulmonary Medicine (primary for COPD)
+            "重症醫學科",  # Critical Care Medicine
+            "呼吸治療科",  # Respiratory Therapy
+            "內科",  # Internal Medicine
+            "家庭醫學科",  # Family Medicine
+        ]
+
+        # Ensure all therapists have 胸腔內科 + optional secondary department
+        primary_dept = "胸腔內科"
+        secondary_dept = random.choice([d for d in departments_list if d != primary_dept])
+        selected_depts = [primary_dept, secondary_dept] if random.random() > 0.3 else [primary_dept]
+
         therapist = TherapistProfileModel(
             user_id=user_id,
-            name=fake.name(),
-            institution=fake.company(),
+            name=fake_tw.name(),  # ✅ Taiwan Chinese names
+            institution="萬芳醫院",  # ✅ Default: Wan Fang Hospital
             license_number=f"T{fake.random_number(digits=6, fix_len=True)}",
-            specialties=random.sample(specialties_list, random.randint(1, 2)),
+            specialties=selected_depts,  # ✅ Chinese department names
         )
         session.add(therapist)
         therapists.append(user)
@@ -222,17 +239,37 @@ async def create_patients(session: AsyncSession, therapists: list[UserModel]) ->
             birth_year = random.randint(1940, 1975)  # 50-85 years old
             birth_date = date(birth_year, random.randint(1, 12), random.randint(1, 28))
 
+            # Generate hospital medical record number (6 digits)
+            medical_record_number = f"{fake.random_number(digits=6, fix_len=True)}"
+
+            # 10% of patients have exacerbation history (high-risk group for dashboard testing)
+            has_exacerbation = random.random() < 0.10
+            if has_exacerbation:
+                exacerbation_count = random.randint(1, 3)  # 1-3 exacerbations in last 12 months
+                hospitalization_count = random.randint(0, min(2, exacerbation_count))  # Some require hospitalization
+                # Last exacerbation within past 12 months
+                days_ago = random.randint(1, 365)
+                last_exacerbation = date.today() - timedelta(days=days_ago)
+            else:
+                exacerbation_count = 0
+                hospitalization_count = 0
+                last_exacerbation = None
+
             # Create patient profile
             patient = PatientProfileModel(
                 user_id=user_id,
                 therapist_id=therapist.user_id,
-                name=fake.name(),
+                name=fake_tw.name(),  # ✅ Taiwan Chinese names only
                 birth_date=birth_date,
                 gender=random.choice(["MALE", "FEMALE"]),
+                hospital_medical_record_number=medical_record_number,  # ✅ 6-digit medical record number
                 height_cm=random.randint(150, 185),
                 weight_kg=Decimal(str(random.uniform(50.0, 95.0))),
                 smoking_status=smoking_status,
                 smoking_years=smoking_years,
+                exacerbation_count_last_12m=exacerbation_count,  # ✅ Sprint 4 field
+                hospitalization_count_last_12m=hospitalization_count,  # ✅ Sprint 4 field
+                last_exacerbation_date=last_exacerbation,  # ✅ Sprint 4 field
                 medical_history={
                     "copd_stage": copd_stage,
                     "gold_classification": gold_class,
@@ -243,8 +280,8 @@ async def create_patients(session: AsyncSession, therapists: list[UserModel]) ->
                     ),
                 },
                 contact_info={
-                    "phone": fake.phone_number(),
-                    "emergency_contact": fake.phone_number(),
+                    "phone": fake_tw.phone_number(),  # Taiwan phone format
+                    "emergency_contact": fake_tw.phone_number(),  # Taiwan phone format
                 },
             )
             session.add(patient)
@@ -338,6 +375,9 @@ async def main():
             # await create_exacerbations(session, patients)
             # await create_risk_assessments(session, patients)
 
+            # Count high-risk patients (with exacerbation history)
+            high_risk_count = sum(1 for p in patients if p.exacerbation_count_last_12m > 0)
+
             # Commit all
             await session.commit()
 
@@ -348,11 +388,12 @@ async def main():
             print(f"   - Schema: {TARGET_SCHEMA}")
             print(f"   - Therapists: {NUM_THERAPISTS}")
             print(f"   - Patients: {NUM_PATIENTS}")
+            print(f"     ⚠️  High-Risk Patients (with exacerbation): {high_risk_count} (~10%)")
             print(f"   - Daily Logs: ~{NUM_PATIENTS * DAYS_OF_DATA * 0.85:,.0f}")
             print()
-            print("⏳ Pending (requires migration 005):")
-            print(f"   - Exacerbations: 0 (TODO)")
-            print(f"   - Risk Assessments: 0 (TODO)")
+            print("⏳ Pending (requires full Sprint 4):")
+            print(f"   - Exacerbations table: 0 (TODO)")
+            print(f"   - Risk Assessments table: 0 (TODO)")
             print()
             print("🔐 Test Credentials:")
             print("   Email: therapist1@respira-ally.com")
