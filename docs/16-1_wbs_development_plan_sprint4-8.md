@@ -44,9 +44,9 @@
 
 ### 📊 實際進度追蹤 (Progress Tracking)
 
-**整體進度**: 20.5h / 104h (19.7% ≈ 20% 完成)
-**最後更新**: 2025-10-25 22:40
-**當前狀態**: 🟢 Phase 1.6 完成 - Dashboard 風險篩選功能快速驗證實作
+**整體進度**: 24.5h / 104h (23.6% ≈ 24% 完成)
+**最後更新**: 2025-10-26 00:15
+**當前狀態**: 🟢 Phase 1.7 完成 - Real API 整合 + GOLD ABE 代碼審查
 
 **重要決策變更**:
 - ⚠️ **ADR-013 修訂**: 採用 GOLD 2011 ABE Classification 取代原計劃的自訂風險評分公式
@@ -105,7 +105,25 @@
     - 15,642 筆每日記錄 (365 天 × 50 患者 × 85% 填寫率)
   - **驗證通過**: UUID 設計合理性確認（安全性、分散式友好、LINE 整合一致性）
   - Git commit: `feat(test-data): Taiwan localization with high-risk patient cohort` (SHA: 3fcf10d)
-- ✅ **Dashboard 風險篩選快速驗證** [3.0h] ⭐ NEW (2025-10-25 22:40)
+- ✅ **Dashboard 風險篩選快速驗證** [3.0h] (2025-10-25 22:40)
+- ✅ **Real API 整合測試與 Schema 配置** [2.5h] ⭐ NEW (2025-10-26)
+  - **Phase 1.7.1: Schema 選擇機制實作** [0.5h]
+    - 問題: 切換到 Real API 後 401 Unauthorized，因 production schema 為空
+    - 解決方案: 實作環境導向 schema 選擇（`session.py`）
+    - Development: `search_path = "development, public"`
+    - Production: `search_path = "production, public"`
+    - 確保測試資料與正式環境完全隔離
+  - **Phase 1.7.2: Real API 整合測試** [1.5h]
+    - Login 成功 (development schema, 55 users)
+    - Dashboard KPI 正確 (24 patients, 5 high-risk, 18 daily logs)
+    - Patient list 顯示 10 筆資料
+    - 發現 BMI type mismatch: API 返回 string "29.3"，Frontend 期待 number
+  - **Phase 1.7.3: BMI 類型修復** [0.5h]
+    - 實作 `normalizeBMI()` helper function (defensive programming)
+    - 更新 `getBMIColor()` 接受 `string | number | null | undefined`
+    - 修改 BMI 顯示邏輯先標準化再調用 `.toFixed()`
+    - 結果: ✅ 所有 BMI 正確顯示 (31.1, 34.0, 22.1, 30.4, 26.1, 21.8, 25.9, 24.9, 18.0, 29.3)
+- ✅ **GOLD ABE 代碼審查與文檔更新** [1.5h] ⭐ NEW (2025-10-26)
   - **Phase 1.6.1: Frontend Build 修復** [0.5h]
     - 問題: @tanstack/react-query-devtools 在 production build 找不到模組
     - 解決方案: 實作 lazy loading + 條件導入 (process.env.NODE_ENV check)
@@ -131,9 +149,39 @@
   - **技術決策**: 採用快速驗證路徑（簡化計算），延後完整 GOLD ABE 引擎實作
   - Git commit: 待提交（包含測試報告 + WBS/CHANGELOG 更新）
 
+- ✅ **GOLD ABE 代碼審查與文檔更新** [1.5h] ⭐ NEW (2025-10-26)
+  - **Phase 1.7.4: GOLD 2011 ABE 標準研究** [0.5h]
+    - 讀取 ADR-014: GOLD Classification System Adoption (370 lines)
+    - 理解核心邏輯: A級 (CAT<10 且 mMRC<2), B級 (或), E級 (且)
+    - 確認 Hybrid Strategy: GOLD ABE + 向後相容欄位
+  - **Phase 1.7.5: Backend 代碼審查** [0.5h]
+    - ✅ Database Schema (Migration 005): 完全對齊 ADR-014
+      - `gold_group_enum`, `exacerbations`, `risk_assessments` 表完整
+      - Trigger function 自動更新急性發作統計
+    - ✅ Calculate Risk Use Case: 邏輯與 ADR-014 **完全等價**
+      - `if high_symptoms_cat and high_symptoms_mmrc: return "E"`
+      - `elif high_symptoms_cat or high_symptoms_mmrc: return "B"`
+      - `else: return "A"`
+    - ✅ Hybrid Strategy Mapping: (A→25,low), (B→50,medium), (E→75,high)
+    - **Linus 品味評分**: 🟢 好品味（無特殊情況，邏輯清晰，可測試性高）
+  - **Phase 1.7.6: Frontend 審查與問題發現** [0.3h]
+    - ⚠️ **不對齊**: `risk.ts` 使用簡化邏輯（基於 exacerbation 次數）
+    - ❌ 未使用 CAT/mMRC 分數，未使用 GOLD ABE 分級
+    - ❌ `PatientResponse` 未包含 `gold_group` 欄位
+    - ⚠️ **Risk API 未實作**: 僅有 placeholder endpoints
+  - **Phase 1.7.7: 文檔更新** [0.2h]
+    - CHANGELOG_20251025.md: 新增 2.0.0-sprint4.1.7 版本 (完整審查報告)
+    - WBS: 更新 Sprint 4 進度 20.5h → 24.5h (23.6%)
+
 **下一步任務** (待執行):
 - ⏳ **Dashboard 手動 UI 測試** [0.5h] - 使用測試帳號驗證風險篩選功能
-- ⏳ **完整 GOLD ABE 引擎規劃** [2h] - 研究 GOLD 2011 標準，設計完整實作方案
+- ⏳ **Risk Assessment API 完整實作** [12h] - 整合 CalculateRiskUseCase 到 API layer
+  - `POST /api/v1/risk/assessments/calculate` - 觸發 GOLD ABE 計算
+  - `GET /api/v1/patients/{id}/risk` - 獲取最新風險評估（包含 gold_group）
+- ⏳ **Frontend GOLD ABE 整合** [8h] - 替換簡化邏輯為完整 GOLD ABE
+  - 更新 `PatientResponse` interface 包含 `gold_group` 和 `latest_risk_assessment`
+  - 替換 `risk.ts` 邏輯為 API 調用
+  - UI 顯示 A/B/E 分級 badge (綠/黃/紅色系)
 - ⏳ **Exacerbation Management API** [12h] - CRUD endpoints，需 exacerbations 表格
 - ⏳ Unit Tests for GOLD Classification Engine [P2 - non-blocking]
 - ⏳ RBAC System Testing with SUPERVISOR user

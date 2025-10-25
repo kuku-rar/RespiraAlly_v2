@@ -9,7 +9,169 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### 待完成 (Pending)
 - Dashboard 手動 UI 測試（風險篩選功能驗證）
-- 完整 GOLD ABE 分類引擎實作
+- ⚠️ **Frontend GOLD ABE 整合** - 需整合完整 GOLD ABE 分級取代簡化邏輯
+- ⚠️ **Risk Assessment API 實作** - 目前僅有 placeholder endpoints
+
+---
+
+## [2.0.0-sprint4.1.7] - 2025-10-26
+
+### ✅ 新增 (Added)
+- **環境導向 Schema 選擇機制** (`backend/src/respira_ally/infrastructure/database/session.py`)
+  - 自動根據 `ENVIRONMENT` 變數選擇 PostgreSQL schema
+  - Development: `search_path = "development, public"`
+  - Production: `search_path = "production, public"`
+  - 確保開發測試資料與正式運營資料完全隔離
+
+### 🎯 功能 (Features)
+- **Real API 整合測試完成**:
+  - ✅ Login 成功 (development schema)
+  - ✅ Dashboard KPI 顯示正確 (24 patients, 5 high-risk, 18 daily logs)
+  - ✅ Patient list 顯示 10 筆病患資料
+  - ✅ BMI 值正確顯示 (31.1, 34.0, 22.1, 30.4, 26.1, 21.8, 25.9, 24.9, 18.0, 29.3)
+  - ✅ 中文字體渲染完美
+  - ✅ 所有患者風險等級顯示「✅ 低風險」
+
+### 🔧 修復 (Fixed)
+- **BMI 類型不匹配錯誤** (`frontend/dashboard/components/patients/PatientTable.tsx`)
+  - 問題: API 返回 BMI 為 string 類型 (`"29.3"`)，但 frontend 調用 `.toFixed()` 導致 runtime error
+  - 根本原因: Backend 數據庫返回 Decimal 類型被序列化為 string
+  - 解決方案: 實作防禦性編程
+    - 新增 `normalizeBMI()` helper function 處理 `string | number | null | undefined`
+    - 更新 `getBMIColor()` 接受多種類型
+    - 修改 BMI 顯示邏輯先標準化再調用 `.toFixed()`
+  - 結果: ✅ 所有 BMI 值正確顯示，無運行時錯誤
+
+### 🔄 變更 (Changed)
+- **Frontend 環境配置** (`frontend/dashboard/.env.local`)
+  - `NEXT_PUBLIC_MOCK_MODE`: `true` → `false`
+  - 從 Mock Data 切換到 Real API 模式
+- **Database Session 配置** (`backend/src/respira_ally/infrastructure/database/session.py`)
+  - 新增 `connect_args` with `server_settings` for schema routing
+  - 動態 schema 選擇基於 `settings.ENVIRONMENT`
+
+### 📚 文件 (Documentation)
+- **GOLD ABE 代碼審查報告** (詳見本條目)
+  - ✅ Backend 邏輯與 ADR-014 **完全對齊**
+  - ✅ Database Schema 完整實作
+  - ⚠️ Frontend 尚未整合 GOLD ABE 分級
+  - ⚠️ Risk API 僅有 placeholder endpoints
+
+### 🧪 測試 (Testing)
+- **Real API Integration Testing**:
+  - Backend: ✅ Uvicorn running on port 8000
+  - Frontend: ✅ Next.js dev server on port 3000
+  - Schema: ✅ Development schema with 55 users, 50 patients
+  - Test account: therapist1@respira-ally.com / SecurePass123!
+
+### 🔍 GOLD ABE 代碼審查結果 (Code Audit)
+
+#### ✅ **Backend - 完全對齊 ADR-014**
+
+**1. Database Schema (Migration 005)**:
+- ✅ `gold_group_enum AS ENUM ('A', 'B', 'E')` - 正確實作
+- ✅ `exacerbations` 表完整 (onset_date, severity, hospitalization, antibiotics, steroids)
+- ✅ `risk_assessments` 表包含 GOLD ABE 欄位 + Hybrid 向後相容欄位
+- ✅ `patient_profiles` 擴展 (exacerbation_count_last_12m, hospitalization_count_last_12m)
+- ✅ Trigger function 自動更新急性發作統計
+- ✅ `patient_risk_summary` View 供 Dashboard 查詢
+
+**2. Calculate Risk Use Case (GOLD Classification Engine)**:
+```python
+# ADR-014 定義 (第 81-97 行)
+if cat_score < 10 and mmrc_grade < 2: return 'A'  # 低風險
+elif cat_score >= 10 and mmrc_grade >= 2: return 'E'  # 高風險
+else: return 'B'  # 中風險
+
+# 實際實作 (calculate_risk_use_case.py:60-69)
+high_symptoms_cat = cat_score >= 10
+high_symptoms_mmrc = mmrc_grade >= 2
+if high_symptoms_cat and high_symptoms_mmrc: return "E"
+elif high_symptoms_cat or high_symptoms_mmrc: return "B"
+else: return "A"
+
+✅ 邏輯等價驗證通過！
+```
+
+**Linus 品味評分**: 🟢 **好品味**
+- ✅ 無特殊情況
+- ✅ 邏輯清晰（使用中間變數提升可讀性）
+- ✅ 可測試性高（3 個測試案例完整覆蓋）
+
+**3. Hybrid Strategy Mapping**:
+```python
+mapping = {
+    "A": (25, "low"),    # A級 → risk_score=25, risk_level=low
+    "B": (50, "medium"), # B級 → risk_score=50, risk_level=medium
+    "E": (75, "high"),   # E級 → risk_score=75, risk_level=high
+}
+```
+✅ 符合 ADR-014 向後相容策略
+
+#### ⚠️ **Frontend - 尚未整合 GOLD ABE**
+
+**問題發現** (`frontend/dashboard/lib/utils/risk.ts`):
+```typescript
+// 第 5 行 TODO 註解：
+// TODO: Replace with full GOLD ABE classification engine in complete implementation
+
+// 當前邏輯：基於急性發作次數的簡化分級 (4 級)
+if (exacerbations >= 3 || hospitalizations >= 2) return RiskLevel.CRITICAL
+if (exacerbations >= 2 || hospitalizations >= 1) return RiskLevel.HIGH
+if (exacerbations === 1) return RiskLevel.MEDIUM
+return RiskLevel.LOW
+```
+
+**不對齊問題**:
+- ❌ 沒有使用 CAT 和 mMRC 分數
+- ❌ 沒有使用 GOLD ABE (A/B/E) 分級
+- ❌ 風險等級為 4 級 (LOW/MEDIUM/HIGH/CRITICAL)，而非 GOLD 的 3 級 (A/B/E)
+- ❌ `PatientResponse` schema 未包含 `gold_group` 或 `risk_assessment` 欄位
+
+#### ⚠️ **Risk API - 僅有 Placeholder**
+
+**檢查結果** (`backend/src/respira_ally/api/v1/routers/risk.py`):
+```python
+@router.get("/")
+async def list_items():
+    """List items endpoint - To be implemented"""
+    return {"message": "Risk list endpoint"}
+```
+
+**狀態**:
+- ❌ Risk API 尚未實作（僅空殼 endpoints）
+- ❌ Frontend 無法調用 GOLD ABE 分級 API
+
+### 🎯 技術決策 (Technical Decisions)
+- **Dual-Schema 策略**: 使用 `ENVIRONMENT` 變數動態選擇 schema，確保測試資料不污染正式環境
+- **防禦性編程**: Frontend 加入類型標準化層，適應 Backend API 可能的類型變化
+- **GOLD ABE 實作策略**: Backend 邏輯已完成，Frontend 和 API 層整合列為下一階段任務
+
+### 📊 工時統計
+- **Schema 配置修復**: 0.5h
+- **Real API 測試與問題排查**: 1.5h
+- **BMI 類型修復**: 0.5h
+- **GOLD ABE 代碼審查**: 1.0h
+- **文檔更新 (CHANGELOG + WBS)**: 0.5h
+- **總計**: 4.0h
+
+### ⚠️ 已知限制 (Known Limitations)
+- **Frontend 臨時邏輯**: 當前使用簡化風險計算，未整合完整 GOLD ABE 引擎
+- **Risk API 未完成**: 需實作完整的 Risk Assessment API endpoints
+- **PatientResponse Schema**: 需擴展包含 `gold_group` 和 `latest_risk_assessment` 欄位
+
+### 🚀 下一步 (Next Steps)
+1. **Risk Assessment API 實作** [12h]:
+   - `POST /api/v1/risk/assessments/calculate` - 觸發 GOLD ABE 計算
+   - `GET /api/v1/patients/{id}/risk` - 獲取最新風險評估
+   - 整合 `CalculateRiskUseCase` 到 API layer
+2. **Frontend GOLD ABE 整合** [8h]:
+   - 更新 `PatientResponse` interface 包含 GOLD group
+   - 替換 `risk.ts` 簡化邏輯為 API 調用
+   - UI 顯示 A/B/E 分級 badge
+3. **Exacerbation Management API** [12h]:
+   - CRUD endpoints for exacerbations
+   - 自動觸發 risk recalculation
 
 ---
 
