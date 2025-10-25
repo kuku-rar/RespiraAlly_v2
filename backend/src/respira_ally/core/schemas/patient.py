@@ -5,10 +5,14 @@ Pydantic models for Patient API endpoints
 
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Literal
+from typing import Literal, TYPE_CHECKING
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
+
+# Import RiskAssessmentSummary for type hints
+if TYPE_CHECKING:
+    from respira_ally.application.risk.schemas.risk_schemas import RiskAssessmentSummary
 
 # ============================================================================
 # Base Schemas
@@ -96,7 +100,7 @@ class PatientQueryFilters(BaseModel):
 class PatientResponse(PatientBase):
     """
     Patient API Response
-    Returns essential patient information
+    Returns essential patient information with latest risk assessment
     """
 
     user_id: UUID = Field(..., description="Patient user ID (primary key)")
@@ -112,6 +116,24 @@ class PatientResponse(PatientBase):
     # Computed field (if available)
     bmi: Decimal | None = Field(None, description="Body Mass Index (computed)")
     age: int | None = Field(None, description="Age in years (computed)")
+
+    # GOLD ABE Risk Assessment (Sprint 4)
+    gold_group: Literal["A", "B", "E"] | None = Field(
+        None, description="GOLD ABE group: A=low risk, B=medium risk, E=high risk"
+    )
+    latest_risk_assessment: dict | None = Field(
+        None,
+        description="Latest risk assessment summary (gold_group, risk_level, cat_score, mmrc_grade, assessed_at)",
+    )
+
+    # Exacerbation Summary (Sprint 4)
+    exacerbation_count_last_12m: int | None = Field(
+        None, description="Number of exacerbations in last 12 months"
+    )
+    hospitalization_count_last_12m: int | None = Field(
+        None, description="Number of hospitalizations in last 12 months"
+    )
+    last_exacerbation_date: date | None = Field(None, description="Date of last exacerbation")
 
     model_config = ConfigDict(from_attributes=True)
 

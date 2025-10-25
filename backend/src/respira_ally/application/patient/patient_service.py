@@ -106,12 +106,33 @@ class PatientService:
             patient: PatientProfileModel from database
 
         Returns:
-            PatientResponse with age and BMI calculated
+            PatientResponse with age, BMI, and latest risk assessment (if available)
         """
         # Extract phone from contact_info JSONB
         phone = None
         if patient.contact_info:
             phone = patient.contact_info.get("phone")
+
+        # Extract latest risk assessment (if relationship loaded)
+        gold_group = None
+        latest_risk_assessment = None
+
+        # Note: risk_assessments relationship needs to be loaded with joinedload
+        # or selectinload for this to work. Otherwise, it will trigger lazy loading.
+        if hasattr(patient, "risk_assessments") and patient.risk_assessments:
+            # Get the latest risk assessment (sorted by assessed_at desc)
+            latest_assessment = max(patient.risk_assessments, key=lambda x: x.assessed_at)
+            gold_group = latest_assessment.gold_group
+            latest_risk_assessment = {
+                "gold_group": latest_assessment.gold_group,
+                "risk_level": latest_assessment.risk_level,
+                "risk_score": latest_assessment.risk_score,
+                "cat_score": latest_assessment.cat_score,
+                "mmrc_grade": latest_assessment.mmrc_grade,
+                "exacerbation_count_12m": latest_assessment.exacerbation_count_12m,
+                "hospitalization_count_12m": latest_assessment.hospitalization_count_12m,
+                "assessed_at": latest_assessment.assessed_at.isoformat(),
+            }
 
         return PatientResponse(
             user_id=patient.user_id,
@@ -124,6 +145,13 @@ class PatientService:
             phone=phone,
             age=self.calculate_age(patient.birth_date),
             bmi=self.calculate_bmi(patient.weight_kg, patient.height_cm),
+            # GOLD ABE Risk Assessment (Sprint 4)
+            gold_group=gold_group,
+            latest_risk_assessment=latest_risk_assessment,
+            # Exacerbation Summary (Sprint 4)
+            exacerbation_count_last_12m=patient.exacerbation_count_last_12m,
+            hospitalization_count_last_12m=patient.hospitalization_count_last_12m,
+            last_exacerbation_date=patient.last_exacerbation_date,
         )
 
     # ========================================================================
