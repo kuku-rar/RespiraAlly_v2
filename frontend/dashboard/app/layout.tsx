@@ -1,9 +1,22 @@
 import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
+import { Inter, Noto_Sans_TC } from 'next/font/google'
 import './globals.css'
 import { QueryProvider } from '@/providers/QueryProvider'
 
-const inter = Inter({ subsets: ['latin'] })
+// Load Inter for Latin characters
+const inter = Inter({
+  subsets: ['latin'],
+  variable: '--font-inter',
+  display: 'swap',
+})
+
+// Load Noto Sans TC for Traditional Chinese characters
+const notoSansTC = Noto_Sans_TC({
+  subsets: ['latin'],
+  weight: ['300', '400', '500', '700'],
+  variable: '--font-noto-sans-tc',
+  display: 'swap',
+})
 
 export const metadata: Metadata = {
   title: 'RespiraAlly Dashboard - 呼吸治療管理系統',
@@ -17,7 +30,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="zh-TW">
-      <body className={inter.className}>
+      <body className={`${inter.variable} ${notoSansTC.variable} font-sans`}>
         <QueryProvider>{children}</QueryProvider>
       </body>
     </html>
