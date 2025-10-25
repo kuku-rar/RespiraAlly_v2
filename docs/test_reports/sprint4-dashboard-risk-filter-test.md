@@ -3,7 +3,8 @@
 **測試日期**: 2025-10-25
 **測試範圍**: Sprint 4 - Dashboard 高風險患者風險等級顯示與篩選功能
 **測試方法**: 快速驗證路徑（簡化風險計算 + 前端實作）
-**測試狀態**: ⏳ 代碼實作完成，等待手動 UI 測試
+**測試狀態**: ⚠️ 自動化測試遇到障礙，建議進行手動測試
+**自動化測試進度**: 已嘗試使用 Chrome DevTools MCP，但遇到技術問題
 
 ---
 
@@ -149,8 +150,28 @@ const riskLevel = calculateRiskLevel({
 ## 🧪 測試執行狀態
 
 ### 伺服器狀態
-- ✅ Backend API: Running on port 8000 (uvicorn)
-- ✅ Frontend Dev: Running on port 3000 (Next.js)
+- ✅ Backend API: Running on port 8000 (uvicorn) - Health check 正常
+- ✅ Frontend Dev: Running on port 3000 (Next.js) - 編譯成功
+- ✅ Production Build: 成功（所有 7 頁面生成）
+
+### 自動化測試嘗試記錄 (2025-10-25 23:30-23:45)
+
+#### 遇到的問題
+1. **QueryProvider.tsx Build 錯誤** [已修復 ✅]
+   - 問題：Production build 時 `@tanstack/react-query-devtools` 模組找不到
+   - 解決：使用 `next/dynamic` 替換 React `lazy`，並禁用 SSR
+   - 結果：Production build 成功，所有頁面生成
+
+2. **頁面載入超時** [技術限制 ⚠️]
+   - 問題：Chrome DevTools MCP 導航超時（10 秒 timeout）
+   - 原因：`/patients` 頁面首次編譯需要 18.5 秒（844 modules）
+   - 影響：無法使用自動化工具完成 UI 測試
+
+#### 當前狀態
+- ✅ 前後端服務正常運行
+- ✅ 程式碼實作完成（風險計算、UI 顯示、篩選功能）
+- ✅ Production build 測試通過
+- ⚠️ 需要手動 UI 測試驗證功能
 
 ### 測試帳號
 ```
@@ -294,6 +315,48 @@ http://localhost:3000/patients
 
 ---
 
-**報告產生時間**: 2025-10-25 22:37 (UTC+8)
-**測試執行人員**: Claude Code + User
-**狀態**: ⏳ 代碼實作完成，等待手動 UI 測試執行
+---
+
+## ✅ 測試結論
+
+### 已完成項目
+1. ✅ Frontend Build 錯誤修復
+   - 修改檔案：`frontend/dashboard/providers/QueryProvider.tsx`
+   - 使用 `next/dynamic` 實現條件式載入
+   - Production build 驗證成功
+
+2. ✅ 風險計算與顯示功能實作
+   - 風險等級計算工具：`frontend/dashboard/lib/utils/risk.ts`
+   - PatientTable 風險 badge 顯示
+   - 風險等級篩選與排序功能整合
+
+3. ✅ 服務運行驗證
+   - Backend API (port 8000): 正常
+   - Frontend Dev (port 3000): 正常
+   - Database Migration 005: 已執行
+
+### 待完成項目
+1. ⚠️ **手動 UI 測試** [15min] - 優先級 P0
+   - 自動化測試因技術限制無法完成
+   - 建議用戶使用瀏覽器手動執行測試案例 1-5
+   - 測試 URL: http://localhost:3000/patients
+
+2. 📝 **測試結果記錄** [15min]
+   - 截圖記錄風險 badge 顯示
+   - 驗證篩選功能正確性
+   - 更新此報告的測試結果區段
+
+### 技術改善建議
+1. **優化頁面載入時間**
+   - 目前 `/patients` 首次編譯需 18.5 秒
+   - 建議：實作增量靜態生成 (ISR) 或優化 bundle size
+
+2. **E2E 測試框架**
+   - 當前使用的 Chrome DevTools MCP 有 timeout 限制
+   - 建議：使用 Playwright 或 Cypress 進行完整 E2E 測試
+
+---
+
+**報告產生時間**: 2025-10-25 23:45 (UTC+8)
+**測試執行人員**: Claude Code (自動化嘗試) + User (手動測試待執行)
+**最終狀態**: ✅ 程式碼實作完成並驗證，⚠️ UI 功能測試待手動執行
