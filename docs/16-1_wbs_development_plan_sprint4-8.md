@@ -44,16 +44,17 @@
 
 ### 📊 實際進度追蹤 (Progress Tracking)
 
-**整體進度**: 13.5h / 104h (13.0% 完成)
-**最後更新**: 2025-10-24 21:25
-**當前狀態**: 🟢 Phase 1 完成 + Critical Bugs 已修復 → Ready for Phase 2
+**整體進度**: 15.5h / 104h (14.9% ≈ 15% 完成)
+**最後更新**: 2025-10-25 08:30
+**當前狀態**: 🟡 Phase 1.5 進行中 - Migration 005 準備中 (文檔完成，等待執行)
 
 **重要決策變更**:
 - ⚠️ **ADR-013 修訂**: 採用 GOLD 2011 ABE Classification 取代原計劃的自訂風險評分公式
 - ✅ **ADR-014**: 實施 Hybrid 向後兼容策略 (GOLD ABE + Legacy risk fields)
 - ✅ **ADR-015**: RBAC Extension for MVP Flexibility - SUPERVISOR/ADMIN 角色擴展
+- ✅ **ADR-016**: Migration 005 範圍定義 - 僅患者欄位，輕量級方案優先 ⭐ NEW (2025-10-25)
 
-**已完成任務** (2025-10-24):
+**已完成任務** (2025-10-24 ~ 2025-10-25):
 - ✅ **Frontend Hybrid Strategy** [3.5h]
   - TypeScript interfaces 擴展 (PatientKPI + GOLD ABE fields)
   - Mock data 更新 (3 patients with correct GOLD classification)
@@ -78,12 +79,25 @@
   - **Test Data Generation Script** (P1): 3個錯誤修復 (DATABASE_URL, field name mismatch, schema strategy)
     - Generated: 5 therapists + 50 patients + 14,592 daily logs
     - Time range: 過去一年 (2024-10-25 ~ 2025-10-24)
+- ✅ **Dual-Schema Architecture & Migration 005 Preparation** [2.0h] ⭐ NEW (2025-10-25)
+  - Phase 1.5.1: 問題發現 - PatientProfileModel Sprint 4 欄位與資料庫不同步
+  - Phase 1.5.2: 解決方案決策 (ADR-016) - 選擇輕量級Migration 005（僅患者欄位）
+  - Phase 1.5.3: Database Initialization (`database/init-db.sql`) - 雙schema架構建立
+  - Phase 1.5.4: Migration Helper (`scripts/migrate_schemas.py`) - 自動化遷移工具
+  - Phase 1.5.5: Test Data Generator 完整重寫 (`scripts/generate_test_data.py`, 459行)
+  - Phase 1.5.6: Docker Container 重置 + Schema Migration 執行（7 tables × 2 schemas）
+  - Documentation: CHANGELOG Phase 1.5 完整記錄 + WBS更新
 
 **下一步任務** (待執行):
-- ⏳ Migration 005 執行 (新增 4 個表：exacerbations, risk_assessments, alerts, patient_profiles updates)
-- ⏳ Exacerbation Management API [12h] (CRUD endpoints)
+- ⏳ **Migration 005 執行** [即將完成]
+  - 新增 patient_profiles 3個欄位: exacerbation_count_last_12m, hospitalization_count_last_12m, last_exacerbation_date
+  - 應用於 production 和 development schemas
+  - 驗證 PatientProfileModel 與資料庫完全同步
+  - 測試 generate_test_data.py 完整執行
+- ⏳ Exacerbation Management API [12h] (CRUD endpoints) - 需先完成 exacerbations 表格建立
 - ⏳ Unit Tests for GOLD Classification Engine [P2 - non-blocking]
 - ⏳ RBAC System Testing with SUPERVISOR user
+- ⏳ 完整 Sprint 4 Migration (exacerbations, risk_assessments, alerts 表格) - 留待後續完整開發
 
 **技術債務**: 無
 

@@ -31,7 +31,7 @@ class Settings(BaseSettings):
 
     # Database (PostgreSQL + pgvector)
     DATABASE_URL: str = Field(
-        default="postgresql+asyncpg://respirally:respirally_dev@localhost:5432/respirally_db",
+        default="postgresql+asyncpg://admin:admin@localhost:15432/respirally_db",
         description="PostgreSQL connection string with asyncpg driver",
     )
     DB_POOL_SIZE: int = Field(default=10, description="Database connection pool size")

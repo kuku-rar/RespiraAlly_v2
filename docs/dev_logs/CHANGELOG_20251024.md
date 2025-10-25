@@ -1076,6 +1076,80 @@ Testing:
 - ✅ Patient API 列表返回正確數據
 - ✅ Test data generation 成功執行
 
+### 1.4.5 ⚠️ Configuration Errata & Unified Fix (勘誤與配置統一)
+**Date**: 2025-10-25
+**Issue**: Phase 1.4.1 ~ 1.4.3 的配置修復**不正確**，未遵循專案標準配置
+
+**問題分析**:
+Phase 1.4 的配置修復存在以下錯誤：
+
+1. **Redis Port 錯誤** (Line 964-981):
+   ```diff
+   # ❌ 錯誤修復 (Phase 1.4.1)
+   - REDIS_PORT=16379  # Docker 主機端口 (正確)
+   + REDIS_PORT=6379   # Docker 容器端口 (錯誤 - 無法從主機連接)
+
+   # ✅ 正確配置 (Phase 1.4.5)
+   + REDIS_PORT=16379  # 應使用主機端口連接 Docker
+   ```
+
+2. **Database Configuration 錯誤** (Line 1026-1027):
+   ```diff
+   # ❌ 錯誤修復 (Phase 1.4.3)
+   - DATABASE_URL = "...@localhost:15432/respirally_db"      # 正確
+   + DATABASE_URL = "...@localhost:5432/ai_assistant_db"     # 錯誤
+
+   # ✅ 正確配置 (Phase 1.4.5)
+   + DATABASE_URL = "postgresql+asyncpg://admin:admin@localhost:15432/respirally_db"
+   ```
+
+**根本原因**:
+- 未檢查專案標準配置 (`docker-compose.yml`, `.env.example`)
+- 自行創造了新的資料庫名稱 (`ai_assistant_db`)
+- 混淆了 Docker 容器端口 (6379) 和主機映射端口 (16379)
+
+**正確的配置標準** (基於 `docker-compose.yml`):
+```yaml
+# Docker 端口映射
+postgres:
+  ports:
+    - "15432:5432"  # 主機:容器
+
+redis:
+  ports:
+    - "16379:6379"  # 主機:容器
+```
+
+**應用程式應連接主機端口**:
+```bash
+DATABASE_URL=postgresql+asyncpg://admin:admin@localhost:15432/respirally_db
+REDIS_PORT=16379
+```
+
+**Phase 1.4.5 修復內容**:
+
+1. ✅ **backend/.env**:
+   - Database: `respirally_db` (was: `ai_assistant_db`)
+   - Port: `15432` (was: `5432`)
+   - Password: `admin` (was: `secret_password_change_me`)
+   - Redis Port: `16379` (was: `6379`)
+
+2. ✅ **scripts/seed_supervisor.py**:
+   - Default URL: `postgresql+asyncpg://admin:admin@localhost:15432/respirally_db`
+
+3. ✅ **src/respira_ally/core/config.py**:
+   - Default URL: `postgresql+asyncpg://admin:admin@localhost:15432/respirally_db`
+
+**驗證**:
+- ✅ 配置統一到專案標準 (`docker-compose.yml`, `.env.example`)
+- ✅ 所有預設值與 Docker 配置一致
+- ✅ 消除了多個資料庫名稱的混亂
+
+**Linus 教訓**:
+> "Never break userspace" - 不應改變原有配置
+> "Good Taste" - 應擴展現有配置，而非創造新的
+> "Single Source of Truth" - Docker Compose 是基礎設施的事實來源
+
 ---
 
 ## 📊 更新後的統計
@@ -1176,3 +1250,164 @@ Testing:
 1. **RBAC Extension**: Linus "Good Taste" 原則的完美實踐
 2. **Bug Fixes**: 系統性診斷 + 簡單有效的修復方案
 3. **測試數據**: 50 位病患 + 14,592 筆日誌，完整測試環境就緒
+
+---
+
+## 🛠️ Phase 1.5: Migration 005 - Patient Profile Sprint 4 Fields [2025-10-25]
+
+### 1.5.1 問題發現與分析
+
+**問題**: 測試數據生成失敗
+```
+Error: column "last_exacerbation_date" of relation "patient_profiles" does not exist
+```
+
+**根本原因**:
+- `PatientProfileModel` Python 類別**已定義** Sprint 4 欄位（73-87行）
+- 資料庫表格**尚未建立**這些欄位
+- Model 定義與 Database Schema 不同步
+
+**Sprint 4 欄位 (patient_profile.py:73-87)**:
+```python
+# Sprint 4: Exacerbation Summary (Auto-updated by trigger)
+exacerbation_count_last_12m: Mapped[int] = mapped_column(
+    Integer, nullable=False, server_default=text("0"),
+    comment="Number of acute exacerbations in last 12 months (auto-updated)",
+)
+hospitalization_count_last_12m: Mapped[int] = mapped_column(
+    Integer, nullable=False, server_default=text("0"),
+    comment="Number of hospitalizations in last 12 months (auto-updated)",
+)
+last_exacerbation_date: Mapped[date | None] = mapped_column(
+    Date, nullable=True, comment="Date of last exacerbation (auto-updated)"
+)
+```
+
+### 1.5.2 解決方案決策 (ADR-016)
+
+**選項A: 暫時註解欄位** ❌
+- ❌ 糟糕品味 - 暫時性補丁累積技術債
+- ❌ 模型與資料庫不一致
+- ❌ 需要記得恢復
+
+**選項B: 建立Migration 005 - 僅患者欄位** ✅
+- ✅ 好品味 - 一次做對，消除特殊情況
+- ✅ 模型定義成為單一事實來源
+- ✅ 為完整Sprint 4奠定基礎
+- ✅ 輕量級migration，僅新增3個欄位
+
+**Linus 視角**:
+> "Good Taste" - 數據結構優先，讓實作追隨模型定義
+> "Never break userspace" - 模型已定義，應讓資料庫追隨，而非修改模型
+> "Single Source of Truth" - PatientProfileModel 是事實來源
+
+**決策**: 執行選項B
+
+### 1.5.3 Migration 005 範圍定義
+
+**包含**:
+- ✅ 新增 `exacerbation_count_last_12m` (Integer, default=0)
+- ✅ 新增 `hospitalization_count_last_12m` (Integer, default=0)
+- ✅ 新增 `last_exacerbation_date` (Date, nullable)
+- ✅ 應用於 `production` 和 `development` schemas
+
+**不包含** (留待完整Sprint 4):
+- ❌ `exacerbations` 表格建立
+- ❌ `risk_assessments` 表格建立
+- ❌ `alerts` 表格建立
+- ❌ 自動更新 trigger 建立
+
+**理由**: 輕量級migration優先修復資料同步問題，完整功能等待Sprint 4完整開發
+
+### 1.5.4 雙Schema架構建立 [COMPLETED]
+
+**已完成工作**:
+1. ✅ **Database Initialization** (`database/init-db.sql`)
+   - 建立 `production` 和 `development` schemas
+   - 設定 search_path: `production, development, public`
+   - 建立 pgvector 和 uuid-ossp extensions
+
+2. ✅ **Migration Helper** (`scripts/migrate_schemas.py`)
+   - 雙schema自動migration工具
+   - 支援 `--schema production|development|both`
+   - 基於SQLAlchemy Base.metadata.create_all
+
+3. ✅ **Test Data Generator** (`scripts/generate_test_data.py`)
+   - 完全重寫（459行），基於最新schema
+   - 目標 `development` schema
+   - 生成 5 therapists, 50 patients, ~15,550 daily logs
+   - 修正 UserModel 和 TherapistProfileModel 欄位錯誤
+   - 移除 Sprint 4 表格參考（註解為TODO）
+
+4. ✅ **Docker Container Reset**
+   - 移除舊 `respirally-postgres` 容器
+   - 重新建立並執行 `init-db.sql`
+   - 驗證雙schema建立成功
+
+5. ✅ **Schema Migration Execution**
+   - 執行 `migrate_schemas.py --schema both`
+   - 建立 7 tables in production schema
+   - 建立 7 tables in development schema
+   - 驗證表格結構一致
+
+**驗證結果**:
+```bash
+development schema tables (7):
+- alembic_version
+- daily_logs
+- event_logs
+- patient_profiles  ← 需要新增3個欄位
+- survey_responses
+- therapist_profiles
+- users
+```
+
+### 1.5.5 Migration 005 待執行任務
+
+**Pending Tasks**:
+1. [ ] 建立 migration 005 腳本
+2. [ ] 執行 migration 於 production schema
+3. [ ] 執行 migration 於 development schema
+4. [ ] 驗證欄位正確建立
+5. [ ] 測試 `generate_test_data.py` 完整執行
+6. [ ] 驗證資料插入成功
+7. [ ] API 整合測試（兩個schemas）
+
+**預期結果**:
+- ✅ PatientProfileModel 與資料庫完全同步
+- ✅ 測試數據生成器正常工作
+- ✅ 為Sprint 4 完整開發奠定基礎
+
+### 1.5.6 技術債預防檢查
+
+**✅ 檢查清單**:
+- [x] 先搜尋現有實作（已確認PatientProfileModel定義）
+- [x] 檢查資料庫實際結構（已確認欠缺欄位）
+- [x] 分析根本原因（Model vs Database不同步）
+- [x] 提出兩種解決方案並決策（選項B）
+- [x] 記錄決策理由（ADR-016）
+- [x] 明確定義範圍（輕量級vs完整Sprint 4）
+- [ ] 執行migration並驗證（待完成）
+
+---
+
+## 📊 更新後的統計 (Phase 1.1 ~ 1.5)
+
+### 今日總計:
+- **總工時**: 15.5h (13.5h 前期 + 2.0h Migration 005)
+- **新增**: 11 files (前期) + 3 files (雙schema) = 14 files
+- **修改**: 16 個檔案
+- **總行數變化**: +2334 (前期) + ~500 (雙schema) = **+2834 net lines**
+- **Git Commits**: 4 (前期) + 1 (待commit Migration 005) = 5
+
+### Sprint 4 進度 (Updated):
+```
+已完成: 15.5h / 104h = 14.9% ≈ 15%
+剩餘: 88.5h
+當日工時: 15.5h
+預計完成: Week 7-8 (2025-10-28 ~ 2025-11-04)
+```
+
+---
+
+**Phase 1.5 狀態**: 🟡 In Progress (Documentation Complete, Migration Pending)

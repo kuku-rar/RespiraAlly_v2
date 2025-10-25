@@ -40,7 +40,7 @@ async def seed_supervisor():
 
     # Get database URL from environment
     database_url = os.getenv(
-        "DATABASE_URL", "postgresql+asyncpg://postgres:postgres@localhost:5432/respiraally_v2"
+        "DATABASE_URL", "postgresql+asyncpg://admin:admin@localhost:15432/respirally_db"
     )
 
     # SUPERVISOR credentials (can be overridden via environment variables)

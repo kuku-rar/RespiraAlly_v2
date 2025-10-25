@@ -1,375 +1,373 @@
 """
-Generate Test Data using Faker
-生成測試資料：50 位病患 + 一年份日誌資料
+Generate Test Data for RespiraAlly V2.0
+Uses Faker to create realistic test data in development schema
 
 Run with: uv run python scripts/generate_test_data.py
 
 Generated Data:
-- 5 Therapists (治療師)
-- 50 Patients (病患) - 每位治療師 10 位病患
-- ~18,250 Daily Logs (日誌) - 每位病患約 365 天資料
+- 5 Therapists
+- 50 Patients (10 per therapist)
+- 18,250 Daily Logs (365 days per patient)
+
+Note: Sprint 4 tables (exacerbations, risk_assessments) require migration 005
+      and will be generated after that migration is applied.
+
+All data is inserted into 'development' schema for testing
 """
+
 import asyncio
+import random
+import sys
 from datetime import date, datetime, timedelta
 from decimal import Decimal
+from pathlib import Path
 from uuid import uuid4
-import random
+
+# Add backend src to Python path
+sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+
+from dotenv import load_dotenv
+
+# Load .env
+load_dotenv(Path(__file__).parent.parent / ".env")
 
 from faker import Faker
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
-import sqlalchemy as sa
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from respira_ally.infrastructure.database.session import Base
-from respira_ally.infrastructure.database.models.user import UserModel
-from respira_ally.infrastructure.database.models.therapist_profile import TherapistProfileModel
-from respira_ally.infrastructure.database.models.patient_profile import PatientProfileModel
-from respira_ally.infrastructure.database.models.daily_log import DailyLogModel
+# Import models
 from respira_ally.application.auth.use_cases.login_use_case import hash_password
+from respira_ally.infrastructure.database.models.daily_log import DailyLogModel
+from respira_ally.infrastructure.database.models.patient_profile import PatientProfileModel
+from respira_ally.infrastructure.database.models.therapist_profile import TherapistProfileModel
+from respira_ally.infrastructure.database.models.user import UserModel
 
+# Note: Exacerbation and RiskAssessment models require migration 005
 
 # ============================================================================
 # Configuration
 # ============================================================================
 
 DATABASE_URL = "postgresql+asyncpg://admin:admin@localhost:15432/respirally_db"
-TEST_SCHEMA = "test_data"  # 測試資料專用 schema
+TARGET_SCHEMA = "development"  # Insert data into development schema
 
-fake = Faker(['zh_TW', 'en_US'])  # 繁體中文 + 英文
-Faker.seed(42)  # 確保每次生成相同資料
+# Data generation settings
+fake = Faker(["zh_TW", "en_US"])
+Faker.seed(42)
 random.seed(42)
 
 NUM_THERAPISTS = 5
 NUM_PATIENTS = 50
 PATIENTS_PER_THERAPIST = NUM_PATIENTS // NUM_THERAPISTS
-DAYS_OF_DATA = 365  # 一年份資料
+DAYS_OF_DATA = 365
+
+
+# ============================================================================
+# Helper Functions
+# ============================================================================
+
+
+def generate_copd_stage():
+    """Generate COPD stage with realistic distribution"""
+    stages = ["stage_1", "stage_2", "stage_3", "stage_4"]
+    weights = [0.25, 0.35, 0.25, 0.15]  # Most patients in stage 2-3
+    return random.choices(stages, weights=weights)[0]
+
+
+def generate_gold_classification():
+    """Generate GOLD classification (A, B, E)"""
+    classifications = ["A", "B", "E"]
+    weights = [0.40, 0.35, 0.25]  # A=low risk, B=more symptoms, E=exacerbations
+    return random.choices(classifications, weights=weights)[0]
+
+
+def generate_smoking_status_and_years():
+    """Generate realistic smoking history"""
+    status_choices = ["NEVER", "FORMER", "CURRENT"]
+    weights = [0.20, 0.50, 0.30]  # Most are former smokers
+    status = random.choices(status_choices, weights=weights)[0]
+
+    if status == "NEVER":
+        years = 0
+    elif status == "FORMER":
+        years = random.randint(5, 40)  # Quit after smoking for years
+    else:  # CURRENT
+        years = random.randint(1, 50)
+
+    return status, years
+
+
+def generate_daily_log_data(copd_stage: str, log_date: date) -> dict:
+    """Generate realistic daily log metrics based on COPD stage"""
+    # Medication compliance decreases with severity
+    medication_prob = {
+        "stage_1": 0.90,
+        "stage_2": 0.85,
+        "stage_3": 0.75,
+        "stage_4": 0.70,
+    }
+    medication_taken = random.random() < medication_prob.get(copd_stage, 0.80)
+
+    # Water intake
+    water_intake_ml = random.randint(1000, 3000) if random.random() < 0.85 else None
+
+    # Exercise decreases with severity
+    if copd_stage in ["stage_3", "stage_4"]:
+        exercise_minutes = random.randint(0, 30) if random.random() < 0.60 else None
+    else:
+        exercise_minutes = random.randint(10, 90) if random.random() < 0.80 else None
+
+    # Smoking for current smokers
+    smoking_count = random.randint(5, 20) if random.random() < 0.25 else None
+
+    # Symptoms worse in advanced stages
+    symptom_prob = {
+        "stage_1": 0.20,
+        "stage_2": 0.35,
+        "stage_3": 0.55,
+        "stage_4": 0.70,
+    }
+    if random.random() < symptom_prob.get(copd_stage, 0.35):
+        symptoms_list = ["咳嗽", "喘", "胸悶", "痰多", "疲倦"]
+        symptoms = ", ".join(random.sample(symptoms_list, random.randint(1, 3)))
+    else:
+        symptoms = None
+
+    # Mood correlates with symptoms
+    if symptoms:
+        mood = random.choices(["GOOD", "NEUTRAL", "BAD"], weights=[0.1, 0.3, 0.6])[0]
+    else:
+        mood = random.choices(["GOOD", "NEUTRAL", "BAD"], weights=[0.6, 0.3, 0.1])[0]
+
+    return {
+        "log_date": log_date,
+        "medication_taken": medication_taken,
+        "water_intake_ml": water_intake_ml,
+        "exercise_minutes": exercise_minutes,
+        "smoking_count": smoking_count,
+        "symptoms": symptoms,
+        "mood": mood,
+    }
 
 
 # ============================================================================
 # Data Generation Functions
 # ============================================================================
 
-def generate_therapist_data(index: int) -> dict:
-    """
-    生成治療師資料（萬芳醫院專用）
 
-    - 醫院固定：萬芳醫院
-    - 科別預設：胸腔內科
-    """
-    return {
-        "line_user_id": f"therapist_{uuid4().hex[:8]}",
-        "role": "THERAPIST",
-        "email": f"therapist{index + 1}@respira-ally.com",
-        "hashed_password": hash_password("SecurePass123!"),
-        "name": fake.name(),
-        "institution": "萬芳醫院",  # 固定為萬芳醫院
-        "license_number": f"LIC{random.randint(100000, 999999)}",
-        "specialties": ["胸腔內科"]  # 預設為胸腔內科
-    }
+async def create_therapists(session: AsyncSession) -> list[UserModel]:
+    """Create therapist users and profiles"""
+    print("\n" + "=" * 70)
+    print("👨‍⚕️  Creating Therapists...")
+    print("=" * 70)
+
+    therapists = []
+    for i in range(1, NUM_THERAPISTS + 1):
+        user_id = uuid4()
+
+        # Create user
+        user = UserModel(
+            user_id=user_id,
+            email=f"therapist{i}@respira-ally.com",
+            hashed_password=hash_password("SecurePass123!"),
+            role="THERAPIST",
+        )
+        session.add(user)
+
+        # Create therapist profile
+        specialties_list = ["COPD", "Pulmonology", "Respiratory Therapy", "ICU", "Internal Medicine"]
+        therapist = TherapistProfileModel(
+            user_id=user_id,
+            name=fake.name(),
+            institution=fake.company(),
+            license_number=f"T{fake.random_number(digits=6, fix_len=True)}",
+            specialties=random.sample(specialties_list, random.randint(1, 2)),
+        )
+        session.add(therapist)
+        therapists.append(user)
+
+        print(f"   ✅ {therapist.name} (therapist{i}@respira-ally.com)")
+
+    await session.flush()
+    print(f"\n✅ Created {NUM_THERAPISTS} therapists")
+    return therapists
 
 
-def generate_patient_data(therapist_id: str) -> dict:
-    """
-    生成病患資料（符合 COPD 病患特徵）
+async def create_patients(session: AsyncSession, therapists: list[UserModel]) -> list[PatientProfileModel]:
+    """Create patient users and profiles"""
+    print("\n" + "=" * 70)
+    print("🧑‍🦱 Creating Patients...")
+    print("=" * 70)
 
-    - 年齡：50-85 歲（COPD 好發年齡）
-    - BMI：18-35（涵蓋過輕到肥胖）
-    - 性別：隨機分布
-    """
-    # 生成 50-85 歲的出生日期
-    age = random.randint(50, 85)
-    birth_date = date.today() - timedelta(days=age * 365 + random.randint(0, 365))
+    patients = []
+    patient_num = 1
 
-    # 生成身高體重（BMI 18-35）
-    gender = random.choice(["MALE", "FEMALE", "OTHER"])
-    if gender == "MALE":
-        height_cm = random.randint(160, 180)
-    else:
-        height_cm = random.randint(150, 170)
+    for therapist_idx, therapist in enumerate(therapists):
+        for i in range(PATIENTS_PER_THERAPIST):
+            user_id = uuid4()
 
-    # 計算合理體重（BMI 18-35）
-    target_bmi = random.uniform(18, 35)
-    weight_kg = round(target_bmi * (height_cm / 100) ** 2, 1)
-
-    # Smoking status and years (must satisfy constraint)
-    smoking_status = random.choices(
-        ["NEVER", "FORMER", "CURRENT"],
-        weights=[30, 50, 20]  # COPD 病患多為前吸煙者
-    )[0]
-
-    # Constraint: NEVER must have NULL or 0 smoking_years
-    if smoking_status == "NEVER":
-        smoking_years = None
-    else:  # FORMER or CURRENT
-        smoking_years = random.randint(10, 40)
-
-    return {
-        "line_user_id": f"patient_{uuid4().hex[:8]}",
-        "role": "PATIENT",
-        "therapist_id": therapist_id,
-        "name": fake.name(),
-        "birth_date": birth_date,
-        "gender": gender,
-        "height_cm": height_cm,
-        "weight_kg": Decimal(str(weight_kg)),
-        "smoking_status": smoking_status,
-        "smoking_years": smoking_years,
-        "contact_info": {
-            "phone": fake.phone_number(),
-            "emergency_contact": fake.name(),
-            "emergency_phone": fake.phone_number()
-        },
-        "medical_history": {
-            "copd_stage": random.choice(["stage_1", "stage_2", "stage_3", "stage_4"]),
-            "diagnosis_date": (date.today() - timedelta(days=random.randint(365, 3650))).isoformat(),
-            "comorbidities": random.sample(
-                ["Hypertension", "Diabetes", "Heart Disease", "Asthma", "Arthritis"],
-                k=random.randint(0, 3)
-            ),
-            "medications": random.sample(
-                ["Bronchodilator", "Corticosteroid", "Oxygen Therapy", "Antibiotic"],
-                k=random.randint(1, 3)
+            # Create user (LINE-based auth for patients)
+            user = UserModel(
+                user_id=user_id,
+                line_user_id=f"U{fake.random_number(digits=32, fix_len=True)}",
+                role="PATIENT",
             )
-        }
-    }
+            session.add(user)
 
+            # Generate patient data
+            copd_stage = generate_copd_stage()
+            gold_class = generate_gold_classification()
+            smoking_status, smoking_years = generate_smoking_status_and_years()
 
-def generate_daily_log_data(patient_id: str, log_date: date, patient_profile: dict) -> dict:
-    """
-    生成每日日誌資料（符合真實情境）
-
-    - 服藥遵從率：60-95%
-    - 水分攝取：500-3000ml（年長者較少）
-    - 步數：0-10000（年長者活動量較少）
-    - 心情分布：Good 40%, Neutral 40%, Bad 20%
-    """
-    # 服藥遵從率（部分病患較不規律）
-    medication_adherence = random.random()
-    medication_taken = medication_adherence > 0.3  # 70% 遵從率
-
-    # 水分攝取（年長者較少，但需要提醒多喝水）
-    water_intake_ml = random.randint(500, 3000)
-    if random.random() < 0.2:  # 20% 機率攝取不足
-        water_intake_ml = random.randint(300, 800)
-
-    # 步數（年長者活動量較少，COPD 病患更少）
-    copd_stage = patient_profile.get("medical_history", {}).get("copd_stage", "stage_2")
-    if copd_stage in ["stage_3", "stage_4"]:
-        steps_count = random.randint(0, 3000)  # 嚴重期活動量低
-    else:
-        steps_count = random.randint(1000, 8000)  # 輕中度可活動
-
-    # 症狀描述（20% 機率有症狀）
-    symptoms = None
-    if random.random() < 0.2:
-        symptoms = random.choice([
-            "輕微咳嗽",
-            "呼吸短促",
-            "胸悶",
-            "痰多",
-            "咳嗽加劇",
-            "氣喘",
-            "疲倦",
-            "無明顯症狀"
-        ])
-
-    # 心情分布（Good 40%, Neutral 40%, Bad 20%）
-    mood = random.choices(
-        ["GOOD", "NEUTRAL", "BAD"],
-        weights=[40, 40, 20]
-    )[0]
-
-    return {
-        "patient_id": patient_id,
-        "log_date": log_date,
-        "medication_taken": medication_taken,
-        "water_intake_ml": water_intake_ml,
-        "steps_count": steps_count,
-        "symptoms": symptoms,
-        "mood": mood
-    }
-
-
-# ============================================================================
-# Database Population
-# ============================================================================
-
-async def populate_database():
-    """填充資料庫（使用獨立 schema）"""
-    print("🚀 開始生成測試資料...")
-    print(f"📊 目標：{NUM_THERAPISTS} 位治療師, {NUM_PATIENTS} 位病患, 約 {NUM_PATIENTS * DAYS_OF_DATA} 筆日誌")
-    print(f"📁 Schema: {TEST_SCHEMA}")
-
-    # Create async engine
-    engine = create_async_engine(DATABASE_URL, echo=False)
-
-    # 1. Create test schema (drop if exists)
-    print(f"\n1️⃣ 創建測試 schema: {TEST_SCHEMA}...")
-    async with engine.begin() as conn:
-        # Drop schema if exists
-        await conn.execute(sa.text(f"DROP SCHEMA IF EXISTS {TEST_SCHEMA} CASCADE"))
-        # Create new schema
-        await conn.execute(sa.text(f"CREATE SCHEMA {TEST_SCHEMA}"))
-        # Set search_path to use test schema
-        await conn.execute(sa.text(f"SET search_path TO {TEST_SCHEMA}, public"))
-        print(f"✅ Schema {TEST_SCHEMA} 創建完成")
-
-        # Create all tables in test schema
-        print(f"   創建資料表...")
-        await conn.run_sync(Base.metadata.create_all)
-        print(f"✅ 資料表創建完成")
-
-    # Create session factory with test schema
-    async_session_factory = async_sessionmaker(
-        engine,
-        class_=AsyncSession,
-        expire_on_commit=False,
-    )
-
-    async with async_session_factory() as session:
-        # Set search_path for this session
-        await session.execute(sa.text(f"SET search_path TO {TEST_SCHEMA}, public"))
-        # 2. Create Therapists
-        print(f"\n2️⃣ 創建 {NUM_THERAPISTS} 位治療師...")
-        therapists = []
-        for i in range(NUM_THERAPISTS):
-            therapist_data = generate_therapist_data(i)
-
-            # Create user
-            therapist_user = UserModel(
-                line_user_id=therapist_data["line_user_id"],
-                role=therapist_data["role"],
-                email=therapist_data["email"],
-                hashed_password=therapist_data["hashed_password"],
-            )
-            session.add(therapist_user)
-            await session.flush()
-
-            # Create therapist profile
-            therapist_profile = TherapistProfileModel(
-                user_id=therapist_user.user_id,
-                name=therapist_data["name"],
-                institution=therapist_data["institution"],
-                license_number=therapist_data["license_number"],
-                specialties=therapist_data["specialties"],
-            )
-            session.add(therapist_profile)
-            therapists.append(therapist_user)
-
-            print(f"  ✅ {therapist_data['name']} ({therapist_data['email']})")
-
-        await session.commit()
-        print(f"✅ {NUM_THERAPISTS} 位治療師創建完成")
-
-        # 3. Create Patients
-        print(f"\n3️⃣ 創建 {NUM_PATIENTS} 位病患...")
-        patients = []
-        patient_profiles_data = []
-
-        for i in range(NUM_PATIENTS):
-            # Assign to therapist (round-robin)
-            therapist = therapists[i % NUM_THERAPISTS]
-
-            patient_data = generate_patient_data(therapist.user_id)
-
-            # Create user
-            patient_user = UserModel(
-                line_user_id=patient_data["line_user_id"],
-                role=patient_data["role"],
-                email=None,
-                hashed_password=None,
-            )
-            session.add(patient_user)
-            await session.flush()
+            birth_year = random.randint(1940, 1975)  # 50-85 years old
+            birth_date = date(birth_year, random.randint(1, 12), random.randint(1, 28))
 
             # Create patient profile
-            patient_profile = PatientProfileModel(
-                user_id=patient_user.user_id,
-                therapist_id=patient_data["therapist_id"],
-                name=patient_data["name"],
-                birth_date=patient_data["birth_date"],
-                gender=patient_data["gender"],
-                height_cm=patient_data["height_cm"],
-                weight_kg=patient_data["weight_kg"],
-                smoking_status=patient_data["smoking_status"],
-                smoking_years=patient_data["smoking_years"],
-                contact_info=patient_data["contact_info"],
-                medical_history=patient_data["medical_history"],
+            patient = PatientProfileModel(
+                user_id=user_id,
+                therapist_id=therapist.user_id,
+                name=fake.name(),
+                birth_date=birth_date,
+                gender=random.choice(["MALE", "FEMALE"]),
+                height_cm=random.randint(150, 185),
+                weight_kg=Decimal(str(random.uniform(50.0, 95.0))),
+                smoking_status=smoking_status,
+                smoking_years=smoking_years,
+                medical_history={
+                    "copd_stage": copd_stage,
+                    "gold_classification": gold_class,
+                    "diagnosis_year": random.randint(2015, 2023),
+                    "comorbidities": random.sample(
+                        ["hypertension", "diabetes", "heart_disease", "asthma"],
+                        random.randint(0, 2),
+                    ),
+                },
+                contact_info={
+                    "phone": fake.phone_number(),
+                    "emergency_contact": fake.phone_number(),
+                },
             )
-            session.add(patient_profile)
-            patients.append(patient_user)
-            patient_profiles_data.append(patient_data)
+            session.add(patient)
+            patients.append(patient)
 
-            if (i + 1) % 10 == 0:
-                print(f"  ✅ 已創建 {i + 1}/{NUM_PATIENTS} 位病患")
+            if patient_num % 10 == 0:
+                print(f"   ✅ Created {patient_num}/{NUM_PATIENTS} patients")
 
-        await session.commit()
-        print(f"✅ {NUM_PATIENTS} 位病患創建完成")
+            patient_num += 1
 
-        # 4. Create Daily Logs
-        print(f"\n4️⃣ 創建日誌資料（每位病患 {DAYS_OF_DATA} 天）...")
-        total_logs = 0
+    await session.flush()
+    print(f"\n✅ Created {NUM_PATIENTS} patients assigned to {NUM_THERAPISTS} therapists")
+    return patients
 
-        for idx, patient_user in enumerate(patients):
-            patient_profile_data = patient_profiles_data[idx]
 
-            # Generate logs for past year
-            start_date = date.today() - timedelta(days=DAYS_OF_DATA)
-            for day_offset in range(DAYS_OF_DATA):
-                log_date = start_date + timedelta(days=day_offset)
+async def create_daily_logs(session: AsyncSession, patients: list[PatientProfileModel]):
+    """Create daily logs for all patients"""
+    print("\n" + "=" * 70)
+    print("📊 Creating Daily Logs...")
+    print("=" * 70)
 
-                # 模擬真實情境：80% 機率有填寫日誌
-                if random.random() < 0.8:
-                    log_data = generate_daily_log_data(
-                        patient_user.user_id,
-                        log_date,
-                        patient_profile_data
-                    )
+    end_date = date.today()
+    start_date = end_date - timedelta(days=DAYS_OF_DATA - 1)
 
-                    daily_log = DailyLogModel(
-                        patient_id=log_data["patient_id"],
-                        log_date=log_data["log_date"],
-                        medication_taken=log_data["medication_taken"],
-                        water_intake_ml=log_data["water_intake_ml"],
-                        steps_count=log_data["steps_count"],
-                        symptoms=log_data["symptoms"],
-                        mood=log_data["mood"],
-                    )
-                    session.add(daily_log)
-                    total_logs += 1
+    total_logs = 0
+    batch_size = 1000
 
-            # Commit every 10 patients
-            if (idx + 1) % 10 == 0:
-                await session.commit()
-                print(f"  ✅ 已完成 {idx + 1}/{NUM_PATIENTS} 位病患的日誌資料 (累計 {total_logs} 筆)")
+    for patient in patients:
+        copd_stage = patient.medical_history.get("copd_stage", "stage_2")
 
-        await session.commit()
-        print(f"✅ {total_logs} 筆日誌資料創建完成")
+        for day_offset in range(DAYS_OF_DATA):
+            # 85% fill rate (patients miss some days)
+            if random.random() > 0.85:
+                continue
 
-    await engine.dispose()
+            log_date = start_date + timedelta(days=day_offset)
+            log_data = generate_daily_log_data(copd_stage, log_date)
 
-    # 5. Summary
-    print("\n" + "=" * 80)
-    print("🎉 測試資料生成完成！")
-    print("=" * 80)
-    print(f"📋 統計資料:")
-    print(f"  - Schema: {TEST_SCHEMA}")
-    print(f"  - 治療師: {NUM_THERAPISTS} 位")
-    print(f"  - 病患: {NUM_PATIENTS} 位")
-    print(f"  - 日誌: {total_logs} 筆 (約 {total_logs / NUM_PATIENTS:.1f} 筆/人)")
-    print(f"  - 時間範圍: {DAYS_OF_DATA} 天 ({start_date} ~ {date.today()})")
-    print("\n🔐 測試帳號:")
-    print(f"  - Email: therapist1@respira-ally.com")
-    print(f"  - Password: SecurePass123!")
-    print("\n📖 使用方式:")
-    print(f"  查詢資料: SELECT * FROM {TEST_SCHEMA}.users;")
-    print(f"  清理資料: DROP SCHEMA {TEST_SCHEMA} CASCADE;")
-    print(f"  重新生成: uv run python scripts/generate_test_data.py")
-    print("=" * 80)
+            daily_log = DailyLogModel(patient_id=patient.user_id, **log_data)
+            session.add(daily_log)
+            total_logs += 1
+
+            # Batch commit for performance
+            if total_logs % batch_size == 0:
+                await session.flush()
+                print(f"   ✅ Inserted {total_logs:,} logs...")
+
+    await session.flush()
+    print(f"\n✅ Created {total_logs:,} daily logs ({DAYS_OF_DATA} days × {NUM_PATIENTS} patients × ~85% fill rate)")
+
+
+# TODO: Re-enable after migration 005 is applied
+# async def create_exacerbations(session: AsyncSession, patients: list[PatientProfileModel]):
+#     """Create exacerbation records (requires migration 005)"""
+#     pass
+
+# async def create_risk_assessments(session: AsyncSession, patients: list[PatientProfileModel]):
+#     """Create latest risk assessment for each patient (requires migration 005)"""
+#     pass
 
 
 # ============================================================================
 # Main
 # ============================================================================
 
+
+async def main():
+    """Generate all test data"""
+    print("\n" + "=" * 70)
+    print("🚀 RespiraAlly V2.0 - Test Data Generation")
+    print("=" * 70)
+    print(f"📌 Target Schema: {TARGET_SCHEMA}")
+    print(f"📌 Database: {DATABASE_URL.split('@')[1]}")
+    print()
+
+    # Create engine with schema set
+    engine = create_async_engine(DATABASE_URL, echo=False)
+    async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+
+    try:
+        async with async_session() as session:
+            # Set schema for this session
+            await session.execute(text(f"SET search_path TO {TARGET_SCHEMA}"))
+
+            # Generate data
+            therapists = await create_therapists(session)
+            patients = await create_patients(session, therapists)
+            await create_daily_logs(session, patients)
+
+            # TODO: Uncomment after migration 005 is applied
+            # await create_exacerbations(session, patients)
+            # await create_risk_assessments(session, patients)
+
+            # Commit all
+            await session.commit()
+
+            print("\n" + "=" * 70)
+            print("✅ Test Data Generation Complete!")
+            print("=" * 70)
+            print("\n📊 Summary:")
+            print(f"   - Schema: {TARGET_SCHEMA}")
+            print(f"   - Therapists: {NUM_THERAPISTS}")
+            print(f"   - Patients: {NUM_PATIENTS}")
+            print(f"   - Daily Logs: ~{NUM_PATIENTS * DAYS_OF_DATA * 0.85:,.0f}")
+            print()
+            print("⏳ Pending (requires migration 005):")
+            print(f"   - Exacerbations: 0 (TODO)")
+            print(f"   - Risk Assessments: 0 (TODO)")
+            print()
+            print("🔐 Test Credentials:")
+            print("   Email: therapist1@respira-ally.com")
+            print("   Password: SecurePass123!")
+            print()
+            print("📋 Verify:")
+            print(f"   docker exec respirally-postgres psql -U admin -d respirally_db \\")
+            print(f"     -c 'SELECT count(*) FROM {TARGET_SCHEMA}.users;'")
+
+    except Exception as e:
+        print(f"\n❌ Error: {e}")
+        raise
+    finally:
+        await engine.dispose()
+
+
 if __name__ == "__main__":
-    asyncio.run(populate_database())
+    asyncio.run(main())
