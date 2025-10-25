@@ -3,12 +3,14 @@ Exacerbation Service - COPD acute exacerbation management
 Sprint 4: Risk Engine - Business logic for exacerbation tracking and statistics
 """
 
+import logging
 from datetime import date, datetime, timedelta
 from uuid import UUID
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from respira_ally.application.risk.use_cases.calculate_risk_use_case import CalculateRiskUseCase
 from respira_ally.core.schemas.exacerbation import (
     ExacerbationCreate,
     ExacerbationListResponse,
@@ -18,6 +20,8 @@ from respira_ally.core.schemas.exacerbation import (
 )
 from respira_ally.infrastructure.database.models.exacerbation import ExacerbationModel
 from respira_ally.infrastructure.database.models.patient_profile import PatientProfileModel
+
+logger = logging.getLogger(__name__)
 
 
 class ExacerbationService:
@@ -72,6 +76,9 @@ class ExacerbationService:
         self.db.add(exacerbation)
         await self.db.commit()
         await self.db.refresh(exacerbation)
+
+        # Auto-trigger risk recalculation (P1 Requirement - Sprint 4)
+        await self._recalculate_risk(data.patient_id)
 
         # Convert to response
         return self._to_response(exacerbation)
@@ -180,6 +187,9 @@ class ExacerbationService:
         await self.db.commit()
         await self.db.refresh(exacerbation)
 
+        # Auto-trigger risk recalculation (P1 Requirement - Sprint 4)
+        await self._recalculate_risk(exacerbation.patient_id)
+
         return self._to_response(exacerbation)
 
     async def delete_exacerbation(self, exacerbation_id: UUID) -> bool:
@@ -196,8 +206,14 @@ class ExacerbationService:
         if not exacerbation:
             return False
 
+        # Store patient_id before deletion (for risk recalculation)
+        patient_id = exacerbation.patient_id
+
         await self.db.delete(exacerbation)
         await self.db.commit()
+
+        # Auto-trigger risk recalculation (P1 Requirement - Sprint 4)
+        await self._recalculate_risk(patient_id)
 
         return True
 
@@ -321,3 +337,37 @@ class ExacerbationService:
             created_at=exacerbation.created_at.isoformat(),
             updated_at=exacerbation.updated_at.isoformat(),
         )
+
+    async def _recalculate_risk(self, patient_id: UUID) -> None:
+        """
+        Auto-trigger risk assessment recalculation after exacerbation changes
+
+        P1 Requirement (Sprint 4): Automatically recalculate GOLD ABE risk assessment
+        when exacerbation records are created/updated/deleted.
+
+        Args:
+            patient_id: Patient UUID to recalculate risk for
+
+        Note:
+            Errors are logged but not raised to avoid blocking exacerbation operations.
+            If risk calculation fails (e.g., missing CAT/mMRC surveys), the exacerbation
+            record is still saved successfully.
+        """
+        try:
+            risk_use_case = CalculateRiskUseCase(self.db)
+            await risk_use_case.execute(patient_id)
+            logger.info(
+                f"Risk assessment recalculated for patient {patient_id} after exacerbation change"
+            )
+        except ValueError as e:
+            # Expected error: Missing CAT/mMRC surveys (patient not yet completed questionnaires)
+            logger.warning(
+                f"Could not recalculate risk for patient {patient_id}: {e}. "
+                "Patient may need to complete CAT/mMRC surveys first."
+            )
+        except Exception as e:
+            # Unexpected error: Log for debugging but don't block exacerbation operation
+            logger.error(
+                f"Unexpected error during risk recalculation for patient {patient_id}: {e}",
+                exc_info=True,
+            )
