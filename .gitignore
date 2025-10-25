@@ -323,3 +323,4 @@ VibeCoding_Workflow_Templates/INDEX.md
 
 # Large binary files
 *.deb
+.playwright-mcp/
