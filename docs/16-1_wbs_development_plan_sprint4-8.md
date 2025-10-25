@@ -44,9 +44,9 @@
 
 ### 📊 實際進度追蹤 (Progress Tracking)
 
-**整體進度**: 17.5h / 104h (16.8% ≈ 17% 完成)
-**最後更新**: 2025-10-25 18:35
-**當前狀態**: 🟢 Phase 1.5 完成 - Taiwan Localization Test Data 生成完成
+**整體進度**: 20.5h / 104h (19.7% ≈ 20% 完成)
+**最後更新**: 2025-10-25 22:40
+**當前狀態**: 🟢 Phase 1.6 完成 - Dashboard 風險篩選功能快速驗證實作
 
 **重要決策變更**:
 - ⚠️ **ADR-013 修訂**: 採用 GOLD 2011 ABE Classification 取代原計劃的自訂風險評分公式
@@ -105,17 +105,38 @@
     - 15,642 筆每日記錄 (365 天 × 50 患者 × 85% 填寫率)
   - **驗證通過**: UUID 設計合理性確認（安全性、分散式友好、LINE 整合一致性）
   - Git commit: `feat(test-data): Taiwan localization with high-risk patient cohort` (SHA: 3fcf10d)
+- ✅ **Dashboard 風險篩選快速驗證** [3.0h] ⭐ NEW (2025-10-25 22:40)
+  - **Phase 1.6.1: Frontend Build 修復** [0.5h]
+    - 問題: @tanstack/react-query-devtools 在 production build 找不到模組
+    - 解決方案: 實作 lazy loading + 條件導入 (process.env.NODE_ENV check)
+    - 修改檔案: `frontend/dashboard/providers/QueryProvider.tsx`
+    - 結果: ✅ Build 成功，所有 7 頁面生成
+  - **Phase 1.6.2: Migration 005 執行** [1.0h]
+    - 執行完整 Migration 005（7步驟）
+    - 建立資源: 5 ENUMs, 3 tables (exacerbations, risk_assessments, alerts), trigger, view
+    - 特殊處理: patient_profiles exacerbation 欄位已存在，跳過 ALTER TABLE
+    - 驗證: 所有資料庫物件創建成功
+  - **Phase 1.6.3: 前端風險計算與顯示** [1.5h]
+    - 新建 `lib/utils/risk.ts`: 簡化風險計算工具（4個函數）
+      - calculateRiskLevel(): 基於 exacerbation history 的風險計算
+      - getRiskLevelLabel/Color/Emoji(): UI 顯示輔助函數
+    - 風險等級標準: CRITICAL (≥3 惡化 OR ≥2 住院), HIGH (≥2 惡化 OR ≥1 住院), MEDIUM (1 惡化), LOW (0 惡化)
+    - 更新 PatientTable.tsx: 新增「風險等級」欄位，顯示彩色 badges
+    - 驗證現有功能: PatientFilters 已支持風險等級篩選（無需修改）
+  - **測試環境準備**:
+    - Backend API: ✅ Running on port 8000
+    - Frontend Dev: ✅ Running on port 3000
+    - 測試帳號: therapist1@respira-ally.com / SecurePass123!
+  - **測試報告**: 文檔化於 `docs/test_reports/sprint4-dashboard-risk-filter-test.md`
+  - **技術決策**: 採用快速驗證路徑（簡化計算），延後完整 GOLD ABE 引擎實作
+  - Git commit: 待提交（包含測試報告 + WBS/CHANGELOG 更新）
 
 **下一步任務** (待執行):
-- ⏳ **Migration 005 執行** [即將完成]
-  - 新增 patient_profiles 3個欄位: exacerbation_count_last_12m, hospitalization_count_last_12m, last_exacerbation_date
-  - 應用於 production 和 development schemas
-  - 驗證 PatientProfileModel 與資料庫完全同步
-  - 測試 generate_test_data.py 完整執行
-- ⏳ Exacerbation Management API [12h] (CRUD endpoints) - 需先完成 exacerbations 表格建立
+- ⏳ **Dashboard 手動 UI 測試** [0.5h] - 使用測試帳號驗證風險篩選功能
+- ⏳ **完整 GOLD ABE 引擎規劃** [2h] - 研究 GOLD 2011 標準，設計完整實作方案
+- ⏳ **Exacerbation Management API** [12h] - CRUD endpoints，需 exacerbations 表格
 - ⏳ Unit Tests for GOLD Classification Engine [P2 - non-blocking]
 - ⏳ RBAC System Testing with SUPERVISOR user
-- ⏳ 完整 Sprint 4 Migration (exacerbations, risk_assessments, alerts 表格) - 留待後續完整開發
 
 **技術債務**: 無
 

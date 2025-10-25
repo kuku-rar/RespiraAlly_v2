@@ -8,6 +8,121 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### 待完成 (Pending)
+- Dashboard 手動 UI 測試（風險篩選功能驗證）
+- 完整 GOLD ABE 分類引擎實作
+
+---
+
+## [2.0.0-sprint4.1.6] - 2025-10-25
+
+### ✅ 新增 (Added)
+- **風險計算工具模組** (`frontend/dashboard/lib/utils/risk.ts`, 88 lines)
+  - `calculateRiskLevel()`: 基於 exacerbation history 的簡化風險計算
+  - `getRiskLevelLabel()`: 中文風險等級標籤 (低風險/中風險/高風險/緊急)
+  - `getRiskLevelColor()`: Tailwind CSS 樣式類別（綠/黃/橙/紅色系）
+  - `getRiskLevelEmoji()`: Emoji 指示器 (✅/⚠️/🔶/🚨)
+- **測試報告文檔** (`docs/test_reports/sprint4-dashboard-risk-filter-test.md`)
+  - 完整測試計劃與測試案例定義
+  - 實作檢核清單與技術總結
+  - 預期測試結果與手動測試指引
+
+### 🎯 功能 (Features)
+- **Dashboard 風險等級顯示**:
+  - PatientTable 新增「風險等級」欄位
+  - 彩色 badge 顯示 (emoji + 標籤 + 邊框)
+  - 風險等級自動計算（基於 exacerbation_count 和 hospitalization_count）
+- **風險等級標準** (快速驗證版):
+  - CRITICAL (緊急): ≥3 次急性惡化 OR ≥2 次住院
+  - HIGH (高風險): ≥2 次急性惡化 OR ≥1 次住院
+  - MEDIUM (中風險): 1 次急性惡化
+  - LOW (低風險): 0 次急性惡化
+- **既有篩選功能驗證**:
+  - PatientFilters 已支持風險等級篩選（下拉選單）
+  - 排序功能包含「風險等級（高→低）」選項
+  - 篩選條件變更時自動重置到第一頁
+
+### 🔧 修復 (Fixed)
+- **Frontend Build 錯誤修復** (`frontend/dashboard/providers/QueryProvider.tsx`)
+  - 問題: `@tanstack/react-query-devtools` 在 production build 找不到模組
+  - 根本原因: devtools 套件在 devDependencies，但直接導入導致 production bundling 失敗
+  - 解決方案: 實作 lazy loading + 條件導入 (process.env.NODE_ENV === 'development')
+  - 結果: ✅ Build 成功，所有 7 頁面生成
+
+### 🗄️ 資料庫 (Database)
+- **Migration 005 完整執行** (7 個步驟完成)
+  - **Step 1-2**: 建立 5 個 ENUM 類型 + index
+    - `gold_group_enum`: GOLD ABE 分組 (A, B, E)
+    - `exacerbation_severity_enum`: 急性惡化嚴重程度
+    - `alert_type_enum`, `alert_severity_enum`, `alert_status_enum`: 預警系統
+  - **Step 3**: 建立 `exacerbations` 資料表（急性惡化事件記錄）
+  - **Step 4-5**: 建立 `risk_assessments` 和 `alerts` 資料表
+  - **Step 6**: 建立 trigger function `update_patient_exacerbation_summary()`
+  - **Step 7**: 建立 view `patient_risk_summary`（風險摘要視圖）
+  - **特殊處理**: patient_profiles 的 exacerbation 欄位已存在，跳過 ALTER TABLE 步驟
+
+### 🔄 變更 (Changed)
+- **PatientTable 組件更新** (`frontend/dashboard/components/patients/PatientTable.tsx`)
+  - 新增風險等級欄位（第 2 欄）
+  - 表格 colspan 從 8 更新為 9
+  - 導入風險計算工具函數
+- **PatientResponse 介面擴展** (`frontend/dashboard/lib/types/patient.ts`)
+  - 新增欄位: `exacerbation_count_last_12m?: number`
+  - 新增欄位: `hospitalization_count_last_12m?: number`
+  - 新增欄位: `last_exacerbation_date?: string`
+
+### 📚 文件 (Documentation)
+- **WBS 更新**: `docs/16-1_wbs_development_plan_sprint4-8.md` v1.1
+  - Sprint 4 進度更新: 17.5h → 20.5h (19.7% ≈ 20% 完成)
+  - Phase 1.6 完成: Dashboard 風險篩選快速驗證實作
+  - 新增任務記錄: Frontend Build 修復 + Migration 005 + 風險計算實作
+- **測試報告**: `docs/test_reports/sprint4-dashboard-risk-filter-test.md`
+  - 完整測試環境準備記錄
+  - 5 個測試案例定義（顯示/篩選/排序/重置）
+  - 預期結果與驗證清單
+
+### 🧪 測試 (Testing)
+- **測試環境準備完成**:
+  - Backend API: ✅ Running on port 8000 (uvicorn)
+  - Frontend Dev: ✅ Running on port 3000 (Next.js dev server)
+  - 測試帳號: therapist1@respira-ally.com / SecurePass123!
+  - 測試資料: 50 位患者 (5 高風險 + 45 一般風險)
+- **實作驗證 Checklist**:
+  - ✅ Frontend 構建錯誤修復
+  - ✅ Migration 005 執行成功
+  - ✅ 風險計算工具函數實作
+  - ✅ PatientTable 顯示風險等級 badge
+  - ✅ PatientFilters 支持風險等級篩選
+  - ✅ 患者頁面整合所有組件
+  - ✅ Backend API 運行正常
+  - ✅ Frontend Dev Server 運行正常
+  - ⏳ 手動 UI 測試 (待執行)
+
+### ⚙️ 技術決策 (Technical Decisions)
+- **快速驗證路徑**:
+  - 採用簡化風險計算（基於 exacerbation history）
+  - 延後完整 GOLD ABE 引擎實作至後續 Sprint
+  - 理由: 快速驗證 Dashboard 篩選功能，避免過度工程
+- **向後兼容策略**:
+  - 保留 exacerbation 相關欄位於 patient_profiles
+  - 同時建立 risk_assessments 表格供未來完整實作
+  - 支持 Hybrid 策略（簡化計算 + GOLD ABE）
+
+### 📊 工時統計
+- **Phase 1.6.1**: Frontend Build 修復 [0.5h]
+- **Phase 1.6.2**: Migration 005 執行 [1.0h]
+- **Phase 1.6.3**: 前端風險計算與顯示 [1.5h]
+- **總計**: 3.0h
+
+### ⚠️ 已知限制 (Known Limitations)
+- **簡化風險計算**: 當前僅基於 exacerbation history，未整合 CAT/mMRC/FEV1
+- **測試覆蓋率**: 0% (快速驗證路徑，未建立單元測試)
+- **手動 UI 測試待執行**: 需使用者驗證實際篩選功能
+
+---
+
+## [2.0.0-sprint2.2] - 2025-10-20
+
+### 待完成 (Pending)
 - MinIO 檔案上傳服務完整實作 (backend/src/respira_ally/infrastructure/storage/)
 - 個案管理 API 完整實作 (Patient Repository, Application Service)
 - 日誌服務 API (Sprint 2 Week 2)

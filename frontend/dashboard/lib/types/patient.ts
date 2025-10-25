@@ -59,6 +59,11 @@ export interface PatientResponse extends PatientBase {
   // Contact info
   phone?: string
 
+  // Exacerbation history (Sprint 4 - Risk Assessment)
+  exacerbation_count_last_12m?: number
+  hospitalization_count_last_12m?: number
+  last_exacerbation_date?: string // YYYY-MM-DD
+
   // Computed fields
   bmi?: number
   age?: number

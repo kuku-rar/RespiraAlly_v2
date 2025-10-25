@@ -4,6 +4,7 @@
  */
 
 import type { PatientResponse } from '@/lib/types/patient'
+import { calculateRiskLevel, getRiskLevelLabel, getRiskLevelColor, getRiskLevelEmoji } from '@/lib/utils/risk'
 
 interface PatientTableProps {
   patients: PatientResponse[]
@@ -32,6 +33,9 @@ export default function PatientTable({ patients, isLoading = false, onPatientCli
                 姓名
               </th>
               <th className="px-6 py-4 text-left text-lg font-semibold text-gray-900">
+                風險等級
+              </th>
+              <th className="px-6 py-4 text-left text-lg font-semibold text-gray-900">
                 性別
               </th>
               <th className="px-6 py-4 text-left text-lg font-semibold text-gray-900">
@@ -57,7 +61,7 @@ export default function PatientTable({ patients, isLoading = false, onPatientCli
           <tbody className="bg-white divide-y divide-gray-200">
             {patients.length === 0 ? (
               <tr>
-                <td colSpan={8} className="px-6 py-12 text-center">
+                <td colSpan={9} className="px-6 py-12 text-center">
                   <div className="text-6xl mb-4">📋</div>
                   <div className="text-xl text-gray-500 font-medium mb-2">
                     目前沒有病患資料
@@ -68,24 +72,35 @@ export default function PatientTable({ patients, isLoading = false, onPatientCli
                 </td>
               </tr>
             ) : (
-              patients.map((patient) => (
-                <tr
-                  key={patient.user_id}
-                  onClick={() => onPatientClick(patient.user_id)}
-                  className="hover:bg-blue-50 cursor-pointer transition-colors"
-                >
-                  <td className="px-6 py-4">
-                    <div className="flex items-center">
-                      <div className="text-lg font-medium text-gray-900">
-                        {patient.name}
+              patients.map((patient) => {
+                const riskLevel = calculateRiskLevel({
+                  exacerbation_count_last_12m: patient.exacerbation_count_last_12m,
+                  hospitalization_count_last_12m: patient.hospitalization_count_last_12m,
+                })
+
+                return (
+                  <tr
+                    key={patient.user_id}
+                    onClick={() => onPatientClick(patient.user_id)}
+                    className="hover:bg-blue-50 cursor-pointer transition-colors"
+                  >
+                    <td className="px-6 py-4">
+                      <div className="flex items-center">
+                        <div className="text-lg font-medium text-gray-900">
+                          {patient.name}
+                        </div>
                       </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="text-lg text-gray-700">
-                      {patient.gender === 'MALE' ? '♂️ 男' : patient.gender === 'FEMALE' ? '♀️ 女' : '⚧️ 其他'}
-                    </div>
-                  </td>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-base font-medium border-2 ${getRiskLevelColor(riskLevel)}`}>
+                        {getRiskLevelEmoji(riskLevel)} {getRiskLevelLabel(riskLevel)}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="text-lg text-gray-700">
+                        {patient.gender === 'MALE' ? '♂️ 男' : patient.gender === 'FEMALE' ? '♀️ 女' : '⚧️ 其他'}
+                      </div>
+                    </td>
                   <td className="px-6 py-4">
                     <div className="text-lg text-gray-700">
                       {patient.age ? `${patient.age} 歲` : '-'}
@@ -129,7 +144,8 @@ export default function PatientTable({ patients, isLoading = false, onPatientCli
                     </button>
                   </td>
                 </tr>
-              ))
+                )
+              })
             )}
           </tbody>
         </table>
