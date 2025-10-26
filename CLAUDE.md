@@ -303,13 +303,17 @@ Claude：🔴 偵測意圖 → security-infrastructure-auditor
 ```markdown
 修改多個相關檔案時（例如重構 Model → Entity），必須：
 
-✅ 使用 Grep 工具搜尋所有使用點
+✅ 使用 Grep 工具（Claude Code 工具，非 bash grep）搜尋所有使用點
 ✅ 列出需要修改的檔案清單（3 個以上檔案時）
 ❌ 禁止「改一個測一個」的逐步試錯
+❌ 禁止使用 bash grep 指令
 
-範例：
-Grep(pattern="PatientProfileModel", path="src/", output_mode="files_with_matches")
-Grep(pattern="\.values\[", path="src/", output_mode="content")
+範例（正確）：
+Grep(pattern="PatientProfileModel", path="src/", output_mode="files_with_matches")  # ✅
+Grep(pattern="\.values\[", path="src/", output_mode="content")  # ✅
+
+範例（錯誤）：
+bash -c "grep -r PatientProfileModel src/"  # ❌ 違反規則
 ```
 
 **2️⃣ 批次修復，一次測試**
