@@ -464,7 +464,7 @@ class DailyLogService:
             updated_fields=list(update_data.keys()),
         )
 
-        return self.to_response(updated_log)
+        return self._to_response(updated_log)
 
     # ========================================================================
     # Delete Operations
