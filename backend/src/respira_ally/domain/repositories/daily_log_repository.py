@@ -5,13 +5,16 @@ Domain Layer - Clean Architecture
 This is the abstract repository interface that defines the contract
 for daily log data operations. The actual implementation is in the
 Infrastructure Layer.
+
+REFACTORED: Now uses pure Domain Entity (DailyLog) instead of ORM Model.
+This is Clean Architecture done right - Domain layer has ZERO infrastructure dependencies.
 """
 
 from abc import ABC, abstractmethod
 from datetime import date
 from uuid import UUID
 
-from respira_ally.infrastructure.database.models.daily_log import DailyLogModel
+from respira_ally.domain.entities.daily_log import DailyLog
 
 
 class DailyLogRepository(ABC):
@@ -21,26 +24,32 @@ class DailyLogRepository(ABC):
     This interface defines all data operations for DailyLog entities.
     Following the Dependency Inversion Principle, the Domain Layer
     defines the interface, and the Infrastructure Layer implements it.
+
+    IMPORTANT: This interface uses DailyLog (Domain Entity), NOT DailyLogModel (ORM).
+    The Infrastructure layer is responsible for converting between Entity and Model.
+
+    "Good taste" - Linus Torvalds
+    Clean separation of concerns. Domain knows nothing about databases.
     """
 
     @abstractmethod
-    async def create(self, daily_log: DailyLogModel) -> DailyLogModel:
+    async def create(self, daily_log: DailyLog) -> DailyLog:
         """
         Create a new daily log record
 
         Args:
-            daily_log: DailyLogModel instance to persist
+            daily_log: DailyLog entity to persist
 
         Returns:
-            DailyLogModel: The created daily log with database-generated fields
+            DailyLog: The created daily log entity
 
         Raises:
-            IntegrityError: If log for same patient and date already exists
+            ValueError: If log for same patient and date already exists
         """
         pass
 
     @abstractmethod
-    async def get_by_id(self, log_id: UUID) -> DailyLogModel | None:
+    async def get_by_id(self, log_id: UUID) -> DailyLog | None:
         """
         Retrieve daily log by log ID
 
@@ -48,14 +57,14 @@ class DailyLogRepository(ABC):
             log_id: Daily log ID (primary key)
 
         Returns:
-            DailyLogModel if found, None otherwise
+            DailyLog entity if found, None otherwise
         """
         pass
 
     @abstractmethod
     async def get_by_patient_and_date(
         self, patient_id: UUID, log_date: date
-    ) -> DailyLogModel | None:
+    ) -> DailyLog | None:
         """
         Retrieve daily log for specific patient and date
 
@@ -64,7 +73,7 @@ class DailyLogRepository(ABC):
             log_date: Log date
 
         Returns:
-            DailyLogModel if found, None otherwise
+            DailyLog entity if found, None otherwise
         """
         pass
 
@@ -76,7 +85,7 @@ class DailyLogRepository(ABC):
         end_date: date | None = None,
         skip: int = 0,
         limit: int = 30,
-    ) -> tuple[list[DailyLogModel], int]:
+    ) -> tuple[list[DailyLog], int]:
         """
         List daily logs for a specific patient
 
@@ -99,7 +108,7 @@ class DailyLogRepository(ABC):
         end_date: date,
         skip: int = 0,
         limit: int = 100,
-    ) -> tuple[list[DailyLogModel], int]:
+    ) -> tuple[list[DailyLog], int]:
         """
         List all daily logs within a date range (for therapist overview)
 
@@ -119,7 +128,7 @@ class DailyLogRepository(ABC):
         self,
         log_id: UUID,
         update_data: dict,
-    ) -> DailyLogModel | None:
+    ) -> DailyLog | None:
         """
         Update daily log information
 
@@ -128,7 +137,7 @@ class DailyLogRepository(ABC):
             update_data: Dictionary of fields to update
 
         Returns:
-            Updated DailyLogModel if found, None otherwise
+            Updated DailyLog entity if found, None otherwise
 
         Note:
             Only fields present in update_data will be modified
@@ -199,7 +208,7 @@ class DailyLogRepository(ABC):
         pass
 
     @abstractmethod
-    async def get_latest_log(self, patient_id: UUID) -> DailyLogModel | None:
+    async def get_latest_log(self, patient_id: UUID) -> DailyLog | None:
         """
         Get the most recent log for a patient
 
