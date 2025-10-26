@@ -1,115 +1,72 @@
 """
-Calculate Risk Use Case - GOLD ABE Classification Engine
-Sprint 4: Risk Engine - Core business logic for COPD risk assessment
+Calculate Risk Use Case - Orchestrate COPD Risk Assessment
+Sprint 4: Risk Engine - Application layer orchestration
+
+This Use Case is responsible for:
+1. Gathering data from infrastructure (database queries)
+2. Delegating business logic to Domain Service (RiskAssessmentService)
+3. Persisting results to database
+4. Triggering side effects (alert creation)
+
+Following Clean Architecture:
+- Application Layer: Orchestration and coordination
+- Domain Layer: Business logic and rules (RiskAssessmentService)
+- Infrastructure Layer: Database access
 
 Sprint 4 P1: Auto-trigger Alert creation after risk assessment
 """
 
 import logging
 from datetime import datetime
-from typing import Literal
 from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from respira_ally.domain.services.risk_assessment_service import (
+    RiskAssessmentInput,
+    RiskAssessmentService,
+)
 from respira_ally.infrastructure.database.models.patient_profile import PatientProfileModel
 from respira_ally.infrastructure.database.models.risk_assessment import RiskAssessmentModel
 from respira_ally.infrastructure.database.models.survey_response import SurveyResponseModel
 
 logger = logging.getLogger(__name__)
 
-# Type aliases
-GoldGroup = Literal["A", "B", "E"]
-RiskLevel = Literal["low", "medium", "high", "critical"]
-
-
-class GoldAbeClassificationEngine:
-    """
-    GOLD 2011 ABE Classification Engine
-
-    Classification Logic:
-    - Group A (Low Risk): CAT<10 AND mMRC<2
-    - Group B (Medium Risk): CAT>=10 OR mMRC>=2 (but not both)
-    - Group E (High Risk): CAT>=10 AND mMRC>=2
-
-    Hybrid Strategy Mapping (Backward Compatibility):
-    - A -> risk_score: 25, risk_level: 'low'
-    - B -> risk_score: 50, risk_level: 'medium'
-    - E -> risk_score: 75, risk_level: 'high'
-
-    ADR References: ADR-013 v2.0 (GOLD ABE), ADR-014 (Hybrid Strategy)
-    """
-
-    @staticmethod
-    def classify_gold_group(cat_score: int, mmrc_grade: int) -> GoldGroup:
-        """
-        Classify patient into GOLD ABE group based on CAT and mMRC scores
-
-        Args:
-            cat_score: CAT (COPD Assessment Test) score (0-40)
-            mmrc_grade: mMRC (Modified Medical Research Council) grade (0-4)
-
-        Returns:
-            GOLD ABE group: 'A', 'B', or 'E'
-
-        Raises:
-            ValueError: If scores are out of valid range
-        """
-        # Input validation
-        if not (0 <= cat_score <= 40):
-            raise ValueError(f"CAT score must be 0-40, got {cat_score}")
-        if not (0 <= mmrc_grade <= 4):
-            raise ValueError(f"mMRC grade must be 0-4, got {mmrc_grade}")
-
-        # GOLD ABE Classification Logic
-        high_symptoms_cat = cat_score >= 10
-        high_symptoms_mmrc = mmrc_grade >= 2
-
-        if high_symptoms_cat and high_symptoms_mmrc:
-            return "E"  # High risk: Both CAT>=10 AND mMRC>=2
-        elif high_symptoms_cat or high_symptoms_mmrc:
-            return "B"  # Medium risk: Either CAT>=10 OR mMRC>=2
-        else:
-            return "A"  # Low risk: CAT<10 AND mMRC<2
-
-    @staticmethod
-    def map_to_legacy_risk(gold_group: GoldGroup) -> tuple[int, RiskLevel]:
-        """
-        Map GOLD ABE group to legacy risk_score and risk_level
-
-        Hybrid Strategy for backward compatibility (ADR-014)
-
-        Args:
-            gold_group: GOLD ABE group ('A', 'B', or 'E')
-
-        Returns:
-            Tuple of (risk_score, risk_level)
-        """
-        mapping = {
-            "A": (25, "low"),
-            "B": (50, "medium"),
-            "E": (75, "high"),
-        }
-        return mapping[gold_group]
-
 
 class CalculateRiskUseCase:
     """
-    Calculate Risk Use Case - Perform GOLD ABE risk assessment for a patient
+    Calculate Risk Use Case - Orchestrate COPD risk assessment
+
+    Refactored Architecture (DDD):
+    - Application Layer (this class): Data gathering + orchestration
+    - Domain Layer (RiskAssessmentService): Pure business logic
 
     Workflow:
-    1. Retrieve latest CAT and mMRC survey scores
-    2. Retrieve exacerbation history from patient profile
-    3. Classify into GOLD ABE group
-    4. Map to legacy risk score/level (backward compatibility)
-    5. Save risk assessment record
+    1. Retrieve latest CAT and mMRC survey scores (Infrastructure)
+    2. Retrieve exacerbation history from patient profile (Infrastructure)
+    3. Delegate risk calculation to Domain Service (Domain)
+    4. Persist risk assessment record (Infrastructure)
+    5. Trigger alert creation (Side effect)
     6. Return assessment result
+
+    Design Note (Linus):
+        "Bad programmers worry about the code. Good programmers worry about
+        data structures and their relationships."
+
+        This Use Case is now THIN - it just gathers data, delegates to
+        domain service, and saves results. No business logic here.
     """
 
     def __init__(self, db_session: AsyncSession):
+        """
+        Initialize Use Case with dependencies
+
+        Args:
+            db_session: Database session for data access
+        """
         self.db = db_session
-        self.classifier = GoldAbeClassificationEngine()
+        self.risk_service = RiskAssessmentService()
 
     async def execute(self, patient_id: UUID) -> RiskAssessmentModel:
         """
@@ -172,22 +129,28 @@ class CalculateRiskUseCase:
         exacerbation_count_12m = patient.exacerbation_count_last_12m
         hospitalization_count_12m = patient.hospitalization_count_last_12m
 
-        # Step 5: Classify GOLD ABE group
-        gold_group = self.classifier.classify_gold_group(cat_score, mmrc_grade)
+        # Step 5: Delegate risk calculation to Domain Service
+        # This is where Clean Architecture shines - business logic is separate from orchestration
+        input_data = RiskAssessmentInput(
+            cat_score=cat_score,
+            mmrc_grade=mmrc_grade,
+            exacerbation_count_12m=exacerbation_count_12m,
+            hospitalization_count_12m=hospitalization_count_12m,
+        )
 
-        # Step 6: Map to legacy risk score/level (Hybrid Strategy)
-        risk_score, risk_level = self.classifier.map_to_legacy_risk(gold_group)
+        risk_result = self.risk_service.calculate_risk(input_data)
 
-        # Step 7: Create risk assessment record
+        # Step 6: Create risk assessment record (persistence)
+        # Map Domain Service result to database model
         assessment = RiskAssessmentModel(
             patient_id=patient_id,
             cat_score=cat_score,
             mmrc_grade=mmrc_grade,
             exacerbation_count_12m=exacerbation_count_12m,
             hospitalization_count_12m=hospitalization_count_12m,
-            gold_group=gold_group,
-            risk_score=risk_score,
-            risk_level=risk_level,
+            gold_group=risk_result.gold_group,
+            risk_score=risk_result.risk_score,
+            risk_level=risk_result.risk_level,
             assessed_at=datetime.utcnow(),
         )
 
