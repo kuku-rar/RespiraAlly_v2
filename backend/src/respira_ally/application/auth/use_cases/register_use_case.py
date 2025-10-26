@@ -15,9 +15,9 @@ from respira_ally.core.schemas.auth import (
     UserRole,
 )
 from respira_ally.core.security.jwt import create_access_token, create_refresh_token
+from respira_ally.domain.entities.patient import Patient
 from respira_ally.domain.repositories.patient_repository import PatientRepository
 from respira_ally.domain.repositories.user_repository import UserRepository
-from respira_ally.infrastructure.database.models.patient_profile import PatientProfileModel
 
 from .login_use_case import hash_password
 
@@ -136,11 +136,10 @@ class PatientRegisterUseCase:
     """
 
     def __init__(
-        self, user_repository: UserRepository, patient_repository: PatientRepository, db
+        self, user_repository: UserRepository, patient_repository: PatientRepository
     ):
         self.user_repository = user_repository
         self.patient_repository = patient_repository
-        self.db = db
 
     async def execute(self, request: PatientRegisterRequest) -> LoginResponse:
         """
@@ -194,14 +193,14 @@ class PatientRegisterUseCase:
         if request.emergency_contact_phone:
             contact_info["emergency_phone"] = request.emergency_contact_phone
 
-        # Create UserModel (only flush, don't commit yet)
+        # Create UserModel
         user = await self.user_repository.create_patient(
             line_user_id=request.line_user_id,
             display_name=request.line_display_name,
         )
 
-        # Create PatientProfileModel
-        patient_profile = PatientProfileModel(
+        # Create Patient domain entity
+        patient = Patient(
             user_id=user.user_id,
             therapist_id=None,  # Can be assigned later by admin/therapist
             name=request.full_name,
@@ -216,14 +215,8 @@ class PatientRegisterUseCase:
             contact_info=contact_info,
         )
 
-        # Add and flush PatientProfileModel (don't commit yet)
-        self.db.add(patient_profile)
-        await self.db.flush()
-
-        # Commit transaction (both UserModel and PatientProfileModel)
-        await self.db.commit()
-        await self.db.refresh(user)
-        await self.db.refresh(patient_profile)
+        # Persist patient profile using repository
+        patient_profile = await self.patient_repository.create(patient)
 
         # Generate tokens
         token_payload = {"sub": str(user.user_id), "role": UserRole.PATIENT.value}

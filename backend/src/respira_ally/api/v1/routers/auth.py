@@ -97,10 +97,9 @@ def get_therapist_register_use_case(
 def get_patient_register_use_case(
     user_repository: Annotated[UserRepositoryImpl, Depends(get_user_repository)],
     patient_repository: Annotated[PatientRepositoryImpl, Depends(get_patient_repository)],
-    db: Annotated[AsyncSession, Depends(get_db)],
 ) -> PatientRegisterUseCase:
     """Dependency to inject PatientRegisterUseCase"""
-    return PatientRegisterUseCase(user_repository, patient_repository, db)
+    return PatientRegisterUseCase(user_repository, patient_repository)
 
 
 def get_logout_use_case() -> LogoutUseCase:

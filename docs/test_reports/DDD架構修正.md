@@ -1,8 +1,3 @@
-✅ 任務完成總結
-
-  我已經成功完成了所有任務，包括 P0 效能修正 和 DDD Phase 1 重構。以下是詳細的工作成果：
-
-  ---
   📊 第一階段：P0 效能問題修正 (已提交)
 
   問題診斷：
@@ -94,6 +89,61 @@
   | 10,000 筆記憶體計算    | SQL 聚合查詢            | 效能提升 100 倍   |
   | 缺乏資料驗證           | Immutable dataclass | 提升資料完整性      |
   | 難以測試             | 純函數設計               | 無需 mock，易於測試 |
+
+  ---
+    <!--   1. 架構是個謊言 (Your Architecture is a Lie)
+       * 問題描述: 你們的文件 (05_architecture_and_design.md) 吹噓這是一個「模組化單體」(Modular 
+         Monolith)，每個界限上下文（auth, patient, 
+         risk）都是獨立模組。但你們的程式碼結構根本不是這麼回事。所有的東西都混在 api, application, domain 
+         這些資料夾裡。這不是模組化，這只是一個傳統的分層單體，而且是個很爛的分層。你們只是在圖上畫了幾個框，就假裝自己
+         有模組了？這是在自欺欺人。
+       * 修改指令: 重寫你的目錄結構。嚴格按照你們自己文件裡 4.1.5 模組目錄結構 的規劃，把每個界限上下文放到獨立的 Python        
+          package 裡。例如，所有跟 risk 相關的程式碼，都應該在 modules/risk/ 底下，而不是散落在 application/risk, 
+         domain/entities/risk_score.py 這種地方。
+
+   2. 依賴反轉？根本是依賴災難 (Dependency Inversion? More like Dependency Disaster)
+       * 問題描述: 你們的「Clean 
+         Architecture」完全是個笑話。最高原則是「高層模組不應依賴低層模組」，但你們的程式碼完全反其道而行。
+           - application/risk/use_cases/calculate_risk_use_case.py 竟然直接 import SQLAlchemy 的 PatientProfileModel 和         
+             SurveyResponseModel 來做資料庫查詢。
+           - domain/repositories/daily_log_repository.py 這個所謂的「接口」，竟然是用 DailyLogModel (一個 ORM 模型) 
+             來定義。
+           - api/v1/routers/alert.py 直接依賴 AsyncSession 來操作資料庫。
+          這代表你們最核心的領域層和應用層，完全被基礎設施層（SQLAlchemy）污染了。這不是 Clean 
+  Architecture，這是「義大利麵式架構」。
+       * 修改指令:
+           1. 在 Domain 層定義真正的 Entity。例如，在 domain/entities/ 裡建立一個純 Python 的 DailyLog 
+              類別，它不應該知道任何關於 SQLAlchemy 的事。
+           2. 重寫 Repository 接口。IDailyLogRepository 的方法簽名應該使用 DailyLog 這個 Domain Entity，而不是 
+              DailyLogModel。
+           3. 把資料庫邏輯關在籠子裡。Infrastructure 層的 DailyLogRepositoryImpl 唯一的工作，就是實現接口，並在內部處理
+               DailyLog (Entity) 和 DailyLogModel (ORM Model) 之間的轉換。這個轉換邏輯不准洩漏到 Application 或 Domain 
+              層。
+           4. 讓 Use Case 保持乾淨。CalculateRiskUseCase 應該只跟 IRiskRepository、ISurveyRepository 等接口互動，它一個
+               import sqlalchemy 都不該有。
+
+   3. 領域服務與應用服務的職責混亂 (Anemic Services)
+       * 問題描述: 你們的 application/daily_log/daily_log_service.py 根本是個大雜燴。它裡面有 to_response 這種屬於 
+         Presentation 層的東西，還有一大堆直接操作資料庫的統計計算邏輯。Application Service 
+         的工作是「編排」，是調度員，不是下去自己搬磚的工人。
+       * 修改指令:
+           - 把 get_patient_statistics 裡那些複雜的 SQL 聚合邏輯，完全封裝到 DailyLogRepositoryImpl 裡面。Service 
+             層應該只呼叫 repo.get_statistics()，然後得到一個乾淨的 DTO，而不是自己在那邊算 adherence_rate。
+           - CalculateRiskUseCase 裡面直接呼叫 AlertService 是個壞味道。這叫緊耦合。正確的做法是發布一個 
+             RiskAssessmentCreated 事件，讓 Alert 模組去訂閱這個事件並做出反應。
+
+  次要問題 (Minor Issues / Nitpicks)
+
+   * `alert.py`: API Router 不應該自己做權限檢查和資料庫查詢。它應該呼叫 alert_service.get_alert_for_user(user, 
+     alert_id)，讓 Application Service 去處理這些邏d輯。Router 越笨越好。
+   * `risk_assessment_service.py` 和 `alert_rule_engine.py`: 這兩個檔案是你們專案裡少數有「品味」的地方。它們是純粹的 
+     Domain Service，沒有任何外部依賴，邏輯清晰，值得肯定。但它們不應該使用 RiskAssessmentModel 
+     這種基礎設施的類別，應該使用你們自己定義的 Domain Entity。
+
+  最後通牒 (Final Words)
+
+  你們寫了一份漂亮的作文，描述了 DDD 和 Clean Architecture 的美好世界，然後交上來的程式碼卻是另一回事。這證明了「Talk 
+  is cheap. Show me the code.」 -->
 
   ---
   🏗️ **第三階段：Clean Architecture 完整重構 - daily_log 模組** (已驗證 2025-10-26)
@@ -359,7 +409,7 @@
 
   ## 🎯 我的建議（Linus 式實用主義）
 
-  **推薦 Option B: 分階段漸進重構**
+  **推薦分階段漸進重構**
 
   **理由**:
   1. **"Perfect is the enemy of good"** - daily_log 已經是好的開始
@@ -372,15 +422,3 @@
   - **驗證**: 每個模組重構後立即跑 API 測試
   - **提交**: 每個模組獨立提交（Git checkpoint）
   - **下週**: 評估進度，決定是否繼續 `alert`
-
-  ---
-
-  ## 🤔 等待您的決策
-
-  **請選擇**:
-  - [ ] **Option A** - 立即全面重構（我準備好開始 `patient` 模組）
-  - [ ] **Option B** - 分階段重構（本週先做 `patient` + `user`）
-  - [ ] **Option C** - 先修復 minor issues（完善 daily_log）
-  - [ ] **其他** - 您的自訂指示
-
-  **Talk is cheap. Show me the code.** 我已經準備好執行您的命令。
