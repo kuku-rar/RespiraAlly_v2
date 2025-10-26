@@ -29,21 +29,34 @@ from respira_ally.core.schemas.exacerbation import (
     ExacerbationStats,
     ExacerbationUpdate,
 )
+from respira_ally.domain.repositories.patient_repository import PatientRepository
 from respira_ally.infrastructure.database.models.exacerbation import ExacerbationModel
-from respira_ally.infrastructure.database.models.patient_profile import PatientProfileModel
 from respira_ally.infrastructure.database.session import get_db
+from respira_ally.infrastructure.repository_impls.patient_repository_impl import (
+    PatientRepositoryImpl,
+)
 
 router = APIRouter()
 
 
 # ============================================================================
-# Dependency: Exacerbation Service
+# Dependency Injection Functions
 # ============================================================================
 
 
-def get_exacerbation_service(db: Annotated[AsyncSession, Depends(get_db)]) -> ExacerbationService:
+def get_patient_repository(
+    db: Annotated[AsyncSession, Depends(get_db)]
+) -> PatientRepositoryImpl:
+    """Dependency to inject PatientRepository implementation"""
+    return PatientRepositoryImpl(db)
+
+
+def get_exacerbation_service(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    patient_repository: Annotated[PatientRepository, Depends(get_patient_repository)],
+) -> ExacerbationService:
     """Dependency: Get ExacerbationService instance"""
-    return ExacerbationService(db)
+    return ExacerbationService(db, patient_repository)
 
 
 # ============================================================================
@@ -54,8 +67,8 @@ def get_exacerbation_service(db: Annotated[AsyncSession, Depends(get_db)]) -> Ex
 @router.post("/", response_model=ExacerbationResponse, status_code=status.HTTP_201_CREATED)
 async def create_exacerbation(
     data: ExacerbationCreate,
-    db: Annotated[AsyncSession, Depends(get_db)],
     exacerbation_service: Annotated[ExacerbationService, Depends(get_exacerbation_service)],
+    patient_repository: Annotated[PatientRepository, Depends(get_patient_repository)],
     current_user: Annotated[TokenData, Depends(get_current_therapist)],
 ):
     """
@@ -75,7 +88,7 @@ async def create_exacerbation(
     - 404: Patient not found
     """
     # Verify patient exists and therapist has permission
-    patient = await db.get(PatientProfileModel, data.patient_id)
+    patient = await patient_repository.get_by_id(data.patient_id)
     if not patient:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Patient not found")
 
@@ -102,8 +115,8 @@ async def create_exacerbation(
 @router.get("/{exacerbation_id}", response_model=ExacerbationResponse)
 async def get_exacerbation(
     exacerbation_id: UUID,
-    db: Annotated[AsyncSession, Depends(get_db)],
     exacerbation_service: Annotated[ExacerbationService, Depends(get_exacerbation_service)],
+    patient_repository: Annotated[PatientRepository, Depends(get_patient_repository)],
     current_user: Annotated[TokenData, Depends(get_current_user)],
 ):
     """
@@ -126,7 +139,7 @@ async def get_exacerbation(
         )
 
     # Verify patient exists for permission check
-    patient = await db.get(PatientProfileModel, exacerbation_response.patient_id)
+    patient = await patient_repository.get_by_id(exacerbation_response.patient_id)
     if not patient:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Patient not found")
 
@@ -145,8 +158,8 @@ async def get_exacerbation(
 @router.get("/patients/{patient_id}/", response_model=ExacerbationListResponse)
 async def list_patient_exacerbations(
     patient_id: UUID,
-    db: Annotated[AsyncSession, Depends(get_db)],
     exacerbation_service: Annotated[ExacerbationService, Depends(get_exacerbation_service)],
+    patient_repository: Annotated[PatientRepository, Depends(get_patient_repository)],
     current_user: Annotated[TokenData, Depends(get_current_user)],
     # Pagination
     page: int = Query(0, ge=0, description="Page number (0-indexed)"),
@@ -181,7 +194,7 @@ async def list_patient_exacerbations(
     - 404: Patient not found
     """
     # Verify patient exists
-    patient = await db.get(PatientProfileModel, patient_id)
+    patient = await patient_repository.get_by_id(patient_id)
     if not patient:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Patient not found")
 
@@ -208,8 +221,8 @@ async def list_patient_exacerbations(
 @router.get("/patients/{patient_id}/stats", response_model=ExacerbationStats)
 async def get_exacerbation_stats(
     patient_id: UUID,
-    db: Annotated[AsyncSession, Depends(get_db)],
     exacerbation_service: Annotated[ExacerbationService, Depends(get_exacerbation_service)],
+    patient_repository: Annotated[PatientRepository, Depends(get_patient_repository)],
     current_user: Annotated[TokenData, Depends(get_current_user)],
 ):
     """
@@ -225,7 +238,7 @@ async def get_exacerbation_stats(
     - 404: Patient not found
     """
     # Verify patient exists
-    patient = await db.get(PatientProfileModel, patient_id)
+    patient = await patient_repository.get_by_id(patient_id)
     if not patient:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Patient not found")
 
@@ -248,8 +261,8 @@ async def get_exacerbation_stats(
 async def update_exacerbation(
     exacerbation_id: UUID,
     data: ExacerbationUpdate,
-    db: Annotated[AsyncSession, Depends(get_db)],
     exacerbation_service: Annotated[ExacerbationService, Depends(get_exacerbation_service)],
+    patient_repository: Annotated[PatientRepository, Depends(get_patient_repository)],
     current_user: Annotated[TokenData, Depends(get_current_therapist)],
 ):
     """
@@ -272,7 +285,7 @@ async def update_exacerbation(
         )
 
     # Verify patient exists and therapist has permission
-    patient = await db.get(PatientProfileModel, existing.patient_id)
+    patient = await patient_repository.get_by_id(existing.patient_id)
     if not patient:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Patient not found")
 
@@ -297,8 +310,8 @@ async def update_exacerbation(
 @router.delete("/{exacerbation_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_exacerbation(
     exacerbation_id: UUID,
-    db: Annotated[AsyncSession, Depends(get_db)],
     exacerbation_service: Annotated[ExacerbationService, Depends(get_exacerbation_service)],
+    patient_repository: Annotated[PatientRepository, Depends(get_patient_repository)],
     current_user: Annotated[TokenData, Depends(get_current_therapist)],
 ):
     """
@@ -322,7 +335,7 @@ async def delete_exacerbation(
         )
 
     # Verify patient exists and therapist has permission
-    patient = await db.get(PatientProfileModel, existing.patient_id)
+    patient = await patient_repository.get_by_id(existing.patient_id)
     if not patient:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Patient not found")
 

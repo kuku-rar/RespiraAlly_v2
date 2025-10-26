@@ -34,10 +34,26 @@ from respira_ally.core.schemas.patient import (
     PatientResponse,
     PatientUpdate,
 )
+from respira_ally.domain.repositories.patient_repository import PatientRepository
 from respira_ally.infrastructure.database.models.user import UserModel
 from respira_ally.infrastructure.database.session import get_db
+from respira_ally.infrastructure.repository_impls.patient_repository_impl import (
+    PatientRepositoryImpl,
+)
 
 router = APIRouter()
+
+
+# ============================================================================
+# Dependency Injection Functions
+# ============================================================================
+
+
+def get_patient_repository(
+    db: Annotated[AsyncSession, Depends(get_db)]
+) -> PatientRepositoryImpl:
+    """Dependency to inject PatientRepository implementation"""
+    return PatientRepositoryImpl(db)
 
 
 # ============================================================================
@@ -296,6 +312,7 @@ async def delete_patient(
 async def get_patient_kpi(
     patient_id: UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
+    patient_repository: Annotated[PatientRepository, Depends(get_patient_repository)],
     current_user: Annotated[TokenData, Depends(get_current_user)],
     refresh: bool = Query(False, description="Force recalculate risk assessment"),
 ):
@@ -325,7 +342,7 @@ async def get_patient_kpi(
     - Activity tracking (last log date, days since)
     """
     # Check patient exists
-    patient = await db.get(PatientProfileModel, patient_id)
+    patient = await patient_repository.get_by_id(patient_id)
     if not patient:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Patient not found")
 
@@ -337,7 +354,7 @@ async def get_patient_kpi(
         )
 
     # Get KPI metrics using service
-    kpi_service = KPIService(db)
+    kpi_service = KPIService(db, patient_repository)
     try:
         kpi_metrics = await kpi_service.get_patient_kpi(patient_id, refresh=refresh)
         return kpi_metrics

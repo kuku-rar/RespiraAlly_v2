@@ -18,8 +18,8 @@ from respira_ally.core.schemas.exacerbation import (
     ExacerbationStats,
     ExacerbationUpdate,
 )
+from respira_ally.domain.repositories.patient_repository import PatientRepository
 from respira_ally.infrastructure.database.models.exacerbation import ExacerbationModel
-from respira_ally.infrastructure.database.models.patient_profile import PatientProfileModel
 
 logger = logging.getLogger(__name__)
 
@@ -34,8 +34,9 @@ class ExacerbationService:
     - Auto-update patient_profiles summary fields via database trigger
     """
 
-    def __init__(self, db: AsyncSession):
+    def __init__(self, db: AsyncSession, patient_repository: PatientRepository):
         self.db = db
+        self.patient_repo = patient_repository
 
     async def create_exacerbation(
         self, data: ExacerbationCreate, recorded_by: UUID
@@ -54,7 +55,7 @@ class ExacerbationService:
             ValueError: If patient not found
         """
         # Verify patient exists
-        patient = await self.db.get(PatientProfileModel, data.patient_id)
+        patient = await self.patient_repo.get_by_id(data.patient_id)
         if not patient:
             raise ValueError(f"Patient {data.patient_id} not found")
 
@@ -228,7 +229,7 @@ class ExacerbationService:
             ExacerbationStats or None if patient not found
         """
         # Verify patient exists
-        patient = await self.db.get(PatientProfileModel, patient_id)
+        patient = await self.patient_repo.get_by_id(patient_id)
         if not patient:
             return None
 
@@ -354,7 +355,7 @@ class ExacerbationService:
             record is still saved successfully.
         """
         try:
-            risk_use_case = CalculateRiskUseCase(self.db)
+            risk_use_case = CalculateRiskUseCase(self.db, self.patient_repo)
             await risk_use_case.execute(patient_id)
             logger.info(
                 f"Risk assessment recalculated for patient {patient_id} after exacerbation change"

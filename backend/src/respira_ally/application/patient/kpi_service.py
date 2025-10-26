@@ -12,8 +12,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from respira_ally.application.risk.use_cases.calculate_risk_use_case import CalculateRiskUseCase
 from respira_ally.core.schemas.kpi import PatientKPIResponse
+from respira_ally.domain.repositories.patient_repository import PatientRepository
 from respira_ally.infrastructure.database.models.daily_log import DailyLogModel
-from respira_ally.infrastructure.database.models.patient_profile import PatientProfileModel
 from respira_ally.infrastructure.database.models.survey_response import SurveyResponseModel
 
 
@@ -28,9 +28,10 @@ class KPIService:
     - Activity: log submission tracking
     """
 
-    def __init__(self, db: AsyncSession):
+    def __init__(self, db: AsyncSession, patient_repository: PatientRepository):
         self.db = db
-        self.risk_calculator = CalculateRiskUseCase(db)
+        self.patient_repo = patient_repository
+        self.risk_calculator = CalculateRiskUseCase(db, patient_repository)
 
     async def get_patient_kpi(self, patient_id: UUID, refresh: bool = False) -> PatientKPIResponse:
         """
@@ -47,7 +48,7 @@ class KPIService:
             ValueError: If patient not found
         """
         # 1. Verify patient exists
-        patient = await self.db.get(PatientProfileModel, patient_id)
+        patient = await self.patient_repo.get_by_id(patient_id)
         if not patient:
             raise ValueError(f"Patient {patient_id} not found")
 
@@ -125,7 +126,7 @@ class KPIService:
         stmt = select(func.count(DailyLogModel.log_id)).where(
             DailyLogModel.patient_id == patient_id,
             DailyLogModel.log_date >= start_date,
-            DailyLogModel.values["medication_taken"].astext.cast(bool) == True,  # noqa: E712
+            DailyLogModel.medication_taken == True,  # noqa: E712
         )
         result = await self.db.execute(stmt)
         medication_count = result.scalar_one()
@@ -153,16 +154,13 @@ class KPIService:
         MVP: Only BMI (calculated from patient profile height/weight)
         Post-MVP: SpO2, HR, BP from DailyLog vitals JSONB field
         """
-        # Calculate BMI from patient profile
-        patient = await self.db.get(PatientProfileModel, patient_id)
-        bmi = None
-        if patient and patient.height_cm and patient.weight_kg:
-            height_m = patient.height_cm / 100
-            bmi = float(patient.weight_kg) / (height_m**2)
+        # Calculate BMI using Patient Entity
+        patient = await self.patient_repo.get_by_id(patient_id)
+        bmi = patient.calculate_bmi() if patient else None
 
         return {
             # MVP - Available
-            "bmi": round(bmi, 1) if bmi else None,
+            "bmi": float(bmi) if bmi else None,
             # Post-MVP - Requires DailyLog Schema extension (vitals JSONB field)
             "spo2": None,
             "heart_rate": None,

@@ -23,11 +23,11 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from respira_ally.domain.repositories.patient_repository import PatientRepository
 from respira_ally.domain.services.risk_assessment_service import (
     RiskAssessmentInput,
     RiskAssessmentService,
 )
-from respira_ally.infrastructure.database.models.patient_profile import PatientProfileModel
 from respira_ally.infrastructure.database.models.risk_assessment import RiskAssessmentModel
 from respira_ally.infrastructure.database.models.survey_response import SurveyResponseModel
 
@@ -58,14 +58,16 @@ class CalculateRiskUseCase:
         domain service, and saves results. No business logic here.
     """
 
-    def __init__(self, db_session: AsyncSession):
+    def __init__(self, db_session: AsyncSession, patient_repository: PatientRepository):
         """
         Initialize Use Case with dependencies
 
         Args:
             db_session: Database session for data access
+            patient_repository: Patient repository for accessing patient data
         """
         self.db = db_session
+        self.patient_repo = patient_repository
         self.risk_service = RiskAssessmentService()
 
     async def execute(self, patient_id: UUID) -> RiskAssessmentModel:
@@ -82,9 +84,7 @@ class CalculateRiskUseCase:
             ValueError: If patient not found or missing required survey data
         """
         # Step 1: Verify patient exists and get exacerbation summary
-        stmt_patient = select(PatientProfileModel).where(PatientProfileModel.user_id == patient_id)
-        result = await self.db.execute(stmt_patient)
-        patient = result.scalar_one_or_none()
+        patient = await self.patient_repo.get_by_id(patient_id)
 
         if not patient:
             raise ValueError(f"Patient {patient_id} not found")
