@@ -1,8 +1,11 @@
 """
 Calculate Risk Use Case - GOLD ABE Classification Engine
 Sprint 4: Risk Engine - Core business logic for COPD risk assessment
+
+Sprint 4 P1: Auto-trigger Alert creation after risk assessment
 """
 
+import logging
 from datetime import datetime
 from typing import Literal
 from uuid import UUID
@@ -13,6 +16,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from respira_ally.infrastructure.database.models.patient_profile import PatientProfileModel
 from respira_ally.infrastructure.database.models.risk_assessment import RiskAssessmentModel
 from respira_ally.infrastructure.database.models.survey_response import SurveyResponseModel
+
+logger = logging.getLogger(__name__)
 
 # Type aliases
 GoldGroup = Literal["A", "B", "E"]
@@ -190,6 +195,10 @@ class CalculateRiskUseCase:
         await self.db.commit()
         await self.db.refresh(assessment)
 
+        # Sprint 4 P1: Auto-trigger Alert creation
+        # TODO(DEBT-001): Alerts are created automatically after risk assessment
+        await self._create_alerts_if_needed(assessment)
+
         return assessment
 
     async def get_latest_assessment(self, patient_id: UUID) -> RiskAssessmentModel | None:
@@ -210,3 +219,53 @@ class CalculateRiskUseCase:
         )
         result = await self.db.execute(stmt)
         return result.scalar_one_or_none()
+
+    async def _create_alerts_if_needed(self, assessment: RiskAssessmentModel) -> None:
+        """
+        Auto-trigger Alert creation after risk assessment
+
+        Sprint 4 P1 Requirement: Automatically create alerts when risk assessment
+        triggers alert rules (GOLD Group E, High CAT Score, Frequent Exacerbations).
+
+        Args:
+            assessment: The newly created risk assessment
+
+        Design Note (Linus):
+            This method is PRIVATE (_create_alerts_if_needed) because alert creation
+            is an implementation detail of risk assessment. The public API (execute())
+            remains clean - callers don't need to know about alerts.
+
+            "Good taste means hiding complexity, not exposing it."
+
+        Error Handling:
+            Errors are logged but not raised - alert creation failure should NOT
+            block risk assessment. Risk assessment is the primary operation.
+        """
+        try:
+            # Import here to avoid circular dependency
+            # (AlertService imports RiskAssessmentModel, CalculateRiskUseCase imports AlertService)
+            from respira_ally.application.alert.alert_service import AlertService
+
+            alert_service = AlertService(self.db)
+
+            # Create alerts based on risk assessment rules
+            created_alerts = await alert_service.create_alerts_from_risk_assessment(assessment)
+
+            if created_alerts:
+                logger.info(
+                    f"Created {len(created_alerts)} alert(s) for patient {assessment.patient_id} "
+                    f"after risk assessment (GOLD: {assessment.gold_group})"
+                )
+            else:
+                logger.debug(
+                    f"No alerts triggered for patient {assessment.patient_id} "
+                    f"(GOLD: {assessment.gold_group})"
+                )
+
+        except Exception as e:
+            # Alert creation failure should not block risk assessment
+            logger.error(
+                f"Failed to create alerts for patient {assessment.patient_id} "
+                f"after risk assessment: {e}",
+                exc_info=True,
+            )

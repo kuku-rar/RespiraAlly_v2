@@ -21,6 +21,7 @@ from respira_ally.application.risk.schemas.risk_schemas import (
     RiskAssessmentCalculateRequest,
 )
 from respira_ally.infrastructure.database.session import get_db
+from respira_ally.infrastructure.database.models.patient_profile import PatientProfileModel
 
 router = APIRouter()
 
@@ -49,6 +50,7 @@ async def calculate_risk_assessment(
     request: RiskAssessmentCalculateRequest,
     risk_use_case: Annotated[CalculateRiskUseCase, Depends(get_risk_use_case)],
     current_user: Annotated[TokenData, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
 ):
     """
     Calculate GOLD ABE Risk Assessment
@@ -118,11 +120,15 @@ async def calculate_risk_assessment(
         # Execute risk calculation (validates patient, surveys, etc.)
         assessment = await risk_use_case.execute(patient_id)
 
-        # Permission check after assessment (we now know patient exists and have therapist_id)
-        # Note: The assessment.patient relationship contains therapist_id
-        if not can_access_patient(
-            current_user, patient_id, assessment.patient.therapist_id if assessment.patient else None
-        ):
+        # Permission check after assessment - manually query patient to avoid lazy loading issue
+        patient = await db.get(PatientProfileModel, patient_id)
+        if not patient:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Patient {patient_id} not found",
+            )
+
+        if not can_access_patient(current_user, patient_id, patient.therapist_id):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You do not have permission to calculate risk for this patient",
@@ -158,6 +164,7 @@ async def get_latest_risk_assessment(
     patient_id: UUID,
     risk_use_case: Annotated[CalculateRiskUseCase, Depends(get_risk_use_case)],
     current_user: Annotated[TokenData, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
 ):
     """
     Get Latest Risk Assessment for Patient
@@ -207,10 +214,15 @@ async def get_latest_risk_assessment(
             detail=f"No risk assessment found for patient {patient_id}",
         )
 
-    # Permission check
-    if not can_access_patient(
-        current_user, patient_id, assessment.patient.therapist_id if assessment.patient else None
-    ):
+    # Permission check - manually query patient to avoid lazy loading issue
+    patient = await db.get(PatientProfileModel, patient_id)
+    if not patient:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Patient {patient_id} not found",
+        )
+
+    if not can_access_patient(current_user, patient_id, patient.therapist_id):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to view this patient's risk assessment",

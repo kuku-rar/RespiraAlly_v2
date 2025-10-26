@@ -44,15 +44,16 @@
 
 ### 📊 實際進度追蹤 (Progress Tracking)
 
-**整體進度**: 44.5h / 104h (42.8% ≈ 43% 完成)
-**最後更新**: 2025-10-26 14:20
-**當前狀態**: 🟢 Phase 2.0 完成 - Risk Assessment API + Frontend GOLD ABE 完整整合
+**整體進度**: 68.5h / 104h (65.9% ≈ 66% 完成)
+**最後更新**: 2025-10-26 17:30
+**當前狀態**: 🟢 Phase 3.0 完成 - Alert System MVP + Exacerbation Management API 完整交付
 
 **重要決策變更**:
 - ⚠️ **ADR-013 修訂**: 採用 GOLD 2011 ABE Classification 取代原計劃的自訂風險評分公式
 - ✅ **ADR-014**: 實施 Hybrid 向後兼容策略 (GOLD ABE + Legacy risk fields)
 - ✅ **ADR-015**: RBAC Extension for MVP Flexibility - SUPERVISOR/ADMIN 角色擴展
-- ✅ **ADR-016**: Migration 005 範圍定義 - 僅患者欄位，輕量級方案優先 ⭐ NEW (2025-10-25)
+- ✅ **ADR-016**: Alert MVP Strategy - Fixed Rule Engine (3 hard-coded rules for fast delivery) ⭐ NEW (2025-10-26)
+- ✅ **ADR-017**: Notification System Deferred to Post-MVP - Separation of Concerns ⭐ NEW (2025-10-26)
 
 **已完成任務** (2025-10-24 ~ 2025-10-25):
 - ✅ **Frontend Hybrid Strategy** [3.5h]
@@ -203,19 +204,60 @@
   - 完整記錄 Backend + Frontend 實作內容 (167 lines)
   - 技術決策、架構說明、已知限制、下一步任務
   - **Git Commit**: `8288823` - docs(changelog): add Sprint 4 P0 Risk Assessment API implementation
+- ✅ **Exacerbation Management API** [12h] ⭐ NEW (2025-10-26)
+  - **Phase 1: Auto Risk Recalculation Integration** [10h]
+    - POST /api/v1/exacerbations - Create exacerbation → Auto trigger risk recalculation
+    - PATCH /api/v1/exacerbations/{id} - Update exacerbation → Auto recalculate (if severity changed)
+    - DELETE /api/v1/exacerbations/{id} - Delete exacerbation → Auto recalculate
+    - GET /api/v1/patients/{patient_id}/exacerbations - List patient exacerbations with pagination
+    - GET /api/v1/exacerbations/{id} - Get exacerbation details
+    - GET /api/v1/patients/{patient_id}/exacerbations/stats - Exacerbation statistics (12-month window)
+  - **Phase 2: API Testing & Validation** [2h]
+    - All 6 endpoints tested and verified (HTTP 200/201 responses)
+    - Auto risk recalculation verified on CREATE/UPDATE/DELETE operations
+    - Authorization checks working correctly (RBAC enforcement)
+  - **Result**: 100% API功能完成，所有CRUD操作正常，自動風險重算整合成功
+- ✅ **Alert System MVP** [12h] ⭐ NEW (2025-10-26)
+  - **Phase 1: Domain Layer - AlertRuleEngine** [3h]
+    - 3 Fixed Alert Rules (MVP Strategy per ADR-016):
+      1. GOLD_GROUP_E → HIGH_RISK_DETECTED (CRITICAL severity)
+      2. HIGH_CAT_SCORE (CAT ≥ 20) → HIGH_RISK_DETECTED (HIGH severity)
+      3. FREQUENT_EXACERBATIONS (≥3 in 12m) → EXACERBATION_RISK (MEDIUM severity)
+    - Rule evaluation logic following Linus Torvalds' "Good Taste" principles
+    - Alert creation with rich metadata (rule, trigger_date, clinical indicators)
+  - **Phase 2: Application & Infrastructure Layers** [4h]
+    - DDD Repository Pattern: IAlertRepository interface + AlertRepositoryImpl
+    - AlertService: Alert creation, retrieval, filtering, pagination, sorting
+    - Active alert counting for dashboard badges
+    - Clean separation from Notification System (ADR-017)
+  - **Phase 3: API Layer** [3h]
+    - GET /api/v1/alerts/patients/{patient_id}/ - List patient alerts (filters, pagination, sorting)
+    - GET /api/v1/alerts/patients/{patient_id}/active/count - Count active alerts
+    - GET /api/v1/alerts/{alert_id} - Get alert details
+    - Read-Only MVP: No POST endpoints (auto-triggered only)
+    - Authorization: Therapist (own patients), Patient (own data), SUPERVISOR/ADMIN (all)
+  - **Phase 4: Testing & Bug Fixes** [2h]
+    - All 4 Alert API endpoints: 100% pass rate
+    - Bug fixes: Variable shadowing, field name mismatches, authorization parameter order
+    - Test data: 2 active alerts (CRITICAL + HIGH) for patient 利武雄 (CAT: 25, GOLD Group E)
+  - **Documentation** (ADR-016, ADR-017, CHANGELOG.md, Technical Debt DEBT-001/DEBT-002)
+  - **Result**: Alert System MVP 完整交付，DDD 架構完全合規，100% 測試通過
 
-**下一步任務** (待執行 - Priority P1):
-- ⏳ **Dashboard 手動 UI 測試** [0.5h] - 完整 GOLD ABE 功能驗證
-- ⏳ **Exacerbation Management API** [12h] - CRUD endpoints + 自動觸發 risk recalculation
-  - `POST /api/v1/exacerbations` - 創建急性惡化記錄
-  - `GET /api/v1/patients/{id}/exacerbations` - 獲取患者急性惡化歷史
-  - `PATCH /api/v1/exacerbations/{id}` - 更新記錄
-  - `DELETE /api/v1/exacerbations/{id}` - 刪除記錄
-- ⏳ **Alert System** [12h] - 預警規則引擎 + 高風險患者通知
+**下一步任務** (待執行 - Priority P2):
+- ⏳ **Frontend Integration - Alert System UI** [8h] - Dashboard badge, Alert list, Risk Assessment display
+  - Dashboard Alert Badge: Display active alert count
+  - Alert List Page: Filterable alert list with severity indicators
+  - Risk Assessment Dashboard: GOLD ABE classification display
 - ⏳ **Unit Tests for GOLD Classification Engine** [P2 - non-blocking]
 - ⏳ **RBAC System Testing with SUPERVISOR user** [P2]
 
-**技術債務**: 無
+**下一步任務** (待執行 - Priority P3 - Future Sprints):
+- ⏳ **Notification System MVP** [16h] - LINE/Email notification integration (Sprint 5)
+- ⏳ **Alert Lifecycle Management** [8h] - Acknowledge/Resolve endpoints (Sprint 5)
+
+**技術債務**:
+- **DEBT-001**: Alert Rule Engine Evolution (16-20h, Sprint 5-6) - Upgrade from 3 fixed rules to database-driven configurable rule engine
+- **DEBT-002**: Notification System Implementation (16-20h, Sprint 5-6) - Multi-channel notifications (LINE, Email, SMS, Push) with delivery tracking
 
 ---
 
