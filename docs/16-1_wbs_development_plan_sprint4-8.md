@@ -2,11 +2,11 @@
 
 ---
 
-**文件版本 (Document Version):** `v1.1` - Sprint 4-8 詳細規劃 + Sprint 4 進度追蹤
-**最後更新 (Last Updated):** `2025-10-24 13:05`
+**文件版本 (Document Version):** `v1.2` - Sprint 4-8 詳細規劃 + Sprint 4 Alert System MVP 完整交付
+**最後更新 (Last Updated):** `2025-10-26 20:30`
 **主要作者 (Lead Author):** `TaskMaster Hub / Claude Code AI`
 **審核者 (Reviewers):** `Technical Lead, Product Manager, Architecture Team`
-**狀態 (Status):** `進行中 - Sprint 4 實作中 (8.5h/104h 完成)`
+**狀態 (Status):** `進行中 - Sprint 4 Phase 3.0 完成 (68.5h/104h, 66% 完成)`
 **父文件 (Parent Document):** `16_wbs_development_plan.md`
 
 ---
@@ -45,8 +45,8 @@
 ### 📊 實際進度追蹤 (Progress Tracking)
 
 **整體進度**: 68.5h / 104h (65.9% ≈ 66% 完成)
-**最後更新**: 2025-10-26 17:30
-**當前狀態**: 🟢 Phase 3.0 完成 - Alert System MVP + Exacerbation Management API 完整交付
+**最後更新**: 2025-10-26 20:30
+**當前狀態**: 🟢 Phase 3.0 完成 - Alert System MVP + Exacerbation Management API 完整交付（含 4 個關鍵 Bug 修復）
 
 **重要決策變更**:
 - ⚠️ **ADR-013 修訂**: 採用 GOLD 2011 ABE Classification 取代原計劃的自訂風險評分公式
@@ -238,10 +238,29 @@
     - Authorization: Therapist (own patients), Patient (own data), SUPERVISOR/ADMIN (all)
   - **Phase 4: Testing & Bug Fixes** [2h]
     - All 4 Alert API endpoints: 100% pass rate
-    - Bug fixes: Variable shadowing, field name mismatches, authorization parameter order
+    - **Bug Fix #1** - `alert.py` 變數遮蔽錯誤 (Line 108):
+      - 問題: 函式參數 `status` 遮蔽了 FastAPI 的 `status` 模組
+      - 影響: `status.HTTP_403_FORBIDDEN` 返回 `None`，導致 500 錯誤
+      - 修復: 將參數從 `status` 重新命名為 `alert_status`
+    - **Bug Fix #2** - `alert_rule_engine.py` 欄位名稱不符 (7 處):
+      - 問題: 使用錯誤的 RiskAssessmentModel 欄位名稱
+        - ❌ `cat_total_score` → ✅ `cat_score`
+        - ❌ `exacerbation_count_last_12m` → ✅ `exacerbation_count_12m`
+        - ❌ `hospitalization_count_last_12m` → ✅ `hospitalization_count_12m`
+      - 影響: 警示評估期間發生 AttributeError
+    - **Bug Fix #3** - `alert.py` 授權參數順序錯誤 (3 個端點):
+      - 問題: `can_access_patient()` 呼叫的參數順序錯誤
+        - ❌ `can_access_patient(current_user, therapist_id, patient_id)`
+        - ✅ `can_access_patient(current_user, patient_id, therapist_id)`
+      - 影響: 所有授權檢查失敗（403 禁止訪問）
+    - **Bug Fix #4** - `risk.py` SQLAlchemy 延遲載入錯誤 (Line 124):
+      - 問題: 在非同步上下文中嘗試同步訪問延遲載入的關聯
+        - ❌ `assessment.patient.therapist_id`（MissingGreenlet 錯誤）
+      - 修復: 新增 `db` 依賴項並手動查詢病患
+        - ✅ `patient = await db.get(PatientProfileModel, patient_id)`
     - Test data: 2 active alerts (CRITICAL + HIGH) for patient 利武雄 (CAT: 25, GOLD Group E)
-  - **Documentation** (ADR-016, ADR-017, CHANGELOG.md, Technical Debt DEBT-001/DEBT-002)
-  - **Result**: Alert System MVP 完整交付，DDD 架構完全合規，100% 測試通過
+  - **Documentation** (ADR-016, ADR-017, CHANGELOG_20251026.md, Technical Debt DEBT-001/DEBT-002)
+  - **Result**: Alert System MVP 完整交付，DDD 架構完全合規，100% 測試通過，4 個關鍵 Bug 修復
 
 **下一步任務** (待執行 - Priority P2):
 - ⏳ **Frontend Integration - Alert System UI** [8h] - Dashboard badge, Alert list, Risk Assessment display
@@ -255,9 +274,35 @@
 - ⏳ **Notification System MVP** [16h] - LINE/Email notification integration (Sprint 5)
 - ⏳ **Alert Lifecycle Management** [8h] - Acknowledge/Resolve endpoints (Sprint 5)
 
-**技術債務**:
-- **DEBT-001**: Alert Rule Engine Evolution (16-20h, Sprint 5-6) - Upgrade from 3 fixed rules to database-driven configurable rule engine
-- **DEBT-002**: Notification System Implementation (16-20h, Sprint 5-6) - Multi-channel notifications (LINE, Email, SMS, Push) with delivery tracking
+**技術債務** (詳見 `docs/technical_debt/REGISTRY.md`):
+- **DEBT-001: Alert Rule Engine Evolution** [16-20h, Sprint 5-6]
+  - **當前狀態**: `AlertRuleEngine` 中的 3 個固定規則（hard-coded）
+  - **目標狀態**: 資料庫驅動的可配置規則引擎
+  - **遷移路徑** (5 階段):
+    1. 規則 DSL 設計（定義規則語法和元數據結構）
+    2. 規則解析器實作（解析和驗證規則表達式）
+    3. 資料庫 Schema（alert_rules 表格 + 版本控制）
+    4. 後台管理 UI（規則 CRUD + 測試模擬器）
+    5. 向後相容遷移（現有規則轉換為資料庫記錄）
+  - **預估工作量**: 16-20 小時
+  - **觸發條件**: 規則數量 > 5、需要動態閾值調整、臨床標準變更頻繁
+
+- **DEBT-002: Notification System Implementation** [16-20h, Sprint 5-6]
+  - **當前狀態**: 已創建警示但未發送通知
+  - **目標狀態**: 多通道通知系統（LINE、Email、SMS、推播）
+  - **未來架構**:
+    - 事件驅動（RabbitMQ）或排程（Celery）
+    - 通知偏好管理（使用者設定通知通道和頻率）
+    - 傳遞追蹤（發送狀態、已讀回條、重試邏輯）
+    - 範本引擎（支援多語言和個人化內容）
+  - **包含內容**:
+    1. NotificationService 實作（基本功能）
+    2. LINE 通知整合（LINE Messaging API）
+    3. Email 通知（SMTP/SendGrid）
+    4. 通知歷史追蹤（notifications 表格）
+    5. 通知偏好設定（preferences 表格）
+  - **預估工作量**: 16-20 小時
+  - **MVP 決策**: 延後至 Sprint 5+，專注於警示偵測（ADR-017）
 
 ---
 
@@ -1291,4 +1336,14 @@ graph TD
 **維護者**: RespiraAlly Development Team / TaskMaster Hub
 **審核者**: Technical Lead, Product Manager, Architecture Team
 
-**最後更新**: 2025-10-23 19:50
+**最後更新**: 2025-10-26 20:30
+
+---
+
+## 📝 版本歷史 (Version History)
+
+| 版本 | 日期 | 變更摘要 | 作者 |
+|------|------|----------|------|
+| v1.2 | 2025-10-26 | Alert System MVP 完整交付，增加詳細 Bug 修復記錄和技術債務詳情 | TaskMaster Hub |
+| v1.1 | 2025-10-24 | Sprint 4 進度追蹤更新，Risk Assessment API 和 GOLD ABE 整合完成 | TaskMaster Hub |
+| v1.0 | 2025-10-23 | 初始版本 - Sprint 4-8 詳細規劃 | TaskMaster Hub |
