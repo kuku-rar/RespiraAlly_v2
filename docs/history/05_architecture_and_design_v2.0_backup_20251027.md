@@ -3,7 +3,7 @@
 ---
 
 **文件版本:** v2.0
-**最後更新:** 2025-10-27
+**最後更新:** 2025-10-19
 **主要作者:** Claude Code AI - System Architect
 **狀態:** 審核中 (Under Review)
 
@@ -15,23 +15,10 @@
 - **問題域**: 本系統旨在解決慢性阻塞性肺病（COPD）患者在長期自我管理中面臨的挑戰，包括記錄繁瑣、缺乏即時回饋、衛教個人化不足等問題。同時，也致力於改善呼吸治療師的工作流程，解決其資料分散、風險追蹤耗時的痛點。
 - **關鍵驅動力**:
   - **業務驅動力**: 提升 COPD 病患的健康行為依從率至 75% 以上，降低醫療機構的慢病管理成本與急診率。
-  - **技術驅動力**: 從 V1 的 Flask 單體架構遷移至 FastAPI **Modular Monolith 架構**（未來可演進為微服務），引入 AI 語音互動、RAG 知識庫、事件驅動等現代技術，解決 V1 的技術債與擴展性問題。
+  - **技術驅動力**: 從 V1 的 Flask 單體架構遷移至 FastAPI 微服務架構，引入 AI 語音互動、RAG 知識庫、事件驅動等現代技術，解決 V1 的技術債與擴展性問題。
   - **品質驅動力**: 追求高可用性 (99.5%)、高效能 (API P95 < 500ms)、高安全性和合規性 (符合台灣個資法)。
 
-### 1.2 Phase-Sprint 開發階段映射
-
-為確保文件術語一致性，本系統採用以下 Phase-Sprint 對應關係（詳見 [02_product_requirements_document.md](./02_product_requirements_document.md) Section 4.1）：
-
-| Phase | 時程 | Sprint | 核心功能 | 狀態 |
-|-------|------|--------|----------|------|
-| **Phase 0: 核心驗證** | Week 1-4 | Sprint 0-2 | 專案管理、基礎設施、病患管理 | ⚡ 85.9% |
-| **Phase 1: 增值功能** | Week 5-8 | Sprint 3-4 | 問卷系統、GOLD ABE 風險引擎 | 🔄 83.2% |
-| **Phase 2: AI 能力** | Week 9-12 | Sprint 5-6 | RAG 知識庫、AI 語音互動 | ⏳ 計劃中 |
-| **Phase 3: 優化上線** | Week 13-16 | Sprint 7-8 | 通知系統、效能優化、生產部署 | ⏳ 計劃中 |
-
-**當前進度**: Sprint 4 (Phase 1) - GOLD ABE 風險引擎開發中 (66.4%)
-
-### 1.3 利益相關者與關注點
+### 1.2 利益相關者與關注點
 | 角色 | 關注點 | 優先級 |
 |---|---|---|
 | COPD 病患 | 功能易用性、互動即時性、隱私安全 | 高 |
@@ -1911,7 +1898,7 @@ CREATE INDEX idx_survey_patient_type_date
   - **風險分數計算**: 當日誌提交後，風險分數的更新是異步進行的。在短暫的時間窗口內（通常是毫秒到秒級），治療師看到的風險分數可能尚未反映最新的日誌，這是可接受的。
   - **觸發預警通知**: 同樣地，從風險分數更新到觸發預警並發送通知也是一個異步流程。
   - **跨服務數據同步**: 例如，更新病患基本資料後，相關的顯示名稱同步到其他服務的日誌記錄中，將透過事件傳遞，接受最終一致性。
-  - **事件日誌寫入**: 寫入 PostgreSQL `event_logs` 表（JSONB 欄位）的操作日誌與事件記錄，允許極短時間的延遲。
+  - **事件日誌寫入**: 寫入 MongoDB 的操作日誌與事件記錄，允許極短時間的延遲。
 
 ### 5.5 數據生命週期與合規 (Data Lifecycle and Compliance)
 
@@ -1922,12 +1909,12 @@ CREATE INDEX idx_survey_patient_type_date
 
 - **數據儲存與加密 (Data Storage and Encryption)**:
   - **傳輸中加密 (In-Transit)**: 所有對外 API 與服務間通訊均強制使用 TLS 1.3 加密。
-  - **靜態加密 (At-Rest)**: 所有在 Zeabur 平台上的託管資料庫 (PostgreSQL, Redis) 和物件儲存 (MinIO) 均啟用服務商提供的靜態加密功能。
+  - **靜態加密 (At-Rest)**: 所有在 Zeabur 平台上的託管資料庫 (PostgreSQL, MongoDB, Redis) 和物件儲存 (MinIO) 均啟用服務商提供的靜態加密功能。
 
 - **數據保留策略 (Data Retention Policy)**:
   - **PHI 數據**: 根據台灣醫療法規，病歷資料（包含日誌、問卷）需至少保留 7 年。
   - **PII 數據**: 當病患或治療師帳號刪除時，其個人身份資訊將被匿名化處理，但保留去識別化的 PHI 數據用於統計分析。
-  - **系統日誌 (PostgreSQL JSONB)**: 操作日誌與事件記錄（存儲在 `event_logs` 表）將保留 18 個月，之後進行歸檔或刪除。
+  - **系統日誌 (MongoDB)**: 操作日誌與事件記錄將保留 18 個月，之後進行歸檔或刪除。
 
 - **合規性考量 (Compliance Considerations)**:
   - 本系統設計遵循台灣**個人資料保護法（個資法）**的要求，確保數據的收集、處理、利用均獲得用戶明確同意，並提供用戶查詢、修改、刪除其個資的權利。
@@ -1961,12 +1948,13 @@ graph TD
 
     subgraph "Data Tier (Managed Services)"
       Postgres_DB((PostgreSQL))
+      MongoDB_DB((MongoDB))
       Redis_DB((Redis))
       MinIO_Store((MinIO))
       RabbitMQ_Broker{RabbitMQ}
     end
   end
-
+  
   CDN --> LB
   LB --> API_Gateway
   API_Gateway --> Auth_Svc & Patient_Svc & Log_Svc & Risk_Svc & RAG_Svc
@@ -1974,8 +1962,8 @@ graph TD
   Log_Svc --> RabbitMQ_Broker
   RabbitMQ_Broker --> AI_Worker
   Scheduler --> RAG_Svc & Patient_Svc
-
-  API_Tier --讀寫--> Postgres_DB & Redis_DB
+  
+  API_Tier --讀寫--> Postgres_DB & MongoDB_DB & Redis_DB
   Worker_Tier --讀寫--> Postgres_DB & MinIO_Store
 ```
 
@@ -2691,6 +2679,7 @@ async def process_voice_task_async(task_data):
 | **RabbitMQ** | ⚠️ 是（MVP 階段） | AI 異步任務堆積 | AI 功能降級為同步模式（用戶等待時間增加至 15 秒內） |
 | **LINE Platform** | ✅ 是（外部依賴） | 患者無法使用 LIFF | Phase 2 提供 Web 版本 Backup |
 | **OpenAI API** | ✅ 是（外部依賴） | AI 語音功能失效 | 降級為預設回覆模板 + 人工客服轉接 |
+| **MongoDB** | ❌ (Replica Set) | 事件日誌寫入失敗 | 允許短暫失敗，事件可重建（非關鍵路徑） |
 
 **改進計畫**:
 - **短期（2026 Q1）**: 建立 PostgreSQL 自動 Failover 機制（Patroni + etcd）
@@ -2715,7 +2704,7 @@ async def process_voice_task_async(task_data):
 1. **風險分數計算**: 允許數秒延遲，透過 `daily_log.submitted` 事件觸發異步計算
 2. **異常預警通知**: 允許失敗重試，最終送達即可（RabbitMQ 持久化 + 確認機制）
 3. **統計報表**: 允許數據延遲數分鐘，不影響核心功能
-4. **AI 對話歷史**: PostgreSQL `event_logs` 表寫入允許短暫延遲（非關鍵路徑）
+4. **AI 對話歷史**: MongoDB 寫入允許短暫延遲（非關鍵路徑）
 
 **分布式事務處理 - Saga 模式**:
 
@@ -3008,7 +2997,7 @@ flowchart TD
 | **Web 框架** | Flask vs FastAPI | FastAPI | ADR-001: 異步支持、自動文檔、型別檢查 |
 | **數據庫** | PostgreSQL vs MySQL | PostgreSQL | 成熟穩定、pgvector 擴展、JSON 支持 |
 | **向量資料庫** | Pinecone vs Qdrant vs pgvector | pgvector | ADR-002: MVP 簡化架構、成本低 |
-| **事件日誌** | ~~MongoDB vs Elasticsearch~~ PostgreSQL JSONB | PostgreSQL JSONB | ADR-003 v2.0: 簡化技術棧、統一數據源 |
+| **事件日誌** | MongoDB vs Elasticsearch | MongoDB | ADR-003: Schema-less、易於查詢 |
 | **消息隊列** | RabbitMQ vs Kafka | RabbitMQ | ADR-005: 團隊熟悉、足夠滿足需求 |
 | **緩存** | Redis vs Memcached | Redis | 數據結構豐富、持久化支持 |
 | **前端框架** | Next.js vs Remix | Next.js | 生態成熟、SSR 性能優秀 |
