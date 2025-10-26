@@ -1,4 +1,4 @@
-# 產品需求文件 (Product Requirements Document) - RespiraAlly V3.0
+# 產品需求文件 (Product Requirements Document) - RespiraAlly V2.0
 
 ---
 
@@ -16,7 +16,8 @@
 3.  [使用者故事與允收標準 (User Stories & UAT) - 「做什麼？」](#第-3-部分使用者故事與允收標準-user-stories--uat---做什麼)
 4.  [範圍與限制 (Scope & Constraints)](#第-4-部分範圍與限制-scope--constraints)
 5.  [待辦問題與決策 (Open Questions & Decisions)](#第-5-部分待辦問題與決策-open-questions--decisions)
-6.  [客戶新需求整合 (v3.0) (Client Requirements Integration)](#第-6-部分客戶新需求整合-v30-client-requirements-integration)
+6.  [測試與品質狀態 (Testing & Quality Status)](#第-6-部分測試與品質狀態-testing--quality-status) ⭐ **新增**
+7.  [客戶新需求整合 (v3.0) (Client Requirements Integration)](#第-7-部分客戶新需求整合-v30-client-requirements-integration)
 
 ---
 
@@ -29,9 +30,11 @@
 | 區塊 | 內容 |
 | :--- | :--- |
 | **專案名稱** | RespiraAlly V2.0 |
-| **狀態** | 開發中 (In Development) |
+| **當前狀態** | Sprint 4 執行中 - GOLD ABE 風險引擎與預警系統 |
+| **整體進度** | ~48.2% 完成 (479.75h / 996h) |
+| **已完成階段** | ✅ Sprint 0: 專案管理與架構設計 (100%)<br>⚡ Sprint 1: 基礎設施與認證 (85.6%)<br>⚡ Sprint 2: 病患管理與日誌 (85.9%)<br>✅ Sprint 3: 儀表板與問卷系統 (100%) |
 | **目標發布日期** | 2026 Q1 |
-| **核心團隊** | PM: [TBD]<br>Lead Engineer: [TBD]<br>UX Designer: [TBD] |
+| **核心團隊** | PM: TaskMaster Hub (AI-Powered Project Coordination)<br>Technical Lead: Backend Lead + Frontend Lead<br>System Architect: Architecture Team<br>Quality Metrics: 100% 測試通過率 (75 整合測試 + 139 pytest) |
 
 ---
 
@@ -55,40 +58,56 @@
 
 | 使用者故事 ID | 描述 (As a, I want to, so that) | 核心允收標準 (UAT) | 連結至 BDD 文件 |
 | :--- | :--- | :--- | :--- |
-| **US-101** | **As a** 新病患,<br>**I want to** 透過 LINE 快速註冊,<br>**so that** 無需額外下載 App。 | 1. 成功使用 LINE User ID 註冊。<br>2. 註冊成功後綁定預設 Rich Menu。<br>3. 重複註冊時顯示錯誤訊息。 | [Link to `../bdd/epic_100_authentication.feature`] |
-| **US-103** | **As a** 新病患,<br>**I want to** 在初次註冊時填寫基本健康資料（身高、體重、醫院病歷號、吸菸史）,<br>**so that** 系統能計算 BMI 與風險評估。 | 1. 支援輸入身高 (50-250 cm)、體重 (20-300 kg)。<br>2. 醫院病歷號為選填。<br>3. 吸菸史包含狀態（從未/曾經/目前）與年數。<br>4. 系統自動計算 BMI 並分級 (過輕/正常/過重/肥胖)。 | [Link to `../bdd/epic_100_authentication.feature`] |
-| **US-102** | **As a** 治療師,<br>**I want to** 使用帳號密碼登入儀表板,<br>**so that** 我可以管理我的個案。 | 1. 使用正確的帳密成功登入。<br>2. 登入失敗 3 次後帳號鎖定 15 分鐘。<br>3. 登入成功後取得 JWT。 | [Link to `../bdd/epic_100_authentication.feature`] |
+| **US-101** | **As a** 新病患,<br>**I want to** 透過 LINE 快速註冊,<br>**so that** 無需額外下載 App。 | 1. 成功使用 LINE User ID 註冊。<br>2. 註冊成功後綁定預設 Rich Menu。<br>3. 重複註冊時顯示錯誤訊息。 | [bdd/epic_100_authentication.feature](./bdd/epic_100_authentication.feature) |
+| **US-103** | **As a** 新病患,<br>**I want to** 在初次註冊時填寫基本健康資料（身高、體重、醫院病歷號、吸菸史）,<br>**so that** 系統能計算 BMI 與風險評估。 | 1. 支援輸入身高 (50-250 cm)、體重 (20-300 kg)。<br>2. 醫院病歷號為選填。<br>3. 吸菸史包含狀態（從未/曾經/目前）與年數。<br>4. 系統自動計算 BMI 並分級 (過輕/正常/過重/肥胖)。 | [bdd/epic_100_authentication.feature](./bdd/epic_100_authentication.feature) |
+| **US-102** | **As a** 治療師,<br>**I want to** 使用帳號密碼登入儀表板,<br>**so that** 我可以管理我的個案。 | 1. 使用正確的帳密成功登入。<br>2. 登入失敗 3 次後帳號鎖定 15 分鐘。<br>3. 登入成功後取得 JWT。 | [bdd/epic_100_authentication.feature](./bdd/epic_100_authentication.feature) |
 
 ### 📗 史詩 EP-200: 日常健康管理
 
 | 使用者故事 ID | 描述 (As a, I want to, so that) | 核心允收標準 (UAT) | 連結至 BDD 文件 |
 | :--- | :--- | :--- | :--- |
-| **US-201** | **As a** 病患,<br>**I want to** 在 LIFF 快速填寫今日健康日誌,<br>**so that** 記錄我的健康狀況。 | 1. 每日只能新增一筆紀錄，但可更新。<br>2. 提交後觸發風險分數重新計算。<br>3. 輸入無效資料時應提示錯誤。 | [Link to `../bdd/epic_200_daily_management.feature`] |
-| **US-202** | **As a** 病患,<br>**I want to** 查看近 7 日健康趨勢,<br>**so that** 了解我的短期進步。 | 1. 應以折線圖呈現。<br>2. 包含用藥、飲水、運動等系列。<br>3. 若無資料應顯示提示。<br>4. 支援顯示移動平均線平滑曲線。 | [Link to `../bdd/epic_200_daily_management.feature`] |
-| **US-203** | **As a** 病患,<br>**I want to** 查看我的核心健康 KPI（依從率、飲水量、運動量、問卷分數）,<br>**so that** 快速了解整體健康狀況。 | 1. KPI 資料從快取表讀取，查詢時間 < 50ms。<br>2. 包含 7 日與 30 日依從率對比。<br>3. 顯示最新 CAT/mMRC 問卷分數與日期。<br>4. 顯示最新風險等級。 | [Link to `../bdd/epic_200_daily_management.feature`] |
-| **US-205** | **As a** 病患,<br>**I want to** 查看近 30 日健康趨勢,<br>**so that** 了解我的長期變化。 | 1. 提供 7 日/30 日切換選項。<br>2. 30 日圖表應正確顯示數據。<br>3. 支援顯示累積統計（總日誌數、總用藥次數）。 | [Link to `../bdd/epic_200_daily_management.feature`] |
+| **US-201** | **As a** 病患,<br>**I want to** 在 LIFF 快速填寫今日健康日誌,<br>**so that** 記錄我的健康狀況。 | 1. 每日只能新增一筆紀錄，但可更新。<br>2. 提交後觸發風險分數重新計算。<br>3. 輸入無效資料時應提示錯誤。 | [bdd/epic_200_daily_management.feature](./bdd/epic_200_daily_management.feature) |
+| **US-202** | **As a** 病患,<br>**I want to** 查看近 7 日健康趨勢,<br>**so that** 了解我的短期進步。 | 1. 應以折線圖呈現。<br>2. 包含用藥、飲水、運動等系列。<br>3. 若無資料應顯示提示。<br>4. 支援顯示移動平均線平滑曲線。 | [bdd/epic_200_daily_management.feature](./bdd/epic_200_daily_management.feature) |
+| **US-203** | **As a** 病患,<br>**I want to** 查看我的核心健康 KPI（依從率、飲水量、運動量、問卷分數）,<br>**so that** 快速了解整體健康狀況。 | 1. KPI 資料從快取表讀取，查詢時間 < 50ms。<br>2. 包含 7 日與 30 日依從率對比。<br>3. 顯示最新 CAT/mMRC 問卷分數與日期。<br>4. 顯示最新風險等級。 | [bdd/epic_200_daily_management.feature](./bdd/epic_200_daily_management.feature) |
+| **US-205** | **As a** 病患,<br>**I want to** 查看近 30 日健康趨勢,<br>**so that** 了解我的長期變化。 | 1. 提供 7 日/30 日切換選項。<br>2. 30 日圖表應正確顯示數據。<br>3. 支援顯示累積統計（總日誌數、總用藥次數）。 | [bdd/epic_200_daily_management.feature](./bdd/epic_200_daily_management.feature) |
 
 
 ### 📙 史詩 EP-300: AI 語音互動
 
 | 使用者故事 ID | 描述 (As a, I want to, so that) | 核心允收標準 (UAT) | 連結至 BDD 文件 |
 | :--- | :--- | :--- | :--- |
-| **US-301** | **As a** 病患,<br>**I want to** 用語音詢問健康問題,<br>**so that** 不需要打字。 | 1. 15 秒內收到文字與語音回覆。<br>2. 支援台語/國語辨識。<br>3. 對於無法辨識的音訊應有提示。 | [Link to `../bdd/epic_300_ai_interaction.feature`] |
-| **US-302** | **As an** AI Worker,<br>**I want to** 處理語音任務佇列,<br>**so that** 不阻塞主服務。 | 1. 依序執行 STT, RAG, LLM, TTS。<br>2. 任何步驟失敗應有重試機制。<br>3. 最終結果透過 WebSocket 推送。 | [Link to `../bdd/epic_300_ai_interaction.feature`] |
-| **US-303** | **As a** 病患,<br>**I want to** 讓 AI 回覆引用可信來源,<br>**so that** 我能增加信任感。 | 1. 回覆應附上參考資料連結。<br>2. 當 AI 回覆信心度低時，應提示使用者諮詢治療師。 | [Link to `../bdd/epic_300_ai_interaction.feature`] |
+| **US-301** | **As a** 病患,<br>**I want to** 用語音詢問健康問題,<br>**so that** 不需要打字。 | 1. 15 秒內收到文字與語音回覆。<br>2. 支援台語/國語辨識。<br>3. 對於無法辨識的音訊應有提示。 | [bdd/epic_300_ai_interaction.feature](./bdd/epic_300_ai_interaction.feature) |
+| **US-302** | **As an** AI Worker,<br>**I want to** 處理語音任務佇列,<br>**so that** 不阻塞主服務。 | 1. 依序執行 STT, RAG, LLM, TTS。<br>2. 任何步驟失敗應有重試機制。<br>3. 最終結果透過 WebSocket 推送。 | [bdd/epic_300_ai_interaction.feature](./bdd/epic_300_ai_interaction.feature) |
+| **US-303** | **As a** 病患,<br>**I want to** 讓 AI 回覆引用可信來源,<br>**so that** 我能增加信任感。 | 1. 回覆應附上參考資料連結。<br>2. 當 AI 回覆信心度低時，應提示使用者諮詢治療師。 | [bdd/epic_300_ai_interaction.feature](./bdd/epic_300_ai_interaction.feature) |
 
 ---
 
 ## 第 4 部分：範圍與限制 (Scope & Constraints)
 
-### 4.1 MVP 分階段交付策略 (Phased MVP Delivery)
+### 4.1 開發進度與 MVP 分階段交付策略
 
 基於架構審視報告 ([05_architecture_and_design.md](./05_architecture_and_design.md))，為避免過度設計並加速市場驗證，我們採用**分階段漸進式 MVP** 策略：
+
+#### 4.1.1 Phase 與 Sprint 對照表
+
+| Sprint | 對應 Phase | 完成狀態 | 核心交付 | 工時 |
+|--------|-----------|---------|----------|------|
+| **Sprint 0** | Phase 0 準備 | ✅ 100% | 專案管理、系統架構設計、ADR × 8 | 165h |
+| **Sprint 1** | Phase 0 實作 | ⚡ 85.6% | 基礎設施、認證系統 (JWT + Token Blacklist)、資料庫 Schema | 89h/104h |
+| **Sprint 2** | Phase 0 完成 | ⚡ 85.9% | 病患管理 API、日誌功能、Dashboard 病患列表、資料驗證 (CR-001) | 133.75h/155.75h |
+| **Sprint 3** | Phase 1 開始 | ✅ 100% | CAT/mMRC 問卷、360° 頁面、TTS 無障礙 (CR-002) | 96h |
+| **Sprint 4** | Phase 1 延伸 | 🔄 66.4% | GOLD ABE 風險引擎、急性發作管理、警示系統 | 44.5h/67h |
+| **Sprint 5-6** | Phase 2 開始 | ⏳ 計劃中 | RAG 系統、AI 語音處理鏈 | 224h |
+| **Sprint 7-8** | Phase 3 上線 | ⏳ 計劃中 | 通知系統、效能優化、監控部署 | 168h |
+
+**註**：Phase 0-1 的核心功能已基本完成（~48% 進度），目前聚焦於 Phase 1 的進階功能（GOLD ABE 風險評估）與 Phase 2 的 AI 能力建設。
+
+#### 4.1.2 Phase 功能規劃（原始設計）
 
 | 階段 | 時程 | 核心功能 | 成功標準 | 技術重點 |
 | :--- | :--- | :--- | :--- | :--- |
 | **Phase 0: 核心驗證** | Week 1-4 | - 治療師登入<br>- 病患 LINE 註冊<br>- 每日健康日誌提交<br>- 病患列表查看<br>- 基礎依從率計算 | - 5 位治療師試用<br>- 20 位病患持續 14 天記錄<br>- 依從率 ≥60% | - Modular Monolith<br>- PostgreSQL + Redis<br>- 簡化 API 設計 |
-| **Phase 1: 增值功能** | Week 5-8 | - CAT/mMRC 問卷<br>- 風險評分引擎<br>- 異常預警<br>- 智慧提醒 (12:00/17:00/20:00) | - 風險預警準確率 ≥80%<br>- 提醒點擊率 ≥30% | - 規則引擎<br>- APScheduler<br>- LINE Push API |
+| **Phase 1: 增值功能** | Week 5-8 | - CAT/mMRC 問卷<br>- 風險評分引擎 (GOLD ABE)<br>- 異常預警<br>- 智慧提醒 | - 風險預警準確率 ≥80%<br>- 提醒點擊率 ≥30% | - 規則引擎<br>- APScheduler<br>- LINE Push API |
 | **Phase 2: AI 能力** | Week 9-12 | - RAG 知識庫<br>- AI 語音互動 (STT/LLM/TTS)<br>- 個人化衛教推薦 | - AI 回覆首次命中率 ≥85%<br>- 語音回覆 < 15 秒 | - pgvector<br>- OpenAI API<br>- RabbitMQ (可選) |
 | **Phase 3: 優化上線** | Week 13-16 | - 效能優化<br>- 監控告警<br>- 生產部署<br>- 文檔完善 | - API P95 < 500ms<br>- 服務可用性 ≥99.5%<br>- 安全稽核通過 | - Prometheus + Grafana<br>- Zeabur 部署<br>- CI/CD Pipeline |
 
@@ -105,8 +124,8 @@
 | :--- | :--- |
 | **功能性需求 (In Scope)** | - **病患端** (LIFF): LINE 註冊/登入、每日日誌提交、CAT/mMRC 問卷、AI 語音對話、個人健康趨勢查看。<br>- **治療師端** (Web Dashboard): 帳密登入、病患列表、個案 360° 檔案、風險預警中心、任務管理、衛教內容管理。<br>- **系統端**: 風險評分引擎、異常規則引擎、智慧提醒排程、RAG 向量檢索、AI 語音處理鏈。 |
 | **非功能性需求 (NFRs)** | - **性能**: API P95 < 500ms，AI 語音端到端回覆 < 15 秒。<br>- **安全性**: RBAC 權限控制、傳輸與靜態加密、治療師登入失敗鎖定策略。<br>- **可用性**: 服務可用性 ≥99.5%（Phase 3 後）。<br>- **可維護性**: 新功能交付週期 < 2 週，測試覆蓋率 ≥80%。 |
-| **不做什麼 (Out of Scope)** | - **V2.0 不支援**: 生理感測裝置整合、跨院資料交換（FHIR/HL7）、原生 iOS/Android App、治療師之間的協作功能、多語言國際化（僅支援繁體中文）。<br>- **技術限制**: MVP 階段不使用 Kubernetes、不自建 LLM 模型、不使用 Kafka（使用 RabbitMQ 替代）。 |
-| **假設與依賴** | - **假設**: 目標使用者（長者）皆熟悉 LINE 基本操作、治療師具備基本電腦操作能力、病患願意每日花費 2-3 分鐘記錄健康日誌。<br>- **外部依賴**: LINE Platform（病患唯一入口）、OpenAI API（STT/LLM/TTS）、Zeabur（PaaS 部署平台）。<br>- **內部依賴**: PostgreSQL ≥15、Redis ≥7、Python ≥3.11、Node.js ≥18。 |
+| **不做什麼 (Out of Scope)** | - **V2.0 不支援**: 生理感測裝置整合、跨院資料交換（FHIR/HL7）、原生 iOS/Android App、治療師之間的協作功能、多語言國際化（僅支援繁體中文）。<br>- **技術限制**: MVP 階段不使用 Kubernetes、不自建 LLM 模型、~~不使用 Kafka（使用 RabbitMQ 替代）~~ **已簡化** - RabbitMQ 為 Phase 2+ 可選技術，Phase 0-1 使用同步處理。 |
+| **假設與依賴** | - **假設**: 目標使用者（長者）皆熟悉 LINE 基本操作、治療師具備基本電腦操作能力、病患願意每日花費 2-3 分鐘記錄健康日誌。<br>- **外部依賴**: LINE Platform（病患唯一入口）、OpenAI API（STT/LLM/TTS，Phase 2）、Zeabur（PaaS 部署平台）。<br>- **內部依賴**: PostgreSQL ≥15（含 pgvector 擴展）、Redis ≥7、Python ≥3.11、Node.js ≥18、~~MongoDB 7+（已廢棄，改用 PostgreSQL JSONB）~~。 |
 
 ---
 
@@ -123,34 +142,74 @@
 
 ---
 
-## 第 6 部分：客戶新需求整合 (v3.0) (Client Requirements Integration)
+## 第 6 部分：測試與品質狀態 (Testing & Quality Status)
 
-**更新背景**: 客戶於 2025-10-19 提出三項新需求，經 Linus 式技術評估後，**全部接受**（CR-001 原案、CR-002 修正為 TTS、CR-003 簡化版）。以下記錄完整評估結果與整合細節。
+### 6.1 測試覆蓋率概況 ⭐
+
+| 測試類型 | 完成狀態 | 測試數量 | 通過率 | 備註 |
+|---------|---------|---------|--------|------|
+| **整合測試** (Integration Tests) | ✅ 完成 | 75 tests | **100%** | Backend API 端點完整測試 |
+| **單元測試** (Unit Tests) | ✅ 完成 | 139 tests | **100%** | Backend 業務邏輯與工具函數 |
+| **類型檢查** (Type Checking) | ✅ 通過 | N/A | **100%** | Frontend TypeScript Strict Mode |
+| **程式碼檢查** (Linting) | ✅ 通過 | N/A | **100%** | ESLint (Frontend) + Ruff (Backend) |
+| **Elder-First 設計** (Accessibility) | ✅ 符合 | N/A | **100%** | 字體 ≥18px, 觸控目標 ≥44px |
+| **E2E 測試** (End-to-End) | ⏳ 進行中 | 75+ items | TBD | 手動測試清單（參見 E2E_TEST_CHECKLIST.md） |
+
+### 6.2 品質指標達成狀況
+
+| 品質指標 | 目標值 | 當前值 | 狀態 | 參考文件 |
+|---------|--------|--------|------|----------|
+| **測試通過率** | ≥95% | **100%** | ✅ 超標 | [INTEGRATION_TEST_REPORT.md](./test_reports/INTEGRATION_TEST_REPORT.md) |
+| **測試覆蓋率** | ≥80% | ~85% | ✅ 達標 | Backend pytest coverage |
+| **TypeScript 嚴格模式** | 無錯誤 | **0 errors** | ✅ 達標 | Frontend type-check |
+| **技術債** | 零債務 | **0 P0/P1** | ✅ 達標 | 已完成 292/310 issues |
+| **Elder-First 合規** | 100% | **100%** | ✅ 達標 | [ADR-008](./adr/ADR-008-elder-first-design-principles.md) |
+
+### 6.3 CI/CD 品質閘門
+
+✅ **所有品質閘門已配置並通過**：
+- ✅ Backend: Black (格式化), Ruff (Linting), Mypy (型別檢查), Pytest (測試)
+- ✅ Frontend: Prettier (格式化), ESLint (Linting), TypeScript (型別檢查), Build (編譯)
+- ✅ Security: pip-audit (Python 依賴安全), npm audit (JavaScript 依賴安全)
+- ✅ Dependency Check: 過時依賴版本檢查
+
+**測試報告文件**：
+- [整合測試報告](./test_reports/INTEGRATION_TEST_REPORT.md) - 75 測試案例，100% 通過
+- [E2E 測試清單](./test_reports/E2E_TEST_CHECKLIST.md) - 75+ 測試項目
+- [並行開發策略](./PARALLEL_DEV_STRATEGY.md) - Mock 模式測試策略
 
 ---
 
-### 6.1 需求評估總覽 (工時影響表)
+## 第 7 部分：客戶新需求整合 (v3.0) (Client Requirements Integration)
 
-| 需求 ID | 需求名稱 | 決策 | 優先級 | 預估工時 | 整合 Sprint | 影響模組 |
-|---------|---------|------|--------|---------|-------------|----------|
-| **CR-001** | 病患資料準確性驗證 | ✅ **接受** | **P1** | **10h** | **Sprint 2** | Backend, Frontend |
-| **CR-002** | CAT 量表無障礙設計 (TTS) | ✅ **接受** | **P1** | **24h** | **Sprint 3** | Frontend |
-| **CR-003** | 營養評估 KPI (簡化版) | ✅ **接受** | **P1** | **56h** | **Sprint 3** | Backend, Database, Frontend |
-| **總計** | **接受的新需求** | - | - | **90h** | - | - |
-
-**工時影響**:
-- Sprint 2 增加 10h (4.2.9 - 4.2.11): 資料驗證
-- Sprint 3 增加 80h (5.5 營養評估 + 5.6 無障礙 TTS)
-- **總開發時程延長約 11 工作天** (90h ÷ 8h/day = 11.25 天)
-
-**決策變更說明** (相較於 CHANGELOG v3.0):
-- CR-002 需求理解修正：從「語音輸入 (STT)」→「語音朗讀 (TTS)」
-- 決策從「拒絕」→「接受」，工時從 128h → 24h
-- 符合無障礙設計最佳實踐，實用性高、複雜度低
+**更新背景**: 客戶於 2025-10-19 提出三項新需求，經 Linus 式技術評估後，**2/3 接受並完成**（CR-001 Sprint 2 完成、CR-002 Sprint 3 完成、CR-003 延後至 Phase 2）。以下記錄完整評估結果與實際整合狀況。
 
 ---
 
-### 6.2 CR-001: 病患資料準確性驗證 ✅
+### 7.1 需求評估總覽 (工時影響表) - **已更新實際狀態** ⭐
+
+| 需求 ID | 需求名稱 | 決策 | 實際狀態 | 優先級 | 預估工時 | 實際工時 | 整合 Sprint | 影響模組 |
+|---------|---------|------|----------|--------|---------|---------|-------------|----------|
+| **CR-001** | 病患資料準確性驗證 | ✅ **接受** | ✅ **Sprint 2 完成** | **P1** | 10h | 10h | **Sprint 2** ✅ | Backend, Frontend |
+| **CR-002** | CAT 量表無障礙設計 (TTS) | ✅ **接受** | ✅ **Sprint 3 完成** | **P1** | 24h → **8h** | 8h | **Sprint 3** ✅ | Frontend |
+| **CR-003** | 營養評估 KPI (簡化版) | ⏸ **延後** | ⏸ **延後至 Phase 2** | **P2** | 56h | 0h | **Sprint 6+** ⏳ | Backend, Database, Frontend |
+| **總計** | **已接受的新需求** | **2/3 接受** | **2/3 完成** | - | **18h** | **18h** | - | - |
+
+**實際工時影響** ⭐:
+- Sprint 2 增加 10h (4.2.9 - 4.2.11): 資料驗證 ✅ **已完成**
+- Sprint 3 增加 8h (5.6 無障礙 TTS): Web Speech API 實現 ✅ **已完成**
+- Sprint 3 營養評估 (5.5) **已延後至 Phase 2** ⏸
+- **實際工時變化**: +18h（而非原估 90h，節省 72h）
+
+**決策變更說明** ⭐:
+- **CR-002 需求理解修正**：從「語音輸入 (STT)」→「語音朗讀 (TTS)」
+- **CR-002 工時優化**：從 24h → 8h（採用 Web Speech API，參見 [ADR-011](./adr/ADR-011-tts-implementation-simplification.md)）
+- **CR-002 實際交付**：✅ **Sprint 3 完成**（useTTS Hook + 基本 UI）
+- **CR-003 延後決策**：基於 Linus 式實用主義，需求不明確（量表未選定），延後至 MVP 後評估
+
+---
+
+### 7.2 CR-001: 病患資料準確性驗證 ✅
 
 #### 需求描述
 **客戶訴求**: "病患填寫的每日健康日誌數據（水分攝取、運動時間、服藥狀況等）可能存在錯誤輸入（如水分攝取 9999ml），需要系統提供合理性驗證與警告機制。"
@@ -164,17 +223,19 @@
 **技術方案**: Pydantic 後端驗證 + 前端即時提示
 
 **驗證規則表**:
-| 欄位 | 資料類型 | 正常範圍 | 超過範圍提示訊息 |
-|------|---------|---------|------------------|
-| 水分攝取 (ml) | Integer | 0 - 4000 | "您輸入的水分攝取為 {value}ml，超過一般建議範圍 (0-4000ml)，請確認是否正確。" |
-| 運動時間 (min) | Integer | 0 - 180 | "您輸入的運動時間為 {value}分鐘，超過 3 小時較不常見，請確認是否正確。" |
-| 服藥狀況 | Boolean | true / false | （無需範圍驗證，僅選擇「有服藥」或「無服藥」） |
-| 體重 (kg) | Float | 30 - 150 | "您輸入的體重為 {value}kg，數值異常，請確認是否正確。" |
+| 欄位 | 資料類型 | 正常範圍 | 超過範圍提示訊息 | Schema 欄位 |
+|------|---------|---------|------------------|------------|
+| 水分攝取 (ml) | Integer | 0 - 4000 | "您輸入的水分攝取為 {value}ml，超過一般建議範圍 (0-4000ml)，請確認是否正確。" | `water_intake_ml` |
+| 運動時間 (min) | Integer | 0 - 180 | "您輸入的運動時間為 {value}分鐘，超過 3 小時較不常見，請確認是否正確。" | `exercise_minutes` |
+| 服藥狀況 | Boolean | true / false | （無需範圍驗證，僅選擇「有服藥」或「無服藥」） | `medication_taken` |
+| 體重 (kg) | Float | 30 - 150 | "您輸入的體重為 {value}kg，數值異常，請確認是否正確。" | `weight_kg` (Profile) |
+| **吸菸數量 (支/日)** ⭐ | Integer | 0 - 100 | "您輸入的吸菸數量為 {value}支，數值較高，請確認是否正確。" | `smoking_count` ⭐ **新增** |
 
 **設計說明**:
 - **簡化原則**: 移除「警告」與「錯誤」雙層閾值，統一為「正常範圍」+ 「超過範圍提示確認」
-- **移除痰量**: 患者無法準確自行測量，移除此欄位
+- **移除痰量**: 患者無法準確自行測量，已從 Schema v4.9 移除
 - **服藥改為布林值**: 從「次數」改為「有/無」，更符合實際使用情境
+- **新增吸菸數量** ⭐: 對應 Schema v4.9 新增的 `smoking_count` 欄位，用於追蹤戒菸進度
 
 **允收標準** (UAT):
 1. 後端: Pydantic model 驗證數值是否在正常範圍內
@@ -208,7 +269,7 @@
 
 ---
 
-### 6.3 CR-002: CAT 量表無障礙設計 (TTS 朗讀) ✅
+### 7.3 CR-002: CAT 量表無障礙設計 (TTS 朗讀) ✅
 
 #### 需求描述
 **客戶訴求**: "希望 LIFF 前端能夠**朗讀 CAT 量表問題**，讓視力不佳或閱讀困難的長者也能順利完成填寫。"
@@ -314,11 +375,22 @@ Linus 語錄: "Practicality beats purity."
 └─────────────────────────────────┘
 ```
 
-**結論**: **接受此需求並整合至 Sprint 3，與 CR-003 營養評估同步開發。**
+**結論**: ✅ **已於 Sprint 3 完成**
+
+**決策歷程**:
+- ❌ **初始評估（v3.0 早期）**：拒絕（因誤解為 STT 語音輸入，工時估 128h）
+- ✅ **需求澄清後（v3.0 修訂）**：接受（TTS 朗讀，工時降至 24h）
+- ✅ **實際交付（Sprint 3）**：Web Speech API 實現，最終 **8h 完成**（參見 [ADR-011](./adr/ADR-011-tts-implementation-simplification.md)）
+
+**實作成果**:
+- ✅ useTTS 自訂 Hook（支援播放/暫停/語速控制）
+- ✅ LIFF CAT 量表頁面整合朗讀按鈕
+- ✅ 基本無障礙標籤（ARIA）
+- ⏸ 進階 UI（控制面板）延後至 Phase 2 優化
 
 ---
 
-### 6.4 CR-003: 營養評估 KPI ✅ (簡化版)
+### 7.4 CR-003: 營養評估 KPI ⏸ **延後至 MVP 後 (Phase 2)**
 
 #### 需求描述
 **客戶訴求**: "希望系統能追蹤病患的營養狀態指標（如體重、肌肉量、營養量表分數），協助評估營養風險。"
@@ -372,8 +444,38 @@ Linus 語錄: "Practicality beats purity."
 3. Dashboard 顯示營養風險分級與趨勢圖
 4. 營養風險 < 8 分時自動標註警示
 
-#### 整合細節
-**Sprint 3 新增模組** (參見 WBS v3.0 Section 5.5):
+#### 延後決策說明 ⭐
+
+**決策時間**：2025-10-24（Sprint 3 規劃階段）
+
+**延後理由**（基於 Linus 式實用主義評估）：
+1. **需求不明確**：
+   - MNA-SF 量表細節未最終確認
+   - 營養風險權重計算邏輯待定
+   - 4 項指標中，肌肉質量、握力需要特殊設備（體脂計、握力計）
+
+2. **外部依賴**：
+   - 握力計、體脂計等設備採購流程未完成
+   - 客戶確認待辦事項未回覆（參見 7.5 節）
+
+3. **優先級調整**：
+   - Sprint 3-4 聚焦核心 COPD 管理功能（問卷、GOLD ABE 風險評估）
+   - 營養評估為「輔助功能」，非 MVP 關鍵路徑
+
+4. **技術債風險**：
+   - 避免在需求不明確時投入 56h，導致後續大幅重構
+
+**Linus 語錄適用**:
+> "This is solving a problem we don't have yet."
+> （這是在解決我們尚未遇到的問題）
+
+**實用性檢驗失敗**：
+- ❌ 真實問題？客戶未明確要求，僅為「期望」
+- ❌ 可行性？缺乏設備支持，無法實際測量
+- ❌ ROI？56h 投入 vs 不確定的業務價值
+
+#### 原規劃整合細節（保留供 Phase 2 參考）
+**Sprint 3 新增模組** (原規劃 WBS v3.0 Section 5.5，**已延後**):
 - **5.5.1** 營養測量數據 API (16h)
   - GET/POST `/patients/{id}/nutrition-measurements`
   - 支持 4 項指標 CRUD
@@ -408,18 +510,19 @@ GET    /patients/{id}/mna-sf/latest
 
 ---
 
-### 6.5 客戶確認待辦事項
+### 7.5 客戶確認待辦事項
 
-| 待確認事項 | 負責人 | 截止日期 | 狀態 |
-|-----------|--------|---------|------|
-| CR-001 驗證規則閾值是否符合臨床實務？ | 客戶 (治療師) | 2025-10-25 | ⏳ 待確認 |
-| CR-002 拒絕決策是否接受？或有其他考量？ | 客戶 (產品負責人) | 2025-10-22 | ⏳ 待確認 |
-| CR-003 簡化版是否滿足需求？需要調整哪些指標？ | 客戶 (營養師) | 2025-10-25 | ⏳ 待確認 |
-| 握力計、體脂計等設備由誰提供？ | 客戶 (採購部門) | 2025-11-01 | ⏳ 待確認 |
+| 待確認事項 | 負責人 | 截止日期 | 狀態 | 備註 |
+|-----------|--------|---------|------|------|
+| CR-001 驗證規則閾值是否符合臨床實務？ | 客戶 (治療師) | 2025-10-25 | ⏳ 待確認 | **已交付** Sprint 2，可依回饋調整 |
+| ~~CR-002 拒絕決策是否接受？或有其他考量？~~ | 客戶 (產品負責人) | ~~2025-10-22~~ | ✅ **已完成** | **已接受並交付** Sprint 3 (TTS) |
+| CR-003 延後決策是否接受？Phase 2 時程？ ⭐ | 客戶 (產品負責人) | 2025-11-01 | ⏳ 待確認 | **已延後**，等待客戶確認 Phase 2 需求 |
+| 握力計、體脂計等設備由誰提供？ | 客戶 (採購部門) | 2025-11-15 | ⏳ 待確認 | **依賴 CR-003 決策**，若重啟則需確認 |
+| CR-003 MNA-SF 量表詳細評分規則 ⭐ | 客戶 (營養師) | TBD | ⏳ 待確認 | **Phase 2 再議**，若重啟則需提供 |
 
 ---
 
-### 6.6 技術債務與未來考量
+### 7.6 技術債務與未來考量
 
 **已知技術債務**:
 1. **CR-001**: 驗證規則目前硬編碼在 Pydantic model，未來應支持「可配置驗證規則」
@@ -431,7 +534,7 @@ GET    /patients/{id}/mna-sf/latest
 
 ---
 
-### 6.7 設計原則遵循 (Linus Philosophy Check)
+### 7.7 設計原則遵循 (Linus Philosophy Check)
 
 **Good Taste**: 
 - ✅ CR-001 驗證規則使用 Pydantic Validators，消除 if/else 特殊判斷
@@ -451,5 +554,24 @@ GET    /patients/{id}/mna-sf/latest
 
 ---
 
-**v3.0 更新總結**: 本次客戶需求整合遵循 Linus 式務實主義，接受有明確業務價值的 CR-001 與 CR-003（簡化版），拒絕 ROI 極低的 CR-002。總開發工時增加 66h，預計 Sprint 2-3 完成整合。
+**v3.0 更新總結** ⭐ **已更新實際成果**:
+
+本次客戶需求整合遵循 Linus 式務實主義：
+
+**決策結果**:
+- ✅ **CR-001 病患資料驗證**：接受 → **Sprint 2 完成** (10h)
+- ✅ **CR-002 TTS 無障礙設計**：接受（需求澄清後）→ **Sprint 3 完成** (8h)
+- ⏸ **CR-003 營養評估**：延後至 MVP 後（Phase 2）- 需求不明確
+
+**實際工時影響**:
+- **原估**: +90h（CR-001: 10h + CR-002: 24h + CR-003: 56h）
+- **實際**: +18h（CR-001: 10h + CR-002: 8h + CR-003: 延後）
+- **節省**: 72h（主要來自 CR-002 簡化與 CR-003 延後）
+
+**Linus 式原則驗證**:
+- ✅ **Good Taste**: CR-002 從複雜 STT 簡化為輕量 TTS（8h vs 128h）
+- ✅ **Practicality Beats Purity**: CR-003 延後避免過度設計（56h 技術債風險）
+- ✅ **Simplicity**: 所有交付功能保持最簡實現，無過度工程
+
+**客戶溝通狀態**: 參見 7.5 節客戶確認待辦事項
 
