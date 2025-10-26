@@ -3,12 +3,14 @@
  * Displays patient basic information at the top of patient detail page
  *
  * Task 5.1.2 - Sprint 3
+ * Phase A3 - Alert Badge Integration (Sprint 4)
  */
 
 'use client'
 
 import { useRouter } from 'next/navigation'
 import type { PatientResponse } from '@/lib/types/patient'
+import { AlertBadge } from '@/components/alert'
 
 interface PatientHeaderProps {
   patient: PatientResponse
@@ -83,6 +85,20 @@ export function PatientHeader({ patient }: PatientHeaderProps) {
                 </span>
               )}
             </div>
+          </div>
+
+          {/* Center: Alert Badge (Sprint 4 - Phase A3) */}
+          <div className="flex items-center">
+            <AlertBadge
+              patientId={patient.patient_id}
+              onClick={() => {
+                // Scroll to alerts section or navigate to alerts tab
+                const alertsSection = document.getElementById('alerts-section')
+                if (alertsSection) {
+                  alertsSection.scrollIntoView({ behavior: 'smooth' })
+                }
+              }}
+            />
           </div>
 
           {/* Right: Physical Metrics */}
