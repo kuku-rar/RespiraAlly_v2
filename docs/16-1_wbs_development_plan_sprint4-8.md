@@ -312,25 +312,204 @@
 
 **⚠️ 重要架構決策變更** (2025-10-24 ~ 2025-10-26):
 
-原始規劃的 6.1-6.4 任務已根據國際臨床標準和 MVP 策略進行重大調整：
+原始規劃的 6.1-6.4 任務已根據國際臨床標準和 MVP 策略進行重大調整。以下表格詳列原始規劃、實際執行方案、已完成內容與待辦事項：
 
-| 原始規劃 | 實際執行 | 狀態 | 變更理由 | ADR 參考 |
-|----------|----------|------|----------|---------|
-| 6.1 風險分數計算引擎 (自訂公式) | **4.1 Risk Assessment with GOLD ABE** | ✅ 已完成 | 採用 GOLD 2011 ABE 國際標準 | ADR-013, ADR-014 |
-| 6.2 異常規則引擎 (資料庫驅動) | **4.3 Alert System MVP (固定規則)** | ✅ 已完成 | MVP 策略 - 3 個固定規則快速驗證 | ADR-016 |
-| 6.3 任務管理系統 | - | 🔵 延後至 Sprint 5 | Alert 驗證優先 | - |
-| 6.4 Dashboard 預警中心 | **4.1.4 GOLD ABE 整合** | 🟡 部分完成 | Sprint 4 完成 GOLD ABE badge | - |
+---
 
-**實際交付成果 (Sprint 4)**:
-- ✅ **Risk Assessment API** [20h] - GOLD ABE 分類系統（國際標準）
-- ✅ **Exacerbation Management API** [12h] - 惡化事件追蹤 + 自動風險重算
-- ✅ **Alert System MVP** [12h] - 3 個固定規則引擎 + DDD 架構
-- ✅ **Frontend GOLD ABE 整合** [8h] - Dashboard 顯示 A/B/E 分級
+### 📋 **6.1 風險分數計算引擎** - ❌ 已被 4.1 GOLD ABE 替代
 
-**技術債務登記** (詳見 4.3 章節):
-- DEBT-001: Alert Rule Engine Evolution (16-20h, Sprint 5-6)
-- DEBT-002: Notification System (16-20h, Sprint 5-6)
-- DEBT-003: Task Management System (24h, Sprint 5)
+| 項目 | 內容 |
+|------|------|
+| **原始規劃** | 自訂風險評分公式 (CAT*0.4 + mMRC*0.3 + DailyLog*0.3) |
+| **實際執行** | **4.1 Risk Assessment with GOLD ABE Classification** [20h] |
+| **狀態** | ✅ **100% 完成** |
+| **變更理由** | 採用 GOLD 2011 ABE 國際標準，臨床可信度更高，避免自訂公式需臨床驗證的高成本 |
+| **ADR 參考** | ADR-013 (GOLD ABE Adoption), ADR-014 (Hybrid Strategy) |
+
+**✅ 已完成內容**:
+1. **GOLD ABE 分類引擎** [6h]:
+   - ✅ GoldClassificationService 實作（3-tier: A/B/E）
+   - ✅ 分類邏輯：
+     - **Group A**: CAT<10 AND mMRC<2 → risk_score=25, risk_level='low'
+     - **Group B**: CAT>=10 OR mMRC>=2 → risk_score=50, risk_level='medium'
+     - **Group E**: CAT>=10 AND mMRC>=2 → risk_score=75, risk_level='high'
+   - ✅ RiskAssessmentModel 擴展（gold_group 欄位）
+
+2. **Risk Assessment API** [8h]:
+   - ✅ `POST /api/v1/risk/assessments/calculate` - 觸發 GOLD ABE 計算
+   - ✅ `GET /api/v1/patients/{patient_id}/risk` - 獲取最新風險評估
+   - ✅ 完整授權機制（can_access_patient）
+   - ✅ 詳細錯誤處理（400/403/404/500）
+
+3. **Frontend GOLD ABE 整合** [6h]:
+   - ✅ PatientResponse Type 擴展（GoldGroup enum, RiskAssessmentSummary）
+   - ✅ risk.ts 重構（153 lines）
+     - goldGroupToRiskLevel() - GOLD ABE → RiskLevel mapping
+     - getRiskLevel() - Hybrid 邏輯（GOLD ABE 優先 → Fallback）
+     - getGoldGroupLabel() - 中文標籤（A級/B級/E級）
+   - ✅ PatientTable UI 增強（GOLD ABE badge 顯示）
+
+**⏳ 待辦事項** (Post-MVP):
+- [ ] ~~自訂風險評分公式~~ - 不再需要（已由 GOLD ABE 標準替代）
+- [ ] ~~DailyLog 綜合評分整合~~ - 延後至營養評估模組（Sprint 6）
+
+---
+
+### 📋 **6.2 異常規則引擎** - ❌ 已被 4.3 Alert System MVP 替代
+
+| 項目 | 內容 |
+|------|------|
+| **原始規劃** | 資料庫驅動規則引擎（6+ 條可配置規則，JSONB 儲存，熱更新） |
+| **實際執行** | **4.3 Alert System MVP (固定規則引擎)** [12h] |
+| **狀態** | ✅ **100% 完成** (MVP 範圍) |
+| **變更理由** | MVP 策略 - 3 個固定規則快速驗證 Alert 概念，避免過度工程 |
+| **ADR 參考** | ADR-016 (Alert MVP Strategy - Fixed Rule Engine) |
+
+**✅ 已完成內容**:
+1. **Alert Rule Engine (固定規則)** [4h]:
+   - ✅ **Rule #1 - GOLD_GROUP_E** (CRITICAL severity):
+     - 條件: `gold_group == 'E'`
+     - 觸發: 最高風險病患（12 個月內 ≥2 次惡化或 ≥1 次住院）
+     - 動作: 創建嚴重級別 Alert
+   - ✅ **Rule #2 - HIGH_CAT_SCORE** (HIGH severity):
+     - 條件: `cat_score >= 20`
+     - 觸發: 嚴重症狀負擔
+     - 動作: 創建高級別 Alert
+   - ✅ **Rule #3 - FREQUENT_EXACERBATIONS** (MEDIUM severity):
+     - 條件: `exacerbation_count_12m >= 3`
+     - 觸發: 頻繁惡化
+     - 動作: 創建中級別 Alert
+   - ✅ AlertRuleEngine 實作（Good Taste 設計）
+
+2. **Alert Service & Repository** [4h]:
+   - ✅ AlertService 實作（create, list, count）
+   - ✅ IAlertRepository 介面定義
+   - ✅ AlertRepositoryImpl 實作（Repository Pattern）
+   - ✅ DDD 架構完全合規
+
+3. **Alert API (Read-Only MVP)** [2h]:
+   - ✅ `GET /api/v1/alerts/patients/{patient_id}/` - 列表查詢（過濾、分頁、排序）
+   - ✅ `GET /api/v1/alerts/patients/{patient_id}/active/count` - 活動 Alert 計數
+   - ✅ `GET /api/v1/alerts/{alert_id}` - Alert 詳情
+   - ✅ 授權檢查（治療師、病患、SUPERVISOR/ADMIN）
+
+4. **自動觸發整合** [2h]:
+   - ✅ CalculateRiskUseCase → AlertRuleEngine（自動評估）
+   - ✅ 風險評估完成後自動創建 Alert
+   - ✅ 100% 測試通過（手動測試 4/4）
+
+**⏳ 待辦事項** (DEBT-001 - Sprint 5-6):
+- [ ] **資料庫驅動規則引擎** [16-20h]:
+  - [ ] 規則 DSL 設計（定義規則語法和元數據結構）
+  - [ ] 規則解析器實作（解析和驗證規則表達式）
+  - [ ] 資料庫 Schema（alert_rules 表格 + 版本控制）
+  - [ ] 後台管理 UI（規則 CRUD + 測試模擬器）
+  - [ ] 向後相容遷移（現有 3 個規則轉換為資料庫記錄）
+- [ ] **擴展規則集** (從 3 個 → 6+ 個):
+  - [ ] ~~CAT 高分規則 (≥20)~~ - ✅ 已完成 (Rule #2)
+  - [ ] mMRC 嚴重分級規則 (Grade 3-4)
+  - [ ] SpO2 異常規則 (<90%) - 需先擴展 DailyLog Schema
+  - [ ] 吸菸增加規則 (超過前 7 天平均 1.5x)
+  - [ ] 運動不足規則 (連續 3 天 <15 分鐘)
+  - [ ] 綜合風險規則 (HIGH + 多項異常)
+
+**🔧 技術債務**: DEBT-001 - Alert Rule Engine Evolution (16-20h, Sprint 5-6)
+
+---
+
+### 📋 **6.3 任務管理系統** - 🔵 延後至 Sprint 5
+
+| 項目 | 內容 |
+|------|------|
+| **原始規劃** | Task Management API (自動創建、分配、狀態流轉) [24h] |
+| **實際執行** | - |
+| **狀態** | 🔵 **延後至 Sprint 5** |
+| **延後理由** | Sprint 4 聚焦於 Alert 偵測核心功能，任務管理為後續行動流程，可獨立開發 |
+| **計劃時程** | Sprint 5 (預估 24h) |
+
+**✅ 已完成內容**:
+- N/A (Sprint 4 未執行此模組)
+
+**⏳ 待辦事項** (Sprint 5 - 24h):
+1. **Task Entity + API** [12h]:
+   - [ ] Task Entity 設計（標題、描述、優先級、狀態、分配對象、關聯病患）
+   - [ ] TaskRepository 介面與實作
+   - [ ] `POST /tasks` - 創建任務（手動 + 自動）
+   - [ ] `GET /tasks` - 查詢任務列表（分頁、過濾、排序）
+   - [ ] `PATCH /tasks/{id}` - 更新任務狀態（狀態流轉驗證）
+
+2. **自動任務生成** [8h]:
+   - [ ] Domain Event: RiskScoreCalculatedEvent → Create Task
+   - [ ] Domain Event: AnomalyDetectedEvent → Create Task (整合 Alert System)
+   - [ ] TaskPriorityCalculator - 優先級計算邏輯
+
+3. **任務分配邏輯** [4h]:
+   - [ ] TaskAssignmentService - 自動分配邏輯（基於病患-治療師關係）
+   - [ ] `POST /tasks/{id}/assign` - 手動分配
+   - [ ] 測試：自動分配流程
+
+**🔧 技術債務**: DEBT-003 - Task Management System (24h, Sprint 5)
+
+---
+
+### 📋 **6.4 Dashboard 預警中心** - 🟡 部分完成
+
+| 項目 | 內容 |
+|------|------|
+| **原始規劃** | Dashboard 預警中心（風險清單 + 任務看板 + 趨勢圖） [20h] |
+| **實際執行** | **4.1.4 GOLD ABE 整合** [8h] + **待完成 Alert/Task UI** [12h] |
+| **狀態** | 🟡 **部分完成** (40% - GOLD ABE 整合已完成) |
+| **變更理由** | Sprint 4 優先完成 GOLD ABE 分級顯示，完整預警中心需 Alert List API + Task API 支援 |
+| **計劃時程** | Sprint 5 完成剩餘 60% |
+
+**✅ 已完成內容** (Sprint 4 - 8h):
+1. **GOLD ABE 整合** [8h]:
+   - ✅ PatientTable 顯示 GOLD ABE badge (A/B/E 分級)
+     - ✅ A級 (低風險) - 綠色 badge
+     - ✅ B級 (中風險) - 黃色 badge
+     - ✅ E級 (高風險) - 紅色 badge
+   - ✅ Frontend Hybrid 策略:
+     - goldGroupToRiskLevel() - GOLD ABE → RiskLevel 映射
+     - getRiskLevel() - 優先使用 GOLD ABE，Fallback 到簡化計算
+     - getGoldGroupLabel() - 中文標籤
+     - getGoldGroupColor() - Badge 顏色
+     - getGoldGroupEmoji() - Emoji 指示器
+   - ✅ 向後相容：支援無 GOLD ABE 評估的患者
+
+**⏳ 待辦事項** (Sprint 5 - 12h):
+1. **Alert List 頁面** [8h]:
+   - [ ] AlertList Component - 高風險病患列表（整合 4.3 Alert API）
+   - [ ] Filter & Sort - 多條件篩選（按 alert_type、severity、status、date_range）
+   - [ ] AlertDetail Modal - Alert 詳情彈窗（包含 metadata、clinical indicators）
+   - [ ] Dashboard Alert Badge - 顯示活動 Alert 數量（整合 count API）
+
+2. **Task Board 頁面** [4h]:
+   - [ ] TaskBoard Component - Kanban 看板（依賴 6.3 Task API）
+   - [ ] 拖拽功能 - 支援狀態更新（TODO → IN_PROGRESS → DONE）
+   - [ ] TaskDetail Modal - 任務詳情（描述、關聯病患、操作按鈕）
+
+3. **可選功能** (Post-MVP):
+   - [ ] RiskTrendChart - 風險趨勢圖（使用 Recharts）
+   - [ ] Real-time 更新 - WebSocket 推送 Alert/Task 變更
+
+---
+
+### 📊 **整體進度總覽**
+
+| 原始模組 | 實際執行模組 | 已完成工時 | 待辦工時 | 完成度 | 狀態 |
+|---------|-------------|-----------|---------|--------|------|
+| 6.1 風險分數計算引擎 (32h) | 4.1 Risk Assessment with GOLD ABE | 20h | 0h | 100% | ✅ 已完成 |
+| 6.2 異常規則引擎 (28h) | 4.3 Alert System MVP | 12h | 16-20h (DEBT-001) | 100% (MVP) | ✅ 已完成 |
+| 6.3 任務管理系統 (24h) | - | 0h | 24h | 0% | 🔵 延後 Sprint 5 |
+| 6.4 Dashboard 預警中心 (20h) | 4.1.4 GOLD ABE 整合 + 待完成 UI | 8h | 12h | 40% | 🟡 部分完成 |
+| **總計** | **Sprint 4 實際執行** | **52h** | **52-56h** | **50%** | **🟢 Phase 3.0 完成** |
+
+**說明**:
+- Sprint 4 完成 52h 核心功能開發（GOLD ABE + Exacerbation + Alert MVP）
+- 剩餘 52-56h 列為技術債務或 Sprint 5 待辦事項
+- 實際 Sprint 4 總工時: 68.5h (包含 Bug 修復、測試、文檔)
+
+---
 
 **技術決策參考**:
 - [ADR-013] ✅ GOLD 2011 ABE Classification System Adoption (已創建)
