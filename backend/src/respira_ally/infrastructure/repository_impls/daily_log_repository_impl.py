@@ -4,6 +4,13 @@ Infrastructure Layer - Clean Architecture
 
 Concrete implementation of DailyLogRepository interface using SQLAlchemy.
 This class handles all database interactions for DailyLog entities.
+
+REFACTORED: Clean Architecture Implementation
+- This is the ONLY layer that knows about ORM models
+- Responsible for Entity ↔ Model conversion
+- Domain layer stays pure, no infrastructure dependencies
+
+"Good taste means hiding complexity, not exposing it." - Linus Torvalds
 """
 
 from datetime import date
@@ -12,6 +19,7 @@ from uuid import UUID
 from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from respira_ally.domain.entities.daily_log import DailyLog
 from respira_ally.domain.repositories.daily_log_repository import DailyLogRepository
 from respira_ally.infrastructure.database.models.daily_log import DailyLogModel
 
@@ -22,6 +30,11 @@ class DailyLogRepositoryImpl(DailyLogRepository):
 
     Uses async SQLAlchemy session for database operations.
     All methods are async to support FastAPI's async endpoints.
+
+    REFACTORED: Clean Architecture Pattern
+    - Public methods use DailyLog (Domain Entity)
+    - Private methods handle Entity ↔ Model conversion
+    - All SQLAlchemy logic stays in this layer
     """
 
     def __init__(self, db: AsyncSession):
@@ -33,20 +46,86 @@ class DailyLogRepositoryImpl(DailyLogRepository):
         """
         self.db = db
 
-    async def create(self, daily_log: DailyLogModel) -> DailyLogModel:
-        """Create a new daily log record"""
-        self.db.add(daily_log)
-        await self.db.commit()
-        await self.db.refresh(daily_log)
-        return daily_log
+    # ========================================================================
+    # Entity ↔ Model Conversion (Private Methods)
+    # ========================================================================
 
-    async def get_by_id(self, log_id: UUID) -> DailyLogModel | None:
+    def _to_entity(self, model: DailyLogModel) -> DailyLog:
+        """
+        Convert ORM Model to Domain Entity
+
+        This is where infrastructure knowledge is encapsulated.
+        Domain layer never sees DailyLogModel.
+
+        Args:
+            model: SQLAlchemy ORM model
+
+        Returns:
+            Pure domain entity
+        """
+        return DailyLog(
+            log_id=model.log_id,
+            patient_id=model.patient_id,
+            log_date=model.log_date,
+            medication_taken=model.medication_taken,
+            water_intake_ml=model.water_intake_ml,
+            exercise_minutes=model.exercise_minutes,
+            smoking_count=model.smoking_count,
+            symptoms=model.symptoms,
+            mood=model.mood,
+            created_at=model.created_at,
+            updated_at=model.updated_at,
+        )
+
+    def _to_model(self, entity: DailyLog) -> DailyLogModel:
+        """
+        Convert Domain Entity to ORM Model
+
+        Args:
+            entity: Pure domain entity
+
+        Returns:
+            SQLAlchemy ORM model ready for persistence
+        """
+        return DailyLogModel(
+            log_id=entity.log_id,
+            patient_id=entity.patient_id,
+            log_date=entity.log_date,
+            medication_taken=entity.medication_taken,
+            water_intake_ml=entity.water_intake_ml,
+            exercise_minutes=entity.exercise_minutes,
+            smoking_count=entity.smoking_count,
+            symptoms=entity.symptoms,
+            mood=entity.mood,
+            created_at=entity.created_at,
+            updated_at=entity.updated_at,
+        )
+
+    # ========================================================================
+    # Repository Implementation (Public Methods)
+    # ========================================================================
+
+    async def create(self, daily_log: DailyLog) -> DailyLog:
+        """Create a new daily log record"""
+        # Entity → Model (for database)
+        model = self._to_model(daily_log)
+        self.db.add(model)
+        await self.db.commit()
+        await self.db.refresh(model)
+
+        # Model → Entity (return to domain)
+        return self._to_entity(model)
+
+    async def get_by_id(self, log_id: UUID) -> DailyLog | None:
         """Retrieve daily log by log ID"""
-        return await self.db.get(DailyLogModel, log_id)
+        model = await self.db.get(DailyLogModel, log_id)
+        if not model:
+            return None
+        return self._to_entity(model)
 
     async def get_by_patient_and_date(
         self, patient_id: UUID, log_date: date
-    ) -> DailyLogModel | None:
+    ) -> DailyLog | None:
         """Retrieve daily log for specific patient and date"""
         query = select(DailyLogModel).where(
             and_(
@@ -55,7 +134,10 @@ class DailyLogRepositoryImpl(DailyLogRepository):
             )
         )
         result = await self.db.execute(query)
-        return result.scalar_one_or_none()
+        model = result.scalar_one_or_none()
+        if not model:
+            return None
+        return self._to_entity(model)
 
     async def list_by_patient(
         self,
@@ -64,7 +146,7 @@ class DailyLogRepositoryImpl(DailyLogRepository):
         end_date: date | None = None,
         skip: int = 0,
         limit: int = 30,
-    ) -> tuple[list[DailyLogModel], int]:
+    ) -> tuple[list[DailyLog], int]:
         """List daily logs for a specific patient"""
         conditions = [DailyLogModel.patient_id == patient_id]
         if start_date:
@@ -82,9 +164,12 @@ class DailyLogRepositoryImpl(DailyLogRepository):
         # Get paginated results
         query = base_query.offset(skip).limit(limit).order_by(DailyLogModel.log_date.desc())
         result = await self.db.execute(query)
-        logs = list(result.scalars().all())
+        models = list(result.scalars().all())
 
-        return logs, total
+        # Convert all models to entities
+        entities = [self._to_entity(model) for model in models]
+
+        return entities, total
 
     async def list_by_date_range(
         self,
@@ -92,7 +177,7 @@ class DailyLogRepositoryImpl(DailyLogRepository):
         end_date: date,
         skip: int = 0,
         limit: int = 100,
-    ) -> tuple[list[DailyLogModel], int]:
+    ) -> tuple[list[DailyLog], int]:
         """List all daily logs within a date range"""
         base_query = select(DailyLogModel).where(
             and_(
@@ -111,35 +196,42 @@ class DailyLogRepositoryImpl(DailyLogRepository):
             .order_by(DailyLogModel.log_date.desc(), DailyLogModel.patient_id)
         )
         result = await self.db.execute(query)
-        logs = list(result.scalars().all())
+        models = list(result.scalars().all())
 
-        return logs, total
+        # Convert all models to entities
+        entities = [self._to_entity(model) for model in models]
+
+        return entities, total
 
     async def update(
         self,
         log_id: UUID,
         update_data: dict,
-    ) -> DailyLogModel | None:
+    ) -> DailyLog | None:
         """Update daily log information"""
-        daily_log = await self.get_by_id(log_id)
-        if not daily_log:
+        # Get model directly (internal operation)
+        model = await self.db.get(DailyLogModel, log_id)
+        if not model:
             return None
 
         for key, value in update_data.items():
-            if value is not None and hasattr(daily_log, key):
-                setattr(daily_log, key, value)
+            if value is not None and hasattr(model, key):
+                setattr(model, key, value)
 
         await self.db.commit()
-        await self.db.refresh(daily_log)
-        return daily_log
+        await self.db.refresh(model)
+
+        # Convert to entity before returning
+        return self._to_entity(model)
 
     async def delete(self, log_id: UUID) -> bool:
         """Delete daily log record"""
-        daily_log = await self.get_by_id(log_id)
-        if not daily_log:
+        # Get model directly (internal operation)
+        model = await self.db.get(DailyLogModel, log_id)
+        if not model:
             return False
 
-        await self.db.delete(daily_log)
+        await self.db.delete(model)
         await self.db.commit()
         return True
 
@@ -198,7 +290,7 @@ class DailyLogRepositoryImpl(DailyLogRepository):
         adherence_rate = (taken_logs / total_logs) * 100
         return round(adherence_rate, 2)
 
-    async def get_latest_log(self, patient_id: UUID) -> DailyLogModel | None:
+    async def get_latest_log(self, patient_id: UUID) -> DailyLog | None:
         """Get the most recent log for a patient"""
         query = (
             select(DailyLogModel)
@@ -207,7 +299,10 @@ class DailyLogRepositoryImpl(DailyLogRepository):
             .limit(1)
         )
         result = await self.db.execute(query)
-        return result.scalar_one_or_none()
+        model = result.scalar_one_or_none()
+        if not model:
+            return None
+        return self._to_entity(model)
 
     async def get_aggregated_statistics(
         self,
