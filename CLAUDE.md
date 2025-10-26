@@ -291,6 +291,53 @@ Claude：🔴 偵測意圖 → security-infrastructure-auditor
 - `feat(api): 新增使用者登入的 JWT 驗證`
 - `fix(db): 修正使用者模型中 email 欄位的驗證規則`
 
+### 🔍 全局分析優先規則 (Global Analysis First)
+
+> **Linus 的教訓**: "Bad programmers worry about the code. Good programmers worry about data structures."
+
+**核心原則**: 在修改前先搜尋全局，批次修復，而非逐步試錯。
+
+#### 強制規則（3 條）
+
+**1️⃣ 重構前必須全局搜尋**
+```markdown
+修改多個相關檔案時（例如重構 Model → Entity），必須：
+
+✅ 使用 Grep 工具搜尋所有使用點
+✅ 列出需要修改的檔案清單（3 個以上檔案時）
+❌ 禁止「改一個測一個」的逐步試錯
+
+範例：
+Grep(pattern="PatientProfileModel", path="src/", output_mode="files_with_matches")
+Grep(pattern="\.values\[", path="src/", output_mode="content")
+```
+
+**2️⃣ 批次修復，一次測試**
+```markdown
+✅ 停止伺服器 → 修復所有檔案 → 啟動伺服器 → 測試
+❌ 修一個 → 重啟 → 測 → 修一個 → 重啟 → 測...
+
+量化指標：
+- 重構任務伺服器重啟次數 > 3 次 = 違規
+```
+
+**3️⃣ 讀檔案定義，不猜語法**
+```markdown
+✅ 修改前先 Read 檔案，確認實際結構
+❌ 憑記憶或假設寫程式碼
+
+範例：
+Read("models/daily_log.py")  # 確認是 medication_taken 還是 values["medication_taken"]
+```
+
+**違規判定**:
+- 伺服器重啟 > 3 次（單次重構任務）
+- 使用錯誤訊息「發現」問題而非「驗證」修復
+
+**口訣**:
+> **"Grep first, think twice, code once."**
+> **"Errors are for validation, not for discovery."**
+
 ### ⚡ 執行模式
 - **PARALLEL TASK AGENTS (平行任務代理)** - 同時啟動多個任務代理以達最高效率
 - **SYSTEMATIC WORKFLOW (系統化工作流程)** - TodoWrite → 平行代理 → Git 檢查點 → GitHub 備份 → 測試驗證
