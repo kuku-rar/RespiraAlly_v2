@@ -310,21 +310,51 @@
 
 **時程**: Week 7-8 (2 weeks)
 
-**關鍵交付物**:
-- ✅ 風險分數自動計算 (基於 CAT/mMRC/DailyLog)
-- ✅ 異常規則引擎 (10+ 臨床規則)
-- ✅ 任務管理 API (自動任務生成)
-- ✅ Dashboard 預警中心 (風險清單 + 任務看板)
+**⚠️ 重要架構決策變更** (2025-10-24 ~ 2025-10-26):
+
+原始規劃的 6.1-6.4 任務已根據國際臨床標準和 MVP 策略進行重大調整：
+
+| 原始規劃 | 實際執行 | 狀態 | 變更理由 | ADR 參考 |
+|----------|----------|------|----------|---------|
+| 6.1 風險分數計算引擎 (自訂公式) | **4.1 Risk Assessment with GOLD ABE** | ✅ 已完成 | 採用 GOLD 2011 ABE 國際標準 | ADR-013, ADR-014 |
+| 6.2 異常規則引擎 (資料庫驅動) | **4.3 Alert System MVP (固定規則)** | ✅ 已完成 | MVP 策略 - 3 個固定規則快速驗證 | ADR-016 |
+| 6.3 任務管理系統 | - | 🔵 延後至 Sprint 5 | Alert 驗證優先 | - |
+| 6.4 Dashboard 預警中心 | **4.1.4 GOLD ABE 整合** | 🟡 部分完成 | Sprint 4 完成 GOLD ABE badge | - |
+
+**實際交付成果 (Sprint 4)**:
+- ✅ **Risk Assessment API** [20h] - GOLD ABE 分類系統（國際標準）
+- ✅ **Exacerbation Management API** [12h] - 惡化事件追蹤 + 自動風險重算
+- ✅ **Alert System MVP** [12h] - 3 個固定規則引擎 + DDD 架構
+- ✅ **Frontend GOLD ABE 整合** [8h] - Dashboard 顯示 A/B/E 分級
+
+**技術債務登記** (詳見 4.3 章節):
+- DEBT-001: Alert Rule Engine Evolution (16-20h, Sprint 5-6)
+- DEBT-002: Notification System (16-20h, Sprint 5-6)
+- DEBT-003: Task Management System (24h, Sprint 5)
 
 **技術決策參考**:
-- [ADR-012] 風險評分演算法設計 (待創建)
-- [ADR-013] 異常規則引擎技術選型 (待創建)
+- [ADR-013] ✅ GOLD 2011 ABE Classification System Adoption (已創建)
+- [ADR-014] ✅ Hybrid Strategy - GOLD ABE + Backward Compatibility (已創建)
+- [ADR-015] ✅ RBAC Extension for MVP Flexibility (已創建)
+- [ADR-016] ✅ Alert MVP Strategy - Fixed Rule Engine (已創建)
+- [ADR-017] ✅ Notification System Deferred to Post-MVP (已創建)
 
 ---
 
-### 6.1 風險分數計算引擎 [32h]
+## ⚠️ 原始規劃任務 (6.1-6.4) - 已被上述方案替代
 
-**業務目標**: 建立 COPD 風險評分系統，整合 CAT 問卷、mMRC 分級、每日日誌數據，自動計算病患風險等級並觸發相應動作。
+> **說明**: 以下章節為 Sprint 4 的原始規劃，但因採用 GOLD ABE 國際標準和 MVP 優先策略，實際執行時調整為 4.1-4.3 的方案。
+> 保留此規劃作為參考，說明原始設計思路與最終決策的演進過程。
+
+---
+
+### 6.1 風險分數計算引擎 [32h] - ❌ 已被替代 (原始規劃)
+
+> **狀態**: ❌ 已被 **4.1 Risk Assessment with GOLD ABE Classification** 替代
+> **替代理由**: 採用 GOLD 2011 ABE 國際標準，臨床可信度更高，避免自訂公式需臨床驗證的高成本
+> **ADR 參考**: ADR-013 (GOLD ABE Adoption), ADR-014 (Hybrid Strategy)
+
+**業務目標** (原始規劃): 建立 COPD 風險評分系統，整合 CAT 問卷、mMRC 分級、每日日誌數據，自動計算病患風險等級並觸發相應動作。
 
 **技術方案**:
 - **風險評分公式** (可調整權重):
@@ -378,9 +408,13 @@
 
 ---
 
-### 6.2 異常規則引擎 [28h]
+### 6.2 異常規則引擎 [28h] - ❌ 已被替代 (原始規劃)
 
-**業務目標**: 建立基於規則的異常偵測系統，識別需要立即關注的臨床狀況，自動觸發預警與任務生成。
+> **狀態**: ❌ 已被 **4.3 Alert System MVP (固定規則引擎)** 替代
+> **替代理由**: MVP 策略 - 使用 3 個固定規則快速驗證 Alert 概念，避免過度工程。資料庫驅動規則引擎列為技術債務 (DEBT-001)，計劃於 Sprint 5-6 升級
+> **ADR 參考**: ADR-016 (Alert MVP Strategy - Fixed Rule Engine)
+
+**業務目標** (原始規劃): 建立基於規則的異常偵測系統，識別需要立即關注的臨床狀況，自動觸發預警與任務生成。
 
 **技術方案**:
 - **規則引擎技術選型**:
@@ -447,9 +481,13 @@ rules:
 
 ---
 
-### 6.3 任務管理 API [24h]
+### 6.3 任務管理 API [24h] - 🔵 延後至 Sprint 5
 
-**業務目標**: 建立治療師任務管理系統，支援手動創建、規則自動生成、狀態追蹤、分配與完成流程。
+> **狀態**: 🔵 延後至 Sprint 5
+> **延後理由**: Sprint 4 聚焦於 Alert 偵測核心功能，任務管理為後續行動流程，可獨立開發。MVP 期間治療師可手動處理 Alert
+> **計劃時程**: Sprint 5 (預估 24h)
+
+**業務目標** (原始規劃): 建立治療師任務管理系統，支援手動創建、規則自動生成、狀態追蹤、分配與完成流程。
 
 **技術方案**:
 - **任務狀態流轉**: TODO → IN_PROGRESS → DONE (支援 CANCELLED)
@@ -487,9 +525,18 @@ rules:
 
 ---
 
-### 6.4 Dashboard 預警中心 [20h]
+### 6.4 Dashboard 預警中心 [20h] - 🟡 部分完成
 
-**業務目標**: 建立治療師工作台，提供風險病患清單、任務看板、快速處理介面，提升工作效率。
+> **狀態**: 🟡 部分完成 (Sprint 4 已完成 GOLD ABE 整合)
+> **已完成內容**:
+> - ✅ PatientTable 顯示 GOLD ABE badge (A/B/E 分級) - 4.1.4
+> - ✅ Frontend Hybrid 策略 - goldGroupToRiskLevel() mapping
+> **待完成內容** (Sprint 5):
+> - ⏳ Alert List UI (依賴 4.3 Alert API)
+> - ⏳ Task Board Kanban 看板 (依賴 6.3 Task API)
+> - ⏳ Risk Trend Chart (風險趨勢圖)
+
+**業務目標** (原始規劃): 建立治療師工作台，提供風險病患清單、任務看板、快速處理介面，提升工作效率。
 
 **技術方案**:
 - **UI 框架**: Next.js (Dashboard 既有架構)
