@@ -10,7 +10,7 @@ Infrastructure Layer.
 from abc import ABC, abstractmethod
 from uuid import UUID
 
-from respira_ally.infrastructure.database.models.patient_profile import PatientProfileModel
+from respira_ally.domain.entities.patient import Patient
 
 
 class PatientRepository(ABC):
@@ -23,15 +23,15 @@ class PatientRepository(ABC):
     """
 
     @abstractmethod
-    async def create(self, patient: PatientProfileModel) -> PatientProfileModel:
+    async def create(self, patient: Patient) -> Patient:
         """
         Create a new patient record
 
         Args:
-            patient: PatientProfileModel instance to persist
+            patient: Patient domain entity to persist
 
         Returns:
-            PatientProfileModel: The created patient with database-generated fields
+            Patient: The created patient entity
 
         Raises:
             IntegrityError: If patient with same user_id already exists
@@ -39,7 +39,7 @@ class PatientRepository(ABC):
         pass
 
     @abstractmethod
-    async def get_by_id(self, user_id: UUID) -> PatientProfileModel | None:
+    async def get_by_id(self, user_id: UUID) -> Patient | None:
         """
         Retrieve patient by user ID
 
@@ -47,7 +47,7 @@ class PatientRepository(ABC):
             user_id: Patient's user ID (primary key)
 
         Returns:
-            PatientProfileModel if found, None otherwise
+            Patient entity if found, None otherwise
         """
         pass
 
@@ -66,7 +66,7 @@ class PatientRepository(ABC):
         max_age: int | None = None,
         sort_by: str = "created_at",
         sort_order: str = "desc",
-    ) -> tuple[list[PatientProfileModel], int]:
+    ) -> tuple[list[Patient], int]:
         """
         List patients assigned to a specific therapist with filters
 
@@ -84,7 +84,7 @@ class PatientRepository(ABC):
             sort_order: Sort order (asc, desc)
 
         Returns:
-            Tuple of (list of patients, total count)
+            Tuple of (list of Patient entities, total count)
         """
         pass
 
@@ -93,7 +93,7 @@ class PatientRepository(ABC):
         self,
         user_id: UUID,
         update_data: dict,
-    ) -> PatientProfileModel | None:
+    ) -> Patient | None:
         """
         Update patient information
 
@@ -102,7 +102,7 @@ class PatientRepository(ABC):
             update_data: Dictionary of fields to update
 
         Returns:
-            Updated PatientProfileModel if found, None otherwise
+            Updated Patient entity if found, None otherwise
 
         Note:
             Only fields present in update_data will be modified

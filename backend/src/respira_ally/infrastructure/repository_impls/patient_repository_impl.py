@@ -4,15 +4,19 @@ Infrastructure Layer - Clean Architecture
 
 Concrete implementation of PatientRepository interface using SQLAlchemy.
 This class handles all database interactions for Patient entities.
+
+Responsibility: Entity↔Model conversion (isolate ORM from Domain Layer)
 """
 
 from datetime import date
+from decimal import Decimal
 from uuid import UUID
 
 from sqlalchemy import and_, case, cast, extract, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.types import Float
 
+from respira_ally.domain.entities.patient import Patient
 from respira_ally.domain.repositories.patient_repository import PatientRepository
 from respira_ally.infrastructure.database.models.patient_profile import PatientProfileModel
 
@@ -34,25 +38,94 @@ class PatientRepositoryImpl(PatientRepository):
         """
         self.db = db
 
-    async def create(self, patient: PatientProfileModel) -> PatientProfileModel:
+    # ========================================================================
+    # Entity ↔ Model Conversion (Infrastructure Isolation)
+    # ========================================================================
+
+    def _to_entity(self, model: PatientProfileModel) -> Patient:
+        """
+        Convert ORM Model to Domain Entity
+
+        This method isolates SQLAlchemy dependencies from the Domain Layer.
+
+        Args:
+            model: PatientProfileModel (ORM)
+
+        Returns:
+            Patient: Domain entity
+        """
+        return Patient(
+            user_id=model.user_id,
+            therapist_id=model.therapist_id,
+            name=model.name,
+            birth_date=model.birth_date,
+            gender=model.gender,
+            hospital_medical_record_number=model.hospital_medical_record_number,
+            height_cm=model.height_cm,
+            weight_kg=model.weight_kg,
+            smoking_status=model.smoking_status,
+            smoking_years=model.smoking_years,
+            exacerbation_count_last_12m=model.exacerbation_count_last_12m,
+            hospitalization_count_last_12m=model.hospitalization_count_last_12m,
+            last_exacerbation_date=model.last_exacerbation_date,
+            medical_history=model.medical_history,
+            contact_info=model.contact_info,
+        )
+
+    def _to_model(self, entity: Patient) -> PatientProfileModel:
+        """
+        Convert Domain Entity to ORM Model
+
+        This method isolates SQLAlchemy dependencies from the Domain Layer.
+
+        Args:
+            entity: Patient (Domain entity)
+
+        Returns:
+            PatientProfileModel: ORM model
+        """
+        return PatientProfileModel(
+            user_id=entity.user_id,
+            therapist_id=entity.therapist_id,
+            name=entity.name,
+            birth_date=entity.birth_date,
+            gender=entity.gender,
+            hospital_medical_record_number=entity.hospital_medical_record_number,
+            height_cm=entity.height_cm,
+            weight_kg=entity.weight_kg,
+            smoking_status=entity.smoking_status,
+            smoking_years=entity.smoking_years,
+            exacerbation_count_last_12m=entity.exacerbation_count_last_12m,
+            hospitalization_count_last_12m=entity.hospitalization_count_last_12m,
+            last_exacerbation_date=entity.last_exacerbation_date,
+            medical_history=entity.medical_history,
+            contact_info=entity.contact_info,
+        )
+
+    # ========================================================================
+    # Repository Methods (Using Entity ↔ Model Conversion)
+    # ========================================================================
+
+    async def create(self, patient: Patient) -> Patient:
         """
         Create a new patient record
 
         Args:
-            patient: PatientProfileModel instance to persist
+            patient: Patient domain entity to persist
 
         Returns:
-            The created patient with database-generated fields
+            The created Patient entity
 
         Raises:
             IntegrityError: If patient with same user_id already exists
         """
-        self.db.add(patient)
+        model = self._to_model(patient)  # Entity → Model
+        self.db.add(model)
         await self.db.commit()
-        await self.db.refresh(patient)
-        return patient
+        await self.db.refresh(model)
+        return self._to_entity(model)  # Model → Entity
 
-    async def get_by_id(self, user_id: UUID) -> PatientProfileModel | None:
+    async def get_by_id(self, user_id: UUID) -> Patient | None:
         """
         Retrieve patient by user ID
 
@@ -60,9 +133,10 @@ class PatientRepositoryImpl(PatientRepository):
             user_id: Patient's user ID (primary key)
 
         Returns:
-            PatientProfileModel if found, None otherwise
+            Patient entity if found, None otherwise
         """
-        return await self.db.get(PatientProfileModel, user_id)
+        model = await self.db.get(PatientProfileModel, user_id)
+        return self._to_entity(model) if model else None
 
     async def list_by_therapist(
         self,
@@ -196,7 +270,10 @@ class PatientRepositoryImpl(PatientRepository):
         # Get paginated results
         query = base_query.offset(skip).limit(limit).order_by(order_clause)
         result = await self.db.execute(query)
-        patients = list(result.scalars().all())
+        patient_models = list(result.scalars().all())
+
+        # Convert Model → Entity
+        patients = [self._to_entity(model) for model in patient_models]
 
         return patients, total
 
@@ -204,7 +281,7 @@ class PatientRepositoryImpl(PatientRepository):
         self,
         user_id: UUID,
         update_data: dict,
-    ) -> PatientProfileModel | None:
+    ) -> Patient | None:
         """
         Update patient information
 
@@ -213,25 +290,25 @@ class PatientRepositoryImpl(PatientRepository):
             update_data: Dictionary of fields to update
 
         Returns:
-            Updated PatientProfileModel if found, None otherwise
+            Updated Patient entity if found, None otherwise
 
         Note:
             Only fields present in update_data will be modified.
             Empty dict or dict with None values will not modify anything.
         """
-        # Fetch the patient
-        patient = await self.get_by_id(user_id)
-        if not patient:
+        # Fetch the patient model
+        model = await self.db.get(PatientProfileModel, user_id)
+        if not model:
             return None
 
         # Update only provided fields (exclude None values)
         for key, value in update_data.items():
-            if value is not None and hasattr(patient, key):
-                setattr(patient, key, value)
+            if value is not None and hasattr(model, key):
+                setattr(model, key, value)
 
         await self.db.commit()
-        await self.db.refresh(patient)
-        return patient
+        await self.db.refresh(model)
+        return self._to_entity(model)  # Model → Entity
 
     async def delete(self, user_id: UUID) -> bool:
         """

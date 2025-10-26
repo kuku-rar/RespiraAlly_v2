@@ -17,12 +17,12 @@ from respira_ally.core.schemas.patient import (
     PatientResponse,
     PatientUpdate,
 )
+from respira_ally.domain.entities.patient import Patient
 from respira_ally.domain.events.patient_events import (
     create_patient_deleted_event,
     create_patient_updated_event,
 )
 from respira_ally.domain.repositories.patient_repository import PatientRepository
-from respira_ally.infrastructure.database.models.patient_profile import PatientProfileModel
 from respira_ally.infrastructure.database.models.user import UserModel
 from respira_ally.infrastructure.message_queue.publishers.event_publisher import EventPublisher
 
@@ -98,41 +98,29 @@ class PatientService:
         bmi = weight_kg / (height_m * height_m)
         return round(bmi, 1)
 
-    def enrich_patient_response(self, patient: PatientProfileModel) -> PatientResponse:
+    def enrich_patient_response(self, patient: Patient) -> PatientResponse:
         """
-        Convert PatientProfileModel to PatientResponse with computed fields
+        Convert Patient entity to PatientResponse with computed fields
 
         Args:
-            patient: PatientProfileModel from database
+            patient: Patient domain entity
 
         Returns:
             PatientResponse with age, BMI, and latest risk assessment (if available)
+
+        Note:
+            Risk assessment info temporarily removed (requires RiskAssessmentRepository)
+            TODO: Re-implement using RiskAssessmentRepository after refactoring
         """
-        # Extract phone from contact_info JSONB
+        # Extract phone from contact_info dict
         phone = None
         if patient.contact_info:
             phone = patient.contact_info.get("phone")
 
-        # Extract latest risk assessment (if relationship loaded)
+        # TODO: Re-implement risk assessment retrieval using RiskAssessmentRepository
+        # Following Clean Architecture, we should not access ORM relationships here
         gold_group = None
         latest_risk_assessment = None
-
-        # Note: risk_assessments relationship needs to be loaded with joinedload
-        # or selectinload for this to work. Otherwise, it will trigger lazy loading.
-        if hasattr(patient, "risk_assessments") and patient.risk_assessments:
-            # Get the latest risk assessment (sorted by assessed_at desc)
-            latest_assessment = max(patient.risk_assessments, key=lambda x: x.assessed_at)
-            gold_group = latest_assessment.gold_group
-            latest_risk_assessment = {
-                "gold_group": latest_assessment.gold_group,
-                "risk_level": latest_assessment.risk_level,
-                "risk_score": latest_assessment.risk_score,
-                "cat_score": latest_assessment.cat_score,
-                "mmrc_grade": latest_assessment.mmrc_grade,
-                "exacerbation_count_12m": latest_assessment.exacerbation_count_12m,
-                "hospitalization_count_12m": latest_assessment.hospitalization_count_12m,
-                "assessed_at": latest_assessment.assessed_at.isoformat(),
-            }
 
         return PatientResponse(
             user_id=patient.user_id,
@@ -182,15 +170,15 @@ class PatientService:
         Raises:
             IntegrityError: If patient with same user_id already exists
         """
-        # Prepare JSONB fields
+        # Prepare dict fields
         contact_info = {}
         if data.phone:
             contact_info["phone"] = data.phone
 
         medical_history = {}  # Empty for now, will be populated later
 
-        # Create PatientProfileModel
-        patient = PatientProfileModel(
+        # Create Patient domain entity
+        patient = Patient(
             user_id=user_model.user_id,
             therapist_id=data.therapist_id,
             name=data.name,
