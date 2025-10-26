@@ -147,23 +147,13 @@ class KPIService:
         }
 
     async def _get_latest_health_metrics(self, patient_id: UUID) -> dict[str, Any]:
-        """Get latest health vitals from daily logs"""
-        stmt = (
-            select(DailyLogModel)
-            .where(DailyLogModel.patient_id == patient_id)
-            .order_by(DailyLogModel.log_date.desc())
-            .limit(1)
-        )
-        result = await self.db.execute(stmt)
-        latest_log = result.scalar_one_or_none()
+        """
+        Get latest health vitals
 
-        if not latest_log:
-            return {}
-
-        # Extract vitals from JSONB values
-        values = latest_log.values or {}
-
-        # Calculate BMI if height/weight available
+        MVP: Only BMI (calculated from patient profile height/weight)
+        Post-MVP: SpO2, HR, BP from DailyLog vitals JSONB field
+        """
+        # Calculate BMI from patient profile
         patient = await self.db.get(PatientProfileModel, patient_id)
         bmi = None
         if patient and patient.height_cm and patient.weight_kg:
@@ -171,11 +161,13 @@ class KPIService:
             bmi = float(patient.weight_kg) / (height_m**2)
 
         return {
+            # MVP - Available
             "bmi": round(bmi, 1) if bmi else None,
-            "spo2": values.get("spo2"),
-            "heart_rate": values.get("heart_rate"),
-            "systolic_bp": values.get("systolic_bp"),
-            "diastolic_bp": values.get("diastolic_bp"),
+            # Post-MVP - Requires DailyLog Schema extension (vitals JSONB field)
+            "spo2": None,
+            "heart_rate": None,
+            "systolic_bp": None,
+            "diastolic_bp": None,
         }
 
     async def _get_latest_survey_scores(self, patient_id: UUID) -> dict[str, int | None]:

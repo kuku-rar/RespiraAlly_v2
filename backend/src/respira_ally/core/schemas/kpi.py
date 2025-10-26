@@ -50,14 +50,17 @@ class PatientKPIResponse(BaseModel):
     )
 
     # Health Metrics
-    latest_bmi: float | None = Field(None, description="Latest BMI value")
-    latest_spo2: int | None = Field(None, ge=0, le=100, description="Latest SpO2 (%)")
-    latest_heart_rate: int | None = Field(None, ge=0, le=300, description="Latest heart rate (bpm)")
+    latest_bmi: float | None = Field(None, description="Latest BMI value (calculated from height/weight)")
+
+    # Post-MVP: Vitals tracking (requires DailyLog Schema extension with vitals JSONB field)
+    # Currently returns None - to be implemented in Phase 2
+    latest_spo2: int | None = Field(None, ge=0, le=100, description="Latest SpO2 (%) - Post-MVP")
+    latest_heart_rate: int | None = Field(None, ge=0, le=300, description="Latest heart rate (bpm) - Post-MVP")
     latest_systolic_bp: int | None = Field(
-        None, ge=0, le=300, description="Latest systolic blood pressure (mmHg)"
+        None, ge=0, le=300, description="Latest systolic blood pressure (mmHg) - Post-MVP"
     )
     latest_diastolic_bp: int | None = Field(
-        None, ge=0, le=200, description="Latest diastolic blood pressure (mmHg)"
+        None, ge=0, le=200, description="Latest diastolic blood pressure (mmHg) - Post-MVP"
     )
 
     # Survey Scores

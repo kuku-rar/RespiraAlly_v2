@@ -247,7 +247,8 @@
   其中：
   - CAT_score: 0-40 (歸一化為 0-100)
   - mMRC_grade: 0-4 (歸一化為 0-100)
-  - DailyLog_factors: 綜合考量 SpO2、呼吸困難、痰量、運動、吸菸
+  - DailyLog_factors: 綜合考量運動、吸菸、症狀 (MVP 範圍)
+    - Post-MVP 可擴展：SpO2、呼吸困難、痰量等生理指標
   ```
 - **風險等級分界**:
   - LOW (低風險): 0-30
@@ -310,12 +311,12 @@
 | 6.2.1.2 | RuleEvaluator 核心評估器 | Backend | 4 | ⬜ | 6.2.1.1 | 支援 Python 表達式安全執行 (ast.literal_eval) | ADR-013 |
 | 6.2.1.3 | RuleRepository 介面與實作 | Backend | 2 | ⬜ | 6.2.1.1 | 支援規則 CRUD 與優先級排序 | - |
 | 6.2.1.4 | RuleAction 動作執行器 | Backend | 2 | ⬜ | 6.2.1.2 | 支援：創建任務、發送通知、標記病患 | - |
-| **6.2.2 預設規則集** | | | **12h** | ⬜ | | | |
+| **6.2.2 預設規則集 (MVP)** | | | **10h** | ⬜ | | | |
 | 6.2.2.1 | CAT 高分規則 (≥20) | Backend | 2 | ⬜ | 6.2.1 | 觸發：創建高優先級任務 | - |
 | 6.2.2.2 | mMRC 嚴重分級規則 (Grade 3-4) | Backend | 2 | ⬜ | 6.2.1 | 觸發：標記為高關注病患 | - |
-| 6.2.2.3 | SpO2 異常規則 (<90%) | Backend | 2 | ⬜ | 6.2.1 | 觸發：立即通知 + 創建緊急任務 | - |
-| 6.2.2.4 | 呼吸困難惡化規則 (3 天內惡化) | Backend | 2 | ⬜ | 6.2.1 | 觸發：創建追蹤任務 | - |
-| 6.2.2.5 | 吸菸增加規則 (超過前 7 天平均 1.5x) | Backend | 2 | ⬜ | 6.2.1 | 觸發：健康教育任務 | - |
+| ~~6.2.2.3~~ | ~~SpO2 異常規則 (<90%)~~ | ~~Backend~~ | ~~2~~ | 🔵 Post-MVP | ~~6.2.1~~ | 需先擴展 DailyLog Schema (vitals JSONB) | - |
+| 6.2.2.4 | 吸菸增加規則 (超過前 7 天平均 1.5x) | Backend | 2 | ⬜ | 6.2.1 | 觸發：健康教育任務 | - |
+| 6.2.2.5 | 運動不足規則 (連續 3 天 <15 分鐘) | Backend | 2 | ⬜ | 6.2.1 | 觸發：運動鼓勵任務 | - |
 | 6.2.2.6 | 綜合風險規則 (HIGH + 多項異常) | Backend | 2 | ⬜ | 6.2.1, 6.1 | 觸發：醫師會診任務 | - |
 | **6.2.3 整合與測試** | | | **6h** | ⬜ | | | |
 | 6.2.3.1 | 規則引擎整合測試 | Backend | 3 | ⬜ | 6.2.2 | 測試所有 6 條規則觸發場景 | - |
@@ -323,16 +324,17 @@
 | 6.2.3.3 | 與 Risk Engine 整合測試 | Backend | 1 | ⬜ | 6.1, 6.2.2 | 端到端測試：Survey → Risk → Rules → Task | - |
 
 **Definition of Done (DoD)**:
-- [ ] 至少 10 條臨床規則正常運作
+- [ ] 至少 5 條 MVP 臨床規則正常運作
 - [ ] 規則評估性能 < 100ms (P95)
 - [ ] 規則文檔完整（條件、動作、優先級）
 - [ ] 支援熱更新（新增規則無需重啟服務）
 - [ ] 錯誤處理：規則執行失敗不影響風險計算
 - [ ] 整合測試通過：Survey/DailyLog → Risk → Rules → Task
 
-**預設規則清單** (範例):
+**預設規則清單 (MVP 範圍)**:
 ```yaml
 rules:
+  # MVP 實現 - 基於現有數據
   - id: RULE_001
     name: "CAT高分預警"
     condition: "cat_score >= 20"
@@ -341,11 +343,19 @@ rules:
     task_template: "CAT評分過高，建議安排醫師會診"
 
   - id: RULE_002
-    name: "SpO2危險值"
-    condition: "spo2 < 90"
-    action: "CREATE_TASK + SEND_NOTIFICATION"
-    priority: "URGENT"
-    task_template: "血氧濃度過低，立即聯繫病患"
+    name: "吸菸增加預警"
+    condition: "smoking_count > avg_smoking_7d * 1.5"
+    action: "CREATE_TASK"
+    priority: "MEDIUM"
+    task_template: "近期吸菸量增加，建議進行戒菸輔導"
+
+  # Post-MVP - 需 DailyLog Schema 擴展 (vitals JSONB 欄位)
+  # - id: RULE_003
+  #   name: "SpO2危險值"
+  #   condition: "spo2 < 90"
+  #   action: "CREATE_TASK + SEND_NOTIFICATION"
+  #   priority: "URGENT"
+  #   task_template: "血氧濃度過低，立即聯繫病患"
 ```
 
 ---

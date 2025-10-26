@@ -318,7 +318,7 @@ async def get_patient_kpi(
 
     **Response includes**:
     - Adherence metrics (medication, logs, surveys)
-    - Health vitals (BMI, SpO2, BP, HR)
+    - Health vitals (BMI - MVP | SpO2, BP, HR - Post-MVP, currently null)
     - Survey scores (CAT, mMRC)
     - GOLD ABE risk (gold_group, exacerbation counts)
     - Legacy risk (risk_score, risk_level) - backward compatible
