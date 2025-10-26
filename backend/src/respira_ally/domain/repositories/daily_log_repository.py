@@ -210,3 +210,26 @@ class DailyLogRepository(ABC):
             Latest DailyLogModel if found, None otherwise
         """
         pass
+
+    @abstractmethod
+    async def get_aggregated_statistics(
+        self,
+        patient_id: UUID,
+        start_date: date,
+        end_date: date,
+    ) -> dict:
+        """
+        Calculate aggregated statistics using database-side computation (SQL)
+
+        This is the Linus-approved method: let the database do what it does best.
+        No fetching 10000 records into Python memory.
+
+        Args:
+            patient_id: Patient's user ID
+            start_date: Start date (inclusive)
+            end_date: End date (inclusive)
+
+        Returns:
+            Dictionary with aggregated statistics (see implementation for keys)
+        """
+        pass
