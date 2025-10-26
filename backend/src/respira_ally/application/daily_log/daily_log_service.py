@@ -4,6 +4,11 @@ Application Layer - Clean Architecture
 
 This service orchestrates daily log-related use cases and business logic.
 It uses Repository pattern for data access and encapsulates complex workflows.
+
+REFACTORED: Clean Architecture Implementation
+- No longer uses ORM models (DailyLogModel)
+- Uses pure Domain Entity (DailyLog)
+- Removed to_response() - Presentation layer responsibility moved to API layer
 """
 
 import logging
@@ -17,13 +22,13 @@ from respira_ally.core.schemas.daily_log import (
     DailyLogStats,
     DailyLogUpdate,
 )
+from respira_ally.domain.entities.daily_log import DailyLog
 from respira_ally.domain.events.daily_log_events import (
     create_daily_log_deleted_event,
     create_daily_log_submitted_event,
     create_daily_log_updated_event,
 )
 from respira_ally.domain.repositories.daily_log_repository import DailyLogRepository
-from respira_ally.infrastructure.database.models.daily_log import DailyLogModel
 from respira_ally.infrastructure.message_queue.publishers.event_publisher import EventPublisher
 
 logger = logging.getLogger(__name__)
@@ -59,15 +64,18 @@ class DailyLogService:
     # Helper Methods
     # ========================================================================
 
-    def to_response(self, daily_log: DailyLogModel) -> DailyLogResponse:
+    def _to_response(self, daily_log: DailyLog) -> DailyLogResponse:
         """
-        Convert DailyLogModel to DailyLogResponse
+        Convert DailyLog Entity to DailyLogResponse DTO
+
+        NOTE: This is a temporary adapter while we transition.
+        Ideally, API layer should handle this conversion.
 
         Args:
-            daily_log: DailyLogModel from database
+            daily_log: Domain entity
 
         Returns:
-            DailyLogResponse
+            Response DTO for API layer
         """
         return DailyLogResponse(
             log_id=daily_log.log_id,
@@ -113,8 +121,8 @@ class DailyLogService:
                 f"Daily log already exists for patient {data.patient_id} on {data.log_date}"
             )
 
-        # Create new log
-        daily_log = DailyLogModel(
+        # Create new log (Domain Entity)
+        daily_log = DailyLog(
             patient_id=data.patient_id,
             log_date=data.log_date,
             medication_taken=data.medication_taken,
@@ -125,7 +133,7 @@ class DailyLogService:
         )
 
         created_log = await self.daily_log_repo.create(daily_log)
-        return self.to_response(created_log)
+        return self._to_response(created_log)
 
     async def create_or_update_daily_log(
         self, data: DailyLogCreate
@@ -153,7 +161,7 @@ class DailyLogService:
                 log_id=existing_log.log_id,
                 update_data=update_data,
             )
-            response = self.to_response(updated_log)
+            response = self._to_response(updated_log)
 
             # Publish event (for updated log)
             await self._publish_daily_log_event(
@@ -346,7 +354,7 @@ class DailyLogService:
         if not daily_log:
             return None
 
-        return self.to_response(daily_log)
+        return self._to_response(daily_log)
 
     async def get_daily_log_by_patient_and_date(
         self, patient_id: UUID, log_date: date
@@ -367,7 +375,7 @@ class DailyLogService:
         if not daily_log:
             return None
 
-        return self.to_response(daily_log)
+        return self._to_response(daily_log)
 
     async def list_daily_logs_by_patient(
         self,
@@ -399,7 +407,7 @@ class DailyLogService:
             limit=page_size,
         )
 
-        items = [self.to_response(log) for log in logs]
+        items = [self._to_response(log) for log in logs]
 
         return DailyLogListResponse(
             items=items,
@@ -423,7 +431,7 @@ class DailyLogService:
         if not daily_log:
             return None
 
-        return self.to_response(daily_log)
+        return self._to_response(daily_log)
 
     # ========================================================================
     # Update Operations
