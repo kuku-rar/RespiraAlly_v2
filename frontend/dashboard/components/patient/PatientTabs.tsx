@@ -1,18 +1,21 @@
 /**
  * PatientTabs Component
- * Tab navigation for patient detail sections (Profile, Daily Logs, Surveys)
+ * Tab navigation for patient detail sections (Profile, Daily Logs, Surveys, Alerts)
  *
  * Task 5.1.2 - Sprint 3
+ * Sprint 4 - Phase A Integration: Added Alerts tab
  */
 
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import type { PatientResponse } from '@/lib/types/patient'
 import type { DailyLogListResponse } from '@/lib/types/daily-log'
 import type { SurveyListResponse } from '@/lib/types/survey'
 import { getCATScoreLabel, getMMRCGradeLabel } from '@/lib/types/survey'
 import { EmptyState } from '@/components/ui'
+import { AlertList, AlertDetailModal } from '@/components/alert'
+import type { Alert } from '@/lib/types/alert'
 
 interface PatientTabsProps {
   patient: PatientResponse
@@ -20,10 +23,27 @@ interface PatientTabsProps {
   surveys?: SurveyListResponse
 }
 
-type TabId = 'profile' | 'daily-logs' | 'surveys'
+type TabId = 'profile' | 'daily-logs' | 'surveys' | 'alerts'
 
 export function PatientTabs({ patient, dailyLogs, surveys }: PatientTabsProps) {
   const [activeTab, setActiveTab] = useState<TabId>('profile')
+
+  // Listen for hash changes to auto-switch to alerts tab (from AlertBadge click)
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash.replace('#', '') as TabId
+      if (hash === 'alerts') {
+        setActiveTab('alerts')
+      }
+    }
+
+    // Check hash on mount
+    handleHashChange()
+
+    // Listen for hash changes
+    window.addEventListener('hashchange', handleHashChange)
+    return () => window.removeEventListener('hashchange', handleHashChange)
+  }, [])
 
   const tabs = [
     {
@@ -43,6 +63,12 @@ export function PatientTabs({ patient, dailyLogs, surveys }: PatientTabsProps) {
       label: '問卷評估',
       icon: '📋',
       count: surveys?.total || 0,
+    },
+    {
+      id: 'alerts' as TabId,
+      label: '警示通知',
+      icon: '🔔',
+      count: null, // Count will be displayed by AlertBadge
     },
   ]
 
@@ -85,10 +111,11 @@ export function PatientTabs({ patient, dailyLogs, surveys }: PatientTabsProps) {
       </div>
 
       {/* Tab Content */}
-      <div className="p-6">
+      <div className="p-6" id="alerts-section">
         {activeTab === 'profile' && <ProfileTab patient={patient} />}
         {activeTab === 'daily-logs' && <DailyLogsTab dailyLogs={dailyLogs} />}
         {activeTab === 'surveys' && <SurveysTab surveys={surveys} />}
+        {activeTab === 'alerts' && <AlertsTab patientId={patient.patient_id} />}
       </div>
     </div>
   )
@@ -107,7 +134,7 @@ function ProfileTab({ patient }: { patient: PatientResponse }) {
     { label: '聯絡電話', value: patient.phone || '-' },
     { label: '身高', value: patient.height_cm ? `${patient.height_cm} cm` : '-' },
     { label: '體重', value: patient.weight_kg ? `${patient.weight_kg} kg` : '-' },
-    { label: 'BMI', value: patient.bmi ? patient.bmi.toFixed(1) : '-' },
+    { label: 'BMI', value: patient.bmi ? Number(patient.bmi).toFixed(1) : '-' },
   ]
 
   return (
@@ -271,6 +298,47 @@ function SurveysTab({ surveys }: { surveys?: SurveyListResponse }) {
           </div>
         ))}
       </div>
+    </div>
+  )
+}
+
+function AlertsTab({ patientId }: { patientId: string }) {
+  const [selectedAlert, setSelectedAlert] = useState<Alert | null>(null)
+  const [isModalOpen, setIsModalOpen] = useState(false)
+
+  const handleAlertClick = (alert: Alert) => {
+    setSelectedAlert(alert)
+    setIsModalOpen(true)
+  }
+
+  const handleModalClose = () => {
+    setIsModalOpen(false)
+    setTimeout(() => {
+      setSelectedAlert(null)
+    }, 300)
+  }
+
+  return (
+    <div>
+      <div className="mb-4">
+        <h3 className="text-lg font-semibold text-gray-900">
+          病患警示通知
+        </h3>
+        <p className="text-sm text-gray-600 mt-1">
+          根據臨床指標自動產生的風險警示與提醒
+        </p>
+      </div>
+
+      <AlertList
+        patientId={patientId}
+        onAlertClick={handleAlertClick}
+      />
+
+      <AlertDetailModal
+        alert={selectedAlert}
+        isOpen={isModalOpen}
+        onClose={handleModalClose}
+      />
     </div>
   )
 }
