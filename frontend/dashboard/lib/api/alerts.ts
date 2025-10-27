@@ -1,6 +1,9 @@
 /**
  * Alerts API - Alert management endpoints with Mock support
  * Implements Sprint 4 Alert System MVP
+ *
+ * Sprint 5 P0 Fix: Uses mockConstants for consistent patient_id
+ * This fixes AlertBadge not showing on patient detail pages
  */
 
 import { apiClient, isMockMode } from '../api-client'
@@ -13,6 +16,7 @@ import {
   AlertSeverity,
   AlertStatus,
 } from '../types/alert'
+import { MOCK_PATIENT_IDS, MOCK_ALERT_IDS, MOCK_THERAPIST_IDS } from '../mockConstants'
 
 // ============================================================================
 // Mock Data
@@ -20,8 +24,8 @@ import {
 
 const MOCK_ALERTS: Alert[] = [
   {
-    alert_id: '00000000-0000-0000-0000-alert0000001',
-    patient_id: '00000000-0000-0000-0000-000000000001',
+    alert_id: MOCK_ALERT_IDS.GOLD_GROUP_E,
+    patient_id: MOCK_PATIENT_IDS.PRIMARY,
     alert_type: AlertType.GOLD_GROUP_E,
     severity: AlertSeverity.CRITICAL,
     status: AlertStatus.ACTIVE,
@@ -40,8 +44,8 @@ const MOCK_ALERTS: Alert[] = [
     updated_at: '2025-10-26T10:30:00Z',
   },
   {
-    alert_id: '00000000-0000-0000-0000-alert0000002',
-    patient_id: '00000000-0000-0000-0000-000000000001',
+    alert_id: MOCK_ALERT_IDS.HIGH_CAT_SCORE,
+    patient_id: MOCK_PATIENT_IDS.PRIMARY,
     alert_type: AlertType.HIGH_CAT_SCORE,
     severity: AlertSeverity.HIGH,
     status: AlertStatus.ACTIVE,
@@ -58,14 +62,14 @@ const MOCK_ALERTS: Alert[] = [
     updated_at: '2025-10-26T11:45:00Z',
   },
   {
-    alert_id: '00000000-0000-0000-0000-alert0000003',
-    patient_id: '00000000-0000-0000-0000-000000000002',
+    alert_id: MOCK_ALERT_IDS.FREQUENT_EXACERBATIONS,
+    patient_id: MOCK_PATIENT_IDS.SECONDARY,
     alert_type: AlertType.FREQUENT_EXACERBATIONS,
     severity: AlertSeverity.MEDIUM,
     status: AlertStatus.ACKNOWLEDGED,
     triggered_at: '2025-10-25T14:20:00Z',
     acknowledged_at: '2025-10-26T09:00:00Z',
-    acknowledged_by: '00000000-0000-0000-0000-000000000999',
+    acknowledged_by: MOCK_THERAPIST_IDS.PRIMARY,
     metadata: {
       rule_triggered: 'FREQUENT_EXACERBATIONS',
       trigger_value: 4,
@@ -78,16 +82,16 @@ const MOCK_ALERTS: Alert[] = [
     updated_at: '2025-10-26T09:00:00Z',
   },
   {
-    alert_id: '00000000-0000-0000-0000-alert0000004',
-    patient_id: '00000000-0000-0000-0000-000000000003',
+    alert_id: MOCK_ALERT_IDS.LOW_SPO2,
+    patient_id: MOCK_PATIENT_IDS.TERTIARY,
     alert_type: AlertType.HIGH_CAT_SCORE,
     severity: AlertSeverity.HIGH,
     status: AlertStatus.RESOLVED,
     triggered_at: '2025-10-24T08:15:00Z',
     acknowledged_at: '2025-10-24T10:00:00Z',
-    acknowledged_by: '00000000-0000-0000-0000-000000000999',
+    acknowledged_by: MOCK_THERAPIST_IDS.PRIMARY,
     resolved_at: '2025-10-25T16:30:00Z',
-    resolved_by: '00000000-0000-0000-0000-000000000999',
+    resolved_by: MOCK_THERAPIST_IDS.PRIMARY,
     metadata: {
       rule_triggered: 'HIGH_CAT_SCORE',
       trigger_value: 22,

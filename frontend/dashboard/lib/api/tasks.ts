@@ -1,6 +1,8 @@
 /**
  * Tasks API - Task management endpoints with Mock support
  * Implements Sprint 5 Task Board UI
+ *
+ * Sprint 5 P0 Fix: Uses mockConstants for consistent patient_id
  */
 
 import { apiClient, isMockMode } from '../api-client'
@@ -16,6 +18,12 @@ import {
   TaskPriority,
   TaskType,
 } from '../types/task'
+import {
+  MOCK_PATIENT_IDS,
+  MOCK_THERAPIST_IDS,
+  MOCK_ALERT_IDS,
+  MOCK_TASK_IDS,
+} from '../mockConstants'
 
 // ============================================================================
 // Mock Data
@@ -23,15 +31,15 @@ import {
 
 const MOCK_TASKS: Task[] = [
   {
-    task_id: '00000000-0000-0000-0000-task00000001',
-    patient_id: '00000000-0000-0000-0000-000000000001',
+    task_id: MOCK_TASK_IDS.TASK_1,
+    patient_id: MOCK_PATIENT_IDS.PRIMARY,
     title: '緊急評估 GOLD Group E 病患',
     description: '病患評估結果顯示為 GOLD Group E，需要立即進行完整的臨床評估並調整治療計畫。',
     task_type: TaskType.ALERT_TRIGGERED,
     priority: TaskPriority.CRITICAL,
     status: TaskStatus.TODO,
-    assigned_to: '00000000-0000-0000-0000-000000000999',
-    related_alert_id: '00000000-0000-0000-0000-alert0000001',
+    assigned_to: MOCK_THERAPIST_IDS.PRIMARY,
+    related_alert_id: MOCK_ALERT_IDS.GOLD_GROUP_E,
     task_metadata: {
       gold_group: 'E',
       cat_score: 25,
@@ -44,15 +52,15 @@ const MOCK_TASKS: Task[] = [
     is_overdue: false,
   },
   {
-    task_id: '00000000-0000-0000-0000-task00000002',
-    patient_id: '00000000-0000-0000-0000-000000000001',
+    task_id: MOCK_TASK_IDS.TASK_2,
+    patient_id: MOCK_PATIENT_IDS.PRIMARY,
     title: '追蹤高 CAT 分數',
     description: '病患 CAT 分數為 25，超過警戒值 20，需要追蹤症狀變化並評估是否需要調整用藥。',
     task_type: TaskType.ALERT_TRIGGERED,
     priority: TaskPriority.HIGH,
     status: TaskStatus.IN_PROGRESS,
-    assigned_to: '00000000-0000-0000-0000-000000000999',
-    related_alert_id: '00000000-0000-0000-0000-alert0000002',
+    assigned_to: MOCK_THERAPIST_IDS.PRIMARY,
+    related_alert_id: MOCK_ALERT_IDS.HIGH_CAT_SCORE,
     task_metadata: {
       cat_score: 25,
       threshold: 20,
@@ -63,14 +71,14 @@ const MOCK_TASKS: Task[] = [
     is_overdue: false,
   },
   {
-    task_id: '00000000-0000-0000-0000-task00000003',
-    patient_id: '00000000-0000-0000-0000-000000000001',
+    task_id: MOCK_TASK_IDS.TASK_3,
+    patient_id: MOCK_PATIENT_IDS.PRIMARY,
     title: '每週用藥遵從性追蹤',
     description: '檢查病患本週的用藥紀錄，確認是否按時服藥，並了解是否有任何副作用。',
     task_type: TaskType.SCHEDULED,
     priority: TaskPriority.MEDIUM,
     status: TaskStatus.TODO,
-    assigned_to: '00000000-0000-0000-0000-000000000999',
+    assigned_to: MOCK_THERAPIST_IDS.PRIMARY,
     task_metadata: {
       schedule_type: 'weekly',
       recurrence: 'every_monday',
@@ -81,14 +89,14 @@ const MOCK_TASKS: Task[] = [
     is_overdue: false,
   },
   {
-    task_id: '00000000-0000-0000-0000-task00000004',
-    patient_id: '00000000-0000-0000-0000-000000000001',
-    title: '電話訪談：呼吸訓練效果評估',
+    task_id: MOCK_TASK_IDS.TASK_4,
+    patient_id: MOCK_PATIENT_IDS.PRIMARY,
+    title: '電話訪談:呼吸訓練效果評估',
     description: '聯絡病患了解最近呼吸訓練的執行狀況，評估訓練效果並提供指導建議。',
     task_type: TaskType.MANUAL,
     priority: TaskPriority.LOW,
     status: TaskStatus.DONE,
-    assigned_to: '00000000-0000-0000-0000-000000000999',
+    assigned_to: MOCK_THERAPIST_IDS.PRIMARY,
     task_metadata: {
       contact_method: 'phone',
       training_type: 'breathing_exercise',
@@ -100,15 +108,15 @@ const MOCK_TASKS: Task[] = [
     is_overdue: false,
   },
   {
-    task_id: '00000000-0000-0000-0000-task00000005',
-    patient_id: '00000000-0000-0000-0000-000000000002',
+    task_id: MOCK_TASK_IDS.TASK_5,
+    patient_id: MOCK_PATIENT_IDS.SECONDARY,
     title: '追蹤頻繁急性惡化病患',
     description: '病患過去12個月有4次急性惡化記錄，需要密切追蹤並制定預防計畫。',
     task_type: TaskType.ALERT_TRIGGERED,
     priority: TaskPriority.HIGH,
     status: TaskStatus.TODO,
-    assigned_to: '00000000-0000-0000-0000-000000000999',
-    related_alert_id: '00000000-0000-0000-0000-alert0000003',
+    assigned_to: MOCK_THERAPIST_IDS.PRIMARY,
+    related_alert_id: MOCK_ALERT_IDS.FREQUENT_EXACERBATIONS,
     task_metadata: {
       exacerbation_count_12m: 4,
       threshold: 3,
@@ -119,8 +127,8 @@ const MOCK_TASKS: Task[] = [
     is_overdue: true,
   },
   {
-    task_id: '00000000-0000-0000-0000-task00000006',
-    patient_id: '00000000-0000-0000-0000-000000000002',
+    task_id: MOCK_TASK_IDS.TASK_6,
+    patient_id: MOCK_PATIENT_IDS.SECONDARY,
     title: '月度健康檢查提醒',
     description: '提醒病患進行每月例行健康檢查，包括肺功能測試和血氧濃度測量。',
     task_type: TaskType.SCHEDULED,
