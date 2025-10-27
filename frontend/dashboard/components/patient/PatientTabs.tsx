@@ -134,7 +134,7 @@ function ProfileTab({ patient }: { patient: PatientResponse }) {
     { label: '聯絡電話', value: patient.phone || '-' },
     { label: '身高', value: patient.height_cm ? `${patient.height_cm} cm` : '-' },
     { label: '體重', value: patient.weight_kg ? `${patient.weight_kg} kg` : '-' },
-    { label: 'BMI', value: patient.bmi ? patient.bmi.toFixed(1) : '-' },
+    { label: 'BMI', value: patient.bmi ? Number(patient.bmi).toFixed(1) : '-' },
   ]
 
   return (
