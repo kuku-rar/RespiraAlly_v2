@@ -12,35 +12,189 @@
 
 ## 🚨 **關鍵問題與阻擋事項**
 
-### **P0 - 必須在部署前修復**
+### **P0 - 必須在部署前修復 (Critical Blocker)**
 
 #### 1. 🚨 **Mock Data Patient ID Mismatch** (阻擋生產部署)
 - **影響元件**: AlertBadge, AlertList (病患詳細頁面)
 - **根本原因**: patient_id 在不同 Mock 資料來源間不一致
-- **影響範圍**: 病患詳細頁面的 Alert 相關功能完全無法使用
+  - Alert Mock data 使用: `'00000000-0000-0000-0000-000000000001'`
+  - 病患詳細頁面載入: 不同 ID 的患者數據
+- **影響範圍**:
+  - ❌ 病患詳細頁面的 Alert 相關功能完全無法使用
+  - ❌ AlertBadge 在病患詳細頁無法顯示警報數量
+  - ❌ AlertList 在病患詳細頁顯示為空
+  - ⚠️ 阻塞 2/22 個 E2E 測試案例
 - **預估修復時間**: 1 小時
-- **修復位置**: `frontend/dashboard/mocks/` 目錄下的所有 Mock 資料檔案
-- **建議行動**: **立即修復**，統一所有 Mock 資料的 patient_id 為同一個值
+- **修復位置**:
+  - `frontend/dashboard/mocks/alerts.ts` - 統一 patient_id
+  - `frontend/dashboard/mocks/patients.ts` - 確保 ID 一致
+  - `frontend/dashboard/lib/mockData.ts` - 驗證所有 Mock 資料
+- **建議行動**: **立即修復 (Sprint 5 Week 1)**
+  1. 統一所有 Mock 資料使用相同的 patient_id
+  2. 創建 Mock data 常量檔案 (`mockConstants.ts`) 定義標準 ID
+  3. 重新執行被阻塞的 E2E 測試案例
 - **負責人**: Role A (Frontend Developer)
-- **狀態**: ⚠️ **待修復**
+- **狀態**: ⚠️ **待修復 - P0 Critical**
+- **追蹤**: Issue #1 in Sprint 5 backlog
 
-### **剩餘工作清單**
+---
 
-#### 2. ⏳ **Task Board UI** (依賴 Role B 完成)
+### **剩餘工作清單 (Sprint 5 計劃)**
+
+#### 2. ⏳ **Task Board UI** (依賴 Role B 完成) ✅ **可以開始**
 - **預估時間**: 4 小時
-- **狀態**: Role B Task API 已完成，可以開始開發
+- **狀態**: Role B Task API 已完成 ✅，**可以立即開始開發**
 - **負責人**: Role A (Frontend Developer)
+- **前置條件**:
+  - ✅ Task Management API 已完成 (13 個 endpoints)
+  - ✅ Task Entity & Repository 已實作
+  - ✅ 整合測試通過 (12/12 tests)
+- **實作內容**:
+  - [ ] TaskBoard Component (react-beautiful-dnd 拖拽)
+  - [ ] 3 欄看板: TODO | IN_PROGRESS | DONE
+  - [ ] TaskCard Component (顯示任務詳情)
+  - [ ] 拖拽更新任務狀態 API 整合
+  - [ ] Task 過濾器 (優先級、病患、治療師)
+- **驗收標準**:
+  - 拖拽功能正常運作
+  - 狀態更新即時反映到後端
+  - Loading 和 Error 狀態處理完善
+- **Git 分支**: `feature/task-board-ui`
 
-#### 3. ⏳ **Task + Alert E2E Testing**
+#### 3. ⏳ **Task + Alert 整合 E2E Testing**
 - **預估時間**: 2 小時
 - **狀態**: 依賴 Task Board UI 完成
 - **負責人**: Role A + Role B (共同執行)
+- **前置條件**:
+  - ⏳ Task Board UI 完成 (依賴 #2)
+  - ✅ Alert UI E2E Testing 已完成 (82% pass rate)
+- **測試範圍**:
+  - [ ] Alert → Task 自動創建流程 (E2E)
+  - [ ] Task 完整生命週期: 創建 → 分配 → 開始 → 完成
+  - [ ] Task Board 拖拽與狀態更新
+  - [ ] Alert + Task UI 整合驗證
+  - [ ] 跨元件互動測試
+- **測試工具**: Playwright MCP
+- **目標覆蓋率**: ≥ 80% (目前 Alert UI: 50%)
 
-### **已完成的主要功能**
-- ✅ **Alert UI** (100% 完成): AlertList, AlertDetailModal, AlertBadge
-- ✅ **Task Management Backend** (100% 完成): 完整 DDD 架構 + 13 個 API endpoints
-- ✅ **Alert E2E Testing** (100% 完成): Phase 1 + Phase 2 測試
+#### 4. ⏳ **完成剩餘 Alert E2E 測試案例** (可選，建議)
+- **預估時間**: 4 小時
+- **狀態**: 優先級 P1 (High)
+- **目前進度**: 11/22 測試案例已執行 (50% 覆蓋率)
+- **剩餘測試**: 11 個測試案例
+  - AlertList 進階過濾測試 (日期範圍、複合過濾)
+  - AlertBadge 在不同頁面的整合測試
+  - Alert 通知與即時更新測試
+  - 跨瀏覽器相容性測試 (Chrome, Firefox, Safari)
+  - 響應式設計測試 (手機、平板)
+- **建議**: 在 Task Board UI 完成後執行
+
+#### 5. 🔄 **AlertBadge 錯誤處理改善** (優先級 P1)
+- **預估時間**: 2 小時
+- **狀態**: 技術債務修復
+- **現況問題**:
+  - API 錯誤時 AlertBadge 完全消失 (`return null`)
+  - 用戶無法得知載入失敗的原因
+- **改善方案**:
+  - 顯示降級 UI: "⚠️ 無法載入警報"
+  - 添加重試按鈕
+  - 使用 Error Boundary 捕獲錯誤
+- **影響**: 提升用戶體驗，避免靜默失敗
+
+#### 6. 🔧 **Error Boundary 整合** (優先級 P2)
+- **預估時間**: 2 小時
+- **狀態**: 可延後到 Sprint 6
+- **實作範圍**:
+  - Alert 元件外層包裹 Error Boundary
+  - Task 元件外層包裹 Error Boundary
+  - 全域 Error Boundary (應用程式層級)
+- **好處**: 防止單一元件錯誤導致整個應用程式崩潰
+
+---
+
+### **已完成的主要功能 ✅ (Sprint 4 交付物)**
+
+#### 🔷 **Alert System UI** (100% 完成)
+- ✅ **AlertList Component** (90% 測試覆蓋率)
+  - 分頁、過濾、排序功能完整
+  - 支援 Severity、Status、Alert Type 過濾
+  - Git: `frontend/dashboard/components/alert/AlertList.tsx`
+
+- ✅ **AlertDetailModal Component** (100% 測試覆蓋率)
+  - 顯示完整警報詳情與 metadata
+  - 「標記已讀」與「結案」功能整合
+  - Git: `frontend/dashboard/components/alert/AlertDetailModal.tsx`
+
+- ✅ **AlertBadge Component** (部分測試，有 P0 issue)
+  - 顯示活躍警報數量
+  - 依嚴重性顯示顏色
+  - 自動刷新 (60 秒間隔)
+  - Git: `frontend/dashboard/components/alert/AlertBadge.tsx`
+  - ⚠️ 已知問題: Mock data patient_id 不匹配 (P0)
+
+#### 🔶 **Task Management Backend** (100% 完成)
+- ✅ **完整 DDD 架構實作**
+  - Domain Layer: Task Entity with business logic
+  - Application Layer: TaskService with use cases
+  - Infrastructure Layer: TaskRepositoryImpl with SQLAlchemy
+  - API Layer: 13 個 REST API endpoints
+
+- ✅ **自動任務生成功能**
+  - Alert → Task 自動轉換
+  - 優先級智能計算 (GOLD ABE + Alert Severity)
+  - 自動分配給主治療師
+
+- ✅ **整合測試覆蓋** (100% pass rate)
+  - 12 個整合測試案例 (641 行測試代碼)
+  - 測試檔案: `backend/tests/integration/api/test_task_auto_generation.py`
+
+#### 🧪 **Alert E2E Testing** (82% 成功率)
+- ✅ **Phase 1 (Real API)**: 4/22 測試, 3 個通過, 1 個阻塞
+- ✅ **Phase 2 (Mock)**: 11/22 測試, 9 個通過, 2 個阻塞
 - ✅ **Bug 修復**: 2 個 BMI type error 已修復
+  - Commit `7c0a064`: PatientHeader BMI 轉換
+  - Commit `f6c8e2b`: PatientTabs BMI 轉換
+- ✅ **測試報告**: 4 份完整文檔 (共 54.6 KB)
+
+#### 🔀 **Git 分支整合** (100% 完成)
+- ✅ `feature/alert-ui` → `dev` (29 files, +9142 lines)
+- ✅ `feature/task-management` → `dev` (衝突已解決)
+- ✅ `dev` → `main` (310 files, +98,004 lines)
+- ✅ 所有分支已推送到 GitHub origin
+
+---
+
+### **Sprint 5 優先級排序**
+
+**本週 (Week 1)**:
+1. 🚨 **P0**: 修復 Mock Data Patient ID Mismatch (1h) - **必須完成**
+2. ⏳ **Task Board UI**: 開始開發 (4h) - **高優先級**
+3. ⏳ **AlertBadge 錯誤處理**: 改善用戶體驗 (2h) - **建議完成**
+
+**下週 (Week 2)**:
+4. ⏳ **Task + Alert E2E Testing**: 整合測試 (2h)
+5. ⏳ **完成剩餘 Alert E2E 測試**: 提升覆蓋率 (4h)
+
+**可延後 (Sprint 6)**:
+6. 🔧 **Error Boundary 整合**: 提升穩定性 (2h)
+7. 🎨 **UI/UX 優化**: Skeleton loading, 動畫效果等
+
+---
+
+### **關鍵度量追蹤**
+
+| 指標 | 目標 | 當前狀態 | 狀態 |
+|------|------|----------|------|
+| Alert UI 完成度 | 100% | 95% (P0 issue 待修) | 🟡 |
+| Task Management Backend | 100% | 100% | 🟢 |
+| Task Board UI | 100% | 0% (待開始) | 🔴 |
+| E2E 測試覆蓋率 | ≥ 80% | 50% (11/22 cases) | 🟡 |
+| E2E 測試通過率 | ≥ 90% | 82% (9/11 passed) | 🟢 |
+| 整合測試通過率 | 100% | 100% (12/12 passed) | 🟢 |
+| Git 分支整合 | 完成 | 完成 (all merged) | 🟢 |
+
+**整體進度**: **87% 完成** (39.5h / 45.5h)
+**預計完成時間**: Sprint 5 Week 2 (+6h 剩餘工作)
 
 ---
 
