@@ -90,7 +90,7 @@ export function PatientHeader({ patient }: PatientHeaderProps) {
           {/* Center: Alert Badge (Sprint 4 - Phase A3) */}
           <div className="flex items-center">
             <AlertBadge
-              patientId={patient.patient_id}
+              patientId={patient.user_id}
               onClick={() => {
                 // Set hash to trigger alerts tab switch
                 window.location.hash = 'alerts'

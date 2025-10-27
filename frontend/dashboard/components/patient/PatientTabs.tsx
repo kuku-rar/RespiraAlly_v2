@@ -115,7 +115,7 @@ export function PatientTabs({ patient, dailyLogs, surveys }: PatientTabsProps) {
         {activeTab === 'profile' && <ProfileTab patient={patient} />}
         {activeTab === 'daily-logs' && <DailyLogsTab dailyLogs={dailyLogs} />}
         {activeTab === 'surveys' && <SurveysTab surveys={surveys} />}
-        {activeTab === 'alerts' && <AlertsTab patientId={patient.patient_id} />}
+        {activeTab === 'alerts' && <AlertsTab patientId={patient.user_id} />}
       </div>
     </div>
   )
