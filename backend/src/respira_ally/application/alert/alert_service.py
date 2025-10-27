@@ -110,7 +110,20 @@ class AlertService:
             f"Created {len(created_alerts)} alert(s) for patient {risk_assessment.patient_id}"
         )
 
-        # Step 3: Convert to response schemas
+        # Step 3: AUTO-GENERATE TASKS from alerts (Phase B4)
+        from respira_ally.application.task.task_service import TaskService
+        task_service = TaskService(self.db)
+        tasks_created = 0
+        for alert in created_alerts:
+            try:
+                await task_service.create_task_from_alert(alert, risk_assessment)
+                tasks_created += 1
+            except Exception as e:
+                logger.error(f"Failed to auto-generate task for alert {alert.alert_id}: {e}", exc_info=True)
+        if tasks_created > 0:
+            logger.info(f"Auto-generated {tasks_created} task(s) for patient {risk_assessment.patient_id}")
+
+        # Step 4: Convert to response schemas
         return [self._to_response(alert) for alert in created_alerts]
 
     async def get_alert_by_id(self, alert_id: UUID) -> AlertResponse | None:

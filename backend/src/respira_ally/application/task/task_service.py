@@ -37,6 +37,10 @@ from respira_ally.core.schemas.task import (
 )
 from respira_ally.domain.entities.task import Task
 from respira_ally.domain.repositories.i_task_repository import ITaskRepository
+from respira_ally.domain.services.task_priority_calculator import TaskPriorityCalculator
+from respira_ally.infrastructure.database.models.alert import AlertModel
+from respira_ally.infrastructure.database.models.patient_profile import PatientProfileModel
+from respira_ally.infrastructure.database.models.risk_assessment import RiskAssessmentModel
 from respira_ally.infrastructure.repository_impls.task_repository_impl import TaskRepositoryImpl
 
 logger = logging.getLogger(__name__)
@@ -61,6 +65,7 @@ class TaskService:
         """
         self.db = db
         self.repository: ITaskRepository = TaskRepositoryImpl(db)
+        self.priority_calculator = TaskPriorityCalculator()
 
     async def create_task(
         self,
@@ -524,8 +529,100 @@ class TaskService:
         )
 
     # ============================================================================
+    # Phase B4: Automatic Task Generation from Alerts
+    # ============================================================================
+
+    async def create_task_from_alert(
+        self, alert: AlertModel, risk_assessment: Optional[RiskAssessmentModel] = None
+    ) -> TaskResponse:
+        """Auto-generate task from alert (Phase B4)"""
+        priority = self.priority_calculator.calculate(alert, risk_assessment)
+        patient = await self.db.get(PatientProfileModel, alert.patient_id)
+        assigned_to = patient.therapist_id if patient and patient.therapist_id else None
+
+        task_metadata = {
+            "alert_id": str(alert.alert_id),
+            "alert_type": alert.alert_type,
+            "alert_severity": alert.severity,
+            "auto_generated": True,
+            "priority_reason": self.priority_calculator.get_priority_reason(alert, priority, risk_assessment),
+        }
+
+        if risk_assessment:
+            task_metadata.update({
+                "gold_group": risk_assessment.gold_group,
+                "cat_score": risk_assessment.cat_score,
+                "mmrc_score": risk_assessment.mmrc_score,
+            })
+
+        if alert.alert_metadata:
+            task_metadata["alert_metadata"] = alert.alert_metadata
+
+        now = datetime.utcnow()
+        task = Task(
+            task_id=uuid4(),
+            patient_id=alert.patient_id,
+            title=self._generate_task_title(alert),
+            description=self._generate_task_description(alert, risk_assessment),
+            priority=priority,
+            status=TaskStatus.TODO if assigned_to is None else TaskStatus.IN_PROGRESS,
+            task_type=TaskType.ALERT_TRIGGERED,
+            assigned_to=assigned_to,
+            related_alert_id=alert.alert_id,
+            due_date=None,
+            completed_at=None,
+            task_metadata=task_metadata,
+            created_at=now,
+            updated_at=now,
+        )
+
+        created_task = await self.repository.create(task)
+        logger.info(f"Auto-generated task {created_task.task_id} from alert {alert.alert_id}")
+        return self._to_response(created_task)
+
+    # ============================================================================
     # Private Helper Methods
     # ============================================================================
+
+    def _generate_task_title(self, alert: AlertModel) -> str:
+        """Generate task title based on alert type"""
+        templates = {
+            "RISK_GROUP_CHANGE": "處理 GOLD 風險分組變化",
+            "HIGH_RISK_DETECTED": "高風險患者需立即關注",
+            "EXACERBATION_RISK": "評估急性惡化風險",
+        }
+        return templates.get(alert.alert_type, f"處理警報: {alert.title}")
+
+    def _generate_task_description(
+        self, alert: AlertModel, risk_assessment: Optional[RiskAssessmentModel] = None
+    ) -> str:
+        """Generate task description"""
+        lines = [
+            "**系統自動生成任務**", "",
+            f"**警報類型**: {alert.alert_type}",
+            f"**警報嚴重程度**: {alert.severity}",
+            f"**警報標題**: {alert.title}", "",
+            "**警報訊息**:", alert.message,
+        ]
+
+        if risk_assessment:
+            lines.extend([
+                "", "**風險評估資訊**:",
+                f"- GOLD 分組: {risk_assessment.gold_group}",
+                f"- CAT 評分: {risk_assessment.cat_score}",
+                f"- mMRC 呼吸困難: {risk_assessment.mmrc_score}",
+                f"- 急性惡化風險: {risk_assessment.exacerbation_risk}",
+            ])
+
+        lines.extend([
+            "", "**建議行動**:",
+            "1. 檢查患者最新健康數據",
+            "2. 聯繫患者了解當前狀況",
+            "3. 根據風險評估調整治療計畫",
+            "4. 記錄處理結果並更新任務狀態",
+        ])
+
+        return "\n".join(lines)
 
     def _to_response(self, task: Task) -> TaskResponse:
         """
