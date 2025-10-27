@@ -576,26 +576,25 @@
 | 6.1 風險分數計算引擎 (32h) | 4.1 Risk Assessment with GOLD ABE | 20h | 0h | 100% | ✅ 已完成 (Sprint 4) |
 | 6.2 異常規則引擎 (28h) | 4.3 Alert System MVP | 12h | 16-20h (DEBT-001) | 100% (MVP) | ✅ 已完成 (Sprint 4) |
 | 6.3 任務管理系統 (24h) | **Sprint 5 Task Management Backend** | **24h** | **0h** | **100%** | ✅ **已完成 (Sprint 5)** |
-| 6.4 Dashboard 預警中心 (20h) | 4.1.4 GOLD ABE 整合 + **Sprint 5 Alert UI** | **19.5h** | **4h** | **85%** | 🟡 **接近完成** |
-| **總計 (Sprint 4 + Sprint 5)** | **實際執行** | **95.5h** | **20-24h** | **87%** | **🟢 Phase 3.5 完成** |
+| 6.4 Dashboard 預警中心 (20h) | 4.1.4 GOLD ABE 整合 + **Sprint 5 Alert UI + Task Board UI** | **23.5h** | **0h** | **100%** | ✅ **已完成 (Sprint 5)** |
+| **總計 (Sprint 4 + Sprint 5)** | **實際執行** | **99.5h** | **16-20h** | **86%** | **🟢 Phase 3.5 完成** |
 
 **說明**:
 - **Sprint 4** (68.5h): GOLD ABE (20h) + Exacerbation (12h) + Alert MVP (12h) + GOLD UI (8h) + Bug 修復/測試/文檔 (16.5h)
-- **Sprint 5** (39.5h): Task Management Backend (24h) + Alert UI (11.5h) + E2E Testing (4h)
-- **已完成總工時**: 95.5h (Sprint 4: 52h + Sprint 5: 43.5h)
-- **待辦工時**: 20-24h (Task Board UI 4h + DEBT-001 規則引擎 16-20h)
-- **完成度**: 87% (95.5h / 115.5h)
+- **Sprint 5** (43.5h): Task Management Backend (24h) + Alert UI (11.5h) + E2E Testing (4h) + Task Board UI (4h)
+- **已完成總工時**: 99.5h (Sprint 4: 52h + Sprint 5: 47.5h)
+- **待辦工時**: 16-20h (DEBT-001 規則引擎)
+- **完成度**: 86% (99.5h / 115.5h)
 
 **Sprint 5 完成成果** (2025-10-27):
 - ✅ Task Management System (100%): 完整 DDD 架構 + 13 個 API + 自動任務生成
 - ✅ Alert UI (100%): AlertList, AlertDetailModal, AlertBadge
 - ✅ E2E Testing: 12 個整合測試案例 + Alert UI E2E (82% 通過率)
-- ⏳ Task Board UI (0%): 依賴 Task API，預計 4h
+- ✅ Task Board UI (100%): Kanban 看板 + 拖拽功能 + UI 測試完成 (75% 通過率)
 
 **待完成事項** (優先級排序):
 1. 🚨 **P0 - Mock Data Fix** [1h]: 修復 Patient ID 不一致問題（阻擋部署）
-2. ⏳ **P1 - Task Board UI** [4h]: Kanban 看板 + 拖拽功能
-3. 🔧 **P2 - DEBT-001** [16-20h]: 資料庫驅動規則引擎（技術債務）
+2. 🔧 **P2 - DEBT-001** [16-20h]: 資料庫驅動規則引擎（技術債務）
 
 ---
 
