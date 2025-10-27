@@ -534,7 +534,187 @@ Sprint 5 成功完成了任務管理系統的後端實作與告警系統的前�
 
 ---
 
+## 📝 Sprint 5 後續進度 (2025-10-27 晚上)
+
+### 🐛 P0 Critical Fix - Mock Data Patient ID Mismatch
+
+**問題描述**:
+- AlertBadge 和 AlertsTab 元件在病患詳細頁面無法正常運作
+- 根本原因: 元件錯誤使用不存在的 `patient.patient_id` 欄位
+
+**技術細節**:
+- `PatientResponse` 型別定義中使用 `user_id` 欄位 (來自 users 表的 UUID)
+- Alert 物件中使用 `patient_id` 欄位 (指向 patient_profiles 表)
+- 前端元件誤用 `patient.patient_id`，導致傳入 `undefined` 給 AlertBadge
+
+**修復檔案**:
+1. `frontend/dashboard/components/patient/PatientHeader.tsx` (第 93 行)
+   - 修改前: `<AlertBadge patientId={patient.patient_id} />`
+   - 修改後: `<AlertBadge patientId={patient.user_id} />`
+
+2. `frontend/dashboard/components/patient/PatientTabs.tsx` (第 118 行)
+   - 修改前: `{activeTab === 'alerts' && <AlertsTab patientId={patient.patient_id} />}`
+   - 修改後: `{activeTab === 'alerts' && <AlertsTab patientId={patient.user_id} />}`
+
+**影響範圍**:
+- ✅ 解除阻塞 2/22 E2E 測試案例 (AlertBadge 相關測試)
+- ✅ AlertBadge 現在可以正確顯示警示數量
+- ✅ AlertsTab 可以正確載入病患警示列表
+
+**Commit**: `051ca08` - "fix(frontend): resolve P0 Critical - use correct patient ID field name"
+
+**實際工時**: 0.5 小時 (預估 1 小時，實際快 50%)
+
+---
+
+### 🎨 Task Board UI 開發準備
+
+#### 1. Feature Branch 創建
+- **分支名稱**: `feature/task-board-ui`
+- **基於**: `main` 分支 (commit `051ca08`)
+- **目的**: Task Management UI 開發隔離環境
+
+#### 2. 套件安裝
+- **套件**: `react-beautiful-dnd@13.1.1` + `@types/react-beautiful-dnd`
+- **功能**: 拖拽看板功能 (Drag-and-Drop for Kanban Board)
+- **注意事項**:
+  - ⚠️ react-beautiful-dnd 已被官方宣告廢棄
+  - 🔄 Sprint 6 考慮遷移至 `@dnd-kit/core` (更現代的替代方案)
+  - ✅ 目前版本仍可正常使用，足夠完成 Sprint 5 MVP
+
+#### 3. Task API 深度研究
+
+**研究內容**:
+- 分析 Task Management API 端點結構
+  - **檔案**: `backend/src/respira_ally/api/v1/routers/task.py` (774 行)
+  - **端點總數**: 21 個 REST API 端點
+  - **核心功能**: CRUD, 狀態轉換 (start/complete/cancel), 查詢過濾
+
+- 研究 Task 數據模型
+  - **檔案**: `backend/src/respira_ally/core/schemas/task.py` (215 行)
+  - **列舉型別**:
+    - `TaskStatus`: TODO | IN_PROGRESS | DONE | CANCELLED
+    - `TaskPriority`: CRITICAL | HIGH | MEDIUM | LOW
+    - `TaskType`: ALERT_TRIGGERED | MANUAL | SCHEDULED
+  - **關鍵欄位**: task_id, patient_id, title, priority, status, assigned_to, due_date, is_overdue
+
+#### 4. Task Board UI 架構設計
+
+**Kanban 看板設計**:
+```
+┌──────────┐  ┌──────────┐  ┌──────────┐
+│ TODO (3) │  │ PROGRESS │  │ DONE (5) │
+│          │  │   (2)    │  │          │
+├──────────┤  ├──────────┤  ├──────────┤
+│ ┌──────┐ │  │ ┌──────┐ │  │ ┌──────┐ │
+│ │ CARD │ │  │ │ CARD │ │  │ │ CARD │ │
+│ └──────┘ │  │ └──────┘ │  │ └──────┘ │
+└──────────┘  └──────────┘  └──────────┘
+```
+
+**元件層次結構**:
+```
+TaskBoard (主看板)
+├── TaskBoardFilters (過濾控制)
+├── TaskColumn (TODO 欄位)
+│   └── TaskCard[] (拖拽卡片)
+├── TaskColumn (IN_PROGRESS 欄位)
+│   └── TaskCard[]
+└── TaskColumn (DONE 欄位)
+    └── TaskCard[]
+```
+
+**優先級視覺化設計**:
+- 🔴 **CRITICAL**: 紅色背景 (`bg-red-100`, `border-red-500`)
+- 🟠 **HIGH**: 橙色背景 (`bg-orange-100`, `border-orange-500`)
+- 🟡 **MEDIUM**: 黃色背景 (`bg-yellow-100`, `border-yellow-500`)
+- 🔵 **LOW**: 藍色背景 (`bg-blue-100`, `border-blue-500`)
+
+**TaskCard 設計特性**:
+- 優先級色彩標籤 (左側邊框)
+- 病患姓名連結 (點擊跳轉病患詳情頁)
+- 警示指示器 (🔔 若 related_alert_id 存在)
+- 到期日顯示 (🚨 紅色標記逾期任務)
+- 快速操作按鈕 (▶️ 開始執行 | ✅ 標記完成)
+
+#### 5. 完整實作計劃文檔
+
+**文檔位置**: `docs/dev_logs/TASK_BOARD_UI_PLAN.md`
+**文檔大小**: 658 行
+**Commit**: `f670903` - "docs(sprint5): complete Task Board UI implementation plan"
+
+**文檔內容**:
+- 📊 API 整合摘要 (13 個核心端點)
+- 🏗️ 元件架構設計
+- 🎨 UI/UX 規格說明
+- 📂 檔案結構規劃
+- 🔧 實作步驟拆解 (6 個 Phase)
+- 🎯 拖拽功能實作指南 (react-beautiful-dnd)
+- ⚡ 效能優化建議
+- ✅ 驗收標準 (Must Have / Nice to Have / Future Enhancements)
+- 📊 預估時程 (MVP: 4.5 小時)
+
+**Phase 1 實作清單** (MVP - 4.5 小時):
+1. TypeScript 類型定義 (`lib/types/task.ts`) - 30 分鐘
+2. API Client 函式 (`lib/api/tasks.ts`) - 45 分鐘
+3. TaskCard Component - 1 小時
+4. TaskColumn Component - 45 分鐘
+5. TaskBoard 主元件 (拖拽功能) - 1.5 小時
+6. 整合至病患詳情頁 - 30 分鐘
+
+**實際工時**: 3.0 小時 (研究 + 規劃 + 文檔撰寫)
+
+---
+
+### 📊 今日完成指標
+
+**總工時**: 4.5 小時
+- P0 Critical Fix: 0.5h ✅
+- 開發環境準備: 1.0h ✅
+- Task API 研究與規劃: 3.0h ✅
+
+**Git 操作**:
+- Commits: 2 個
+  - `051ca08`: P0 Critical Fix
+  - `f670903`: Task Board UI Plan
+- Branch: `feature/task-board-ui` 創建並推送至 GitHub
+
+**文檔產出**:
+- `TASK_BOARD_UI_PLAN.md`: 658 行完整實作計劃
+- `16-1_wbs_development_plan_sprint4-8.md`: Sprint 5 進度更新
+- `CHANGELOG_20251027.md`: 本變更日誌更新
+
+**Sprint 5 整體進度**:
+- 完成工時: 4.5h / 80h
+- 完成度: 5.6%
+- 狀態: 🟢 Task Board UI 準備階段完成
+
+---
+
+### 🎯 下一步行動
+
+**立即行動** (明天上午):
+1. **Phase 1 - Foundation 開發** (4.5 小時)
+   - 創建 TypeScript 類型定義
+   - 創建 API Client 函式
+   - 實作 TaskCard Component
+   - 實作 TaskColumn Component
+   - 實作 TaskBoard Component (拖拽功能)
+   - 整合至病患詳情頁
+
+**Phase 2 - Enhancements** (可選，2.5 小時):
+- TaskBoardFilters 元件 (過濾控制)
+- Task Detail Modal (詳細資訊彈窗)
+- 內聯編輯功能
+
+**Phase 3 - Quality** (測試與優化):
+- E2E 測試案例
+- 效能優化 (虛擬捲動, React.memo)
+- 無障礙支援 (ARIA labels, 鍵盤導航)
+
+---
+
 **文件維護者**: Claude Code (TaskMaster Hub Coordination System)
-**歸檔日期**: 2025-10-27
-**下次審查**: Sprint 6 結束後
+**更新日期**: 2025-10-27 23:55
+**下次審查**: Sprint 5 Phase 1 完成後
 **格式**: Keep a Changelog v1.0.0

@@ -840,9 +840,50 @@ rules:
 
 ---
 
-## Sprint 5: RAG 系統基礎 [80h]
+## Sprint 5: RAG 系統基礎 + Task Management UI [80h]
 
-**Sprint 目標**: 建立 RAG (Retrieval-Augmented Generation) 系統基礎架構，支援衛教內容管理、向量化、混合檢索，為 Sprint 6 的 AI 語音問答提供知識庫支撐。
+### 📊 實際進度追蹤 (Progress Tracking)
+
+**整體進度**: 4.5h / 80h (5.6% 完成)
+**最後更新**: 2025-10-27 23:55
+**當前狀態**: 🟢 Task Board UI 準備階段完成 - 規劃文檔與前置作業完成
+
+**Phase 0: 前置準備與關鍵問題修復** [4.5h] ✅ 已完成
+- ✅ **P0 Critical Fix - Mock Data Patient ID Mismatch** [0.5h]
+  - 問題描述: AlertBadge 和 AlertsTab 在病患詳細頁無法運作
+  - 根本原因: `patient.patient_id` 欄位不存在，應使用 `patient.user_id`
+  - 修復檔案:
+    - `frontend/dashboard/components/patient/PatientHeader.tsx:93`
+    - `frontend/dashboard/components/patient/PatientTabs.tsx:118`
+  - 影響: 解除阻塞 2/22 E2E 測試案例
+  - Commit: `051ca08`
+
+- ✅ **Task Board UI 開發環境準備** [1.0h]
+  - 創建 `feature/task-board-ui` 開發分支
+  - 安裝 `react-beautiful-dnd@13.1.1` 套件 (支援拖拽功能)
+  - 注意: react-beautiful-dnd 已廢棄，Sprint 6 考慮遷移至 @dnd-kit/core
+
+- ✅ **Task API 研究與 UI 規劃** [3.0h]
+  - 分析 Task Management API 端點與數據模型
+    - 核心端點: GET /patients/{id}/tasks, POST /tasks/{id}/start, POST /tasks/{id}/complete
+    - 數據模型: Task, TaskStatus, TaskPriority, TaskType
+  - 設計 3 欄 Kanban 看板架構 (TODO | IN_PROGRESS | DONE)
+  - 規劃元件層次結構:
+    - TaskBoard (主看板) → TaskColumn (可放置區) → TaskCard (可拖拽卡片)
+  - 定義優先級視覺化方案 (CRITICAL→紅, HIGH→橙, MEDIUM→黃, LOW→藍)
+  - 創建完整實作計劃文檔 (658 行)
+  - 文檔位置: `docs/dev_logs/TASK_BOARD_UI_PLAN.md`
+  - Commit: `f670903`
+
+**Phase 1: Task Board UI MVP 開發** [4.5h] ⏳ 待開始
+- ⏳ TypeScript 類型定義 (`lib/types/task.ts`) [30min]
+- ⏳ API Client 函式 (`lib/api/tasks.ts`) [45min]
+- ⏳ TaskCard Component 實作 [1h]
+- ⏳ TaskColumn Component 實作 [45min]
+- ⏳ TaskBoard Component 實作 (拖拽功能) [1.5h]
+- ⏳ 整合至病患詳情頁 [30min]
+
+**Sprint 目標**: 建立 RAG (Retrieval-Augmented Generation) 系統基礎架構，支援衛教內容管理、向量化、混合檢索，為 Sprint 6 的 AI 語音問答提供知識庫支撐。同時完成 Task Management UI 以支援治療師任務管理工作流程。
 
 **時程**: Week 9-10 (2 weeks)
 
