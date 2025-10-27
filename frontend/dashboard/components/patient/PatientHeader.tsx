@@ -135,23 +135,23 @@ export function PatientHeader({ patient }: PatientHeaderProps) {
                 <p className="text-sm text-gray-600 mb-1">BMI</p>
                 <p
                   className={`text-2xl font-semibold ${
-                    patient.bmi < 18.5
+                    Number(patient.bmi) < 18.5
                       ? 'text-yellow-600'
-                      : patient.bmi < 24
+                      : Number(patient.bmi) < 24
                       ? 'text-green-600'
-                      : patient.bmi < 27
+                      : Number(patient.bmi) < 27
                       ? 'text-orange-600'
                       : 'text-red-600'
                   }`}
                 >
-                  {patient.bmi.toFixed(1)}
+                  {Number(patient.bmi).toFixed(1)}
                 </p>
                 <p className="text-xs text-gray-500 mt-1">
-                  {patient.bmi < 18.5
+                  {Number(patient.bmi) < 18.5
                     ? '過輕'
-                    : patient.bmi < 24
+                    : Number(patient.bmi) < 24
                     ? '正常'
-                    : patient.bmi < 27
+                    : Number(patient.bmi) < 27
                     ? '過重'
                     : '肥胖'}
                 </p>
