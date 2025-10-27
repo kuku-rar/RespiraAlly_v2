@@ -15,6 +15,7 @@ from respira_ally.infrastructure.database.session import Base
 
 if TYPE_CHECKING:
     from respira_ally.infrastructure.database.models.patient_profile import PatientProfileModel
+    from respira_ally.infrastructure.database.models.task import TaskModel
     from respira_ally.infrastructure.database.models.user import UserModel
 
 
@@ -141,6 +142,13 @@ class AlertModel(Base):
         "UserModel", foreign_keys=[acknowledged_by]
     )
     resolver: Mapped["UserModel | None"] = relationship("UserModel", foreign_keys=[resolved_by])
+
+    # Sprint 5: Task Management relationships
+    tasks: Mapped[list["TaskModel"]] = relationship(
+        "TaskModel",
+        primaryjoin="AlertModel.alert_id == foreign(TaskModel.related_alert_id)",
+        back_populates="related_alert"
+    )
 
     def __repr__(self) -> str:
         return (
