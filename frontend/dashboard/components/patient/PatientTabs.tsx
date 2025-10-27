@@ -1,9 +1,10 @@
 /**
  * PatientTabs Component
- * Tab navigation for patient detail sections (Profile, Daily Logs, Surveys, Alerts)
+ * Tab navigation for patient detail sections (Profile, Daily Logs, Surveys, Alerts, Tasks)
  *
  * Task 5.1.2 - Sprint 3
  * Sprint 4 - Phase A Integration: Added Alerts tab
+ * Sprint 5 - Task Board Integration: Added Tasks tab
  */
 
 'use client'
@@ -15,6 +16,7 @@ import type { SurveyListResponse } from '@/lib/types/survey'
 import { getCATScoreLabel, getMMRCGradeLabel } from '@/lib/types/survey'
 import { EmptyState } from '@/components/ui'
 import { AlertList, AlertDetailModal } from '@/components/alert'
+import { TaskBoard } from '@/components/task'
 import type { Alert } from '@/lib/types/alert'
 
 interface PatientTabsProps {
@@ -23,7 +25,7 @@ interface PatientTabsProps {
   surveys?: SurveyListResponse
 }
 
-type TabId = 'profile' | 'daily-logs' | 'surveys' | 'alerts'
+type TabId = 'profile' | 'daily-logs' | 'surveys' | 'alerts' | 'tasks'
 
 export function PatientTabs({ patient, dailyLogs, surveys }: PatientTabsProps) {
   const [activeTab, setActiveTab] = useState<TabId>('profile')
@@ -69,6 +71,12 @@ export function PatientTabs({ patient, dailyLogs, surveys }: PatientTabsProps) {
       label: '警示通知',
       icon: '🔔',
       count: null, // Count will be displayed by AlertBadge
+    },
+    {
+      id: 'tasks' as TabId,
+      label: '任務看板',
+      icon: '✅',
+      count: null, // Count will be displayed within TaskBoard
     },
   ]
 
@@ -116,6 +124,7 @@ export function PatientTabs({ patient, dailyLogs, surveys }: PatientTabsProps) {
         {activeTab === 'daily-logs' && <DailyLogsTab dailyLogs={dailyLogs} />}
         {activeTab === 'surveys' && <SurveysTab surveys={surveys} />}
         {activeTab === 'alerts' && <AlertsTab patientId={patient.user_id} />}
+        {activeTab === 'tasks' && <TasksTab patientId={patient.user_id} />}
       </div>
     </div>
   )
@@ -339,6 +348,23 @@ function AlertsTab({ patientId }: { patientId: string }) {
         isOpen={isModalOpen}
         onClose={handleModalClose}
       />
+    </div>
+  )
+}
+
+function TasksTab({ patientId }: { patientId: string }) {
+  return (
+    <div>
+      <div className="mb-4">
+        <h3 className="text-lg font-semibold text-gray-900">
+          病患任務管理
+        </h3>
+        <p className="text-sm text-gray-600 mt-1">
+          管理與追蹤病患相關的照護任務 • 拖曳卡片以更新任務狀態
+        </p>
+      </div>
+
+      <TaskBoard patientId={patientId} />
     </div>
   )
 }
