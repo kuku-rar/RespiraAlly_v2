@@ -19,127 +19,127 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [2.0.0-sprint5] - 2025-10-27
 
-### ✨ Added - Task Management System (Backend Complete)
+### ✨ 新增功能 - 任務管理系統（後端完成）
 
-**Domain Layer**:
-- Task Entity with full lifecycle management (TODO → IN_PROGRESS → DONE/CANCELLED)
-  - Location: `backend/src/respira_ally/domain/entities/task.py`
-  - Business methods: `assign_to()`, `start()`, `complete()`, `cancel()`
+**領域層 (Domain Layer)**：
+- Task Entity 完整生命週期管理（TODO → IN_PROGRESS → DONE/CANCELLED）
+  - 位置：`backend/src/respira_ally/domain/entities/task.py`
+  - 業務方法：`assign_to()`、`start()`、`complete()`、`cancel()`
 
-**Application Layer**:
-- TaskService with complete CRUD operations
-  - Location: `backend/src/respira_ally/application/task/task_service.py`
-- TaskPriorityCalculator for intelligent priority assignment
-  - Location: `backend/src/respira_ally/domain/services/task_priority_calculator.py`
-  - Rules: CRITICAL Alert → CRITICAL Task, HIGH Alert + GOLD E → CRITICAL Task
+**應用層 (Application Layer)**：
+- TaskService 完整 CRUD 操作
+  - 位置：`backend/src/respira_ally/application/task/task_service.py`
+- TaskPriorityCalculator 智能優先級分配
+  - 位置：`backend/src/respira_ally/domain/services/task_priority_calculator.py`
+  - 規則：CRITICAL Alert → CRITICAL Task，HIGH Alert + GOLD E → CRITICAL Task
 
-**Infrastructure Layer**:
-- ITaskRepository interface and TaskRepositoryImpl
-  - Interface: `backend/src/respira_ally/domain/repositories/i_task_repository.py`
-  - Implementation: `backend/src/respira_ally/infrastructure/repository_impls/task_repository_impl.py`
-  - Features: Pagination, filtering (status, priority), sorting
+**基礎設施層 (Infrastructure Layer)**：
+- ITaskRepository 介面與 TaskRepositoryImpl 實作
+  - 介面：`backend/src/respira_ally/domain/repositories/i_task_repository.py`
+  - 實作：`backend/src/respira_ally/infrastructure/repository_impls/task_repository_impl.py`
+  - 功能：分頁、過濾（狀態、優先級）、排序
 
-**API Endpoints** (13 total):
-- `POST /api/v1/tasks` - Create task (manual + auto)
-- `GET /api/v1/tasks/patients/{patient_id}` - List patient tasks
-- `GET /api/v1/tasks/therapists/{therapist_id}` - List therapist tasks
-- `GET /api/v1/tasks/{task_id}` - Get task details
-- `PATCH /api/v1/tasks/{task_id}` - Update task
-- `POST /api/v1/tasks/{task_id}/start` - Start task
-- `POST /api/v1/tasks/{task_id}/complete` - Complete task
-- `POST /api/v1/tasks/{task_id}/cancel` - Cancel task
-- `POST /api/v1/tasks/{task_id}/assign` - Assign task
-- `DELETE /api/v1/tasks/{task_id}` - Delete task
-- Plus 3 more workflow endpoints
+**API 端點**（共 13 個）：
+- `POST /api/v1/tasks` - 創建任務（手動 + 自動）
+- `GET /api/v1/tasks/patients/{patient_id}` - 列出病患任務
+- `GET /api/v1/tasks/therapists/{therapist_id}` - 列出治療師任務
+- `GET /api/v1/tasks/{task_id}` - 取得任務詳情
+- `PATCH /api/v1/tasks/{task_id}` - 更新任務
+- `POST /api/v1/tasks/{task_id}/start` - 開始任務
+- `POST /api/v1/tasks/{task_id}/complete` - 完成任務
+- `POST /api/v1/tasks/{task_id}/cancel` - 取消任務
+- `POST /api/v1/tasks/{task_id}/assign` - 分配任務
+- `DELETE /api/v1/tasks/{task_id}` - 刪除任務
+- 另外 3 個工作流程端點
 
-**Auto-Generation Workflow**:
-- Alert → Task automatic creation
-  - Integration point: `backend/src/respira_ally/application/alert/alert_service.py`
-  - Trigger condition: Alert severity >= HIGH
-  - Auto-assignment: Task assigned to patient's primary therapist
+**自動生成工作流程**：
+- Alert → Task 自動創建
+  - 整合點：`backend/src/respira_ally/application/alert/alert_service.py`
+  - 觸發條件：Alert severity >= HIGH
+  - 自動分配：任務自動分配給病患的主治療師
 
-### ✨ Added - Alert System UI (Frontend Complete)
+### ✨ 新增功能 - 告警系統 UI（前端完成）
 
-**React Components**:
-- AlertList component with pagination and filtering
-  - Location: `frontend/dashboard/src/features/alerts/components/AlertList.tsx`
-  - Test coverage: 90%
+**React 元件**：
+- AlertList 元件（分頁與過濾功能）
+  - 位置：`frontend/dashboard/src/features/alerts/components/AlertList.tsx`
+  - 測試覆蓋率：90%
 
-- AlertDetailModal for detailed alert information
-  - Location: `frontend/dashboard/src/features/alerts/components/AlertDetailModal.tsx`
-  - Test coverage: 100%
+- AlertDetailModal 詳細告警資訊
+  - 位置：`frontend/dashboard/src/features/alerts/components/AlertDetailModal.tsx`
+  - 測試覆蓋率：100%
 
-- AlertBadge with auto-refresh (30-second interval)
-  - Location: `frontend/dashboard/src/features/alerts/components/AlertBadge.tsx`
-  - Features: Real-time unread count, color-coded by severity
+- AlertBadge 自動更新（30 秒間隔）
+  - 位置：`frontend/dashboard/src/features/alerts/components/AlertBadge.tsx`
+  - 功能：即時未讀計數、按嚴重程度顯示顏色
 
-**Integration**:
-- Dashboard integration with Alert components
-- Patient detail page integration
-- GOLD ABE risk level display
+**整合**：
+- Dashboard 整合 Alert 元件
+- 病患詳細頁面整合
+- GOLD ABE 風險等級顯示
 
-### ✅ Testing
+### ✅ 測試
 
-**Backend Integration Tests**:
-- 12 test cases for Task auto-generation workflow (641 lines)
-  - File: `backend/tests/integration/api/test_task_auto_generation.py`
-  - Coverage: Alert creation → Task generation → Priority calculation
-  - Scenarios: CRITICAL/HIGH/MEDIUM alerts, GOLD E escalation
+**後端整合測試**：
+- 12 個測試案例涵蓋任務自動生成工作流程（641 行程式碼）
+  - 檔案：`backend/tests/integration/api/test_task_auto_generation.py`
+  - 覆蓋範圍：Alert 創建 → Task 生成 → 優先級計算
+  - 場景：CRITICAL/HIGH/MEDIUM 告警、GOLD E 升級
 
-**Frontend E2E Tests**:
-- Phase 1: Real API testing (passed)
-- Phase 2: Mock mode testing (82% pass rate, 2 failures due to Mock Data issue)
-  - Tool: Playwright
-  - Coverage: Alert list, detail modal, badge interactions
+**前端 E2E 測試**：
+- Phase 1：真實 API 測試（通過）
+- Phase 2：Mock 模式測試（82% 通過率，2 個失敗由於 Mock 資料問題）
+  - 工具：Playwright
+  - 覆蓋範圍：告警列表、詳情 Modal、Badge 互動
 
-### 🐛 Known Issues
+### 🐛 已知問題
 
-**P0 - Critical (Blocks Deployment)**:
-- 🚨 Mock Data Patient ID Mismatch
-  - Impact: AlertBadge and AlertList fail on patient detail page
-  - Root cause: Inconsistent patient_id across mock data sources
-  - Location: `frontend/dashboard/mocks/` directory
-  - Estimated fix: 1 hour
-  - Status: ⚠️ Pending fix
+**P0 - 關鍵（阻擋部署）**：
+- 🚨 Mock 資料 Patient ID 不一致
+  - 影響：AlertBadge 和 AlertList 在病患詳細頁面失效
+  - 根本原因：patient_id 在不同 Mock 資料來源間不一致
+  - 位置：`frontend/dashboard/mocks/` 目錄
+  - 預估修復時間：1 小時
+  - 狀態：⚠️ 待修復
 
-### 📊 Metrics
+### 📊 指標
 
-**Sprint 5 Completion**:
-- Duration: 2025-10-27 (1 day sprint)
-- Work completed: 39.5 hours
-  - Task Management Backend: 24h
-  - Alert UI: 11.5h
-  - E2E Testing: 4h
-- Overall project completion: 87% (95.5h / 115.5h)
+**Sprint 5 完成度**：
+- 時程：2025-10-27（1 天衝刺）
+- 完成工時：39.5 小時
+  - 任務管理後端：24h
+  - 告警 UI：11.5h
+  - E2E 測試：4h
+- 專案整體完成度：87%（95.5h / 115.5h）
 
-**API Coverage**:
-- Task Management: 13 endpoints
-- Alert System: 8 endpoints (from Sprint 4)
-- Total: 21 core API endpoints
+**API 覆蓋率**：
+- 任務管理：13 個端點
+- 告警系統：8 個端點（來自 Sprint 4）
+- 總計：21 個核心 API 端點
 
-**Test Coverage**:
-- Backend integration tests: 12 cases (Task auto-generation)
-- Frontend E2E tests: Phase 1 + Phase 2 (82% pass rate)
-- Frontend unit tests: 90-100% coverage for Alert components
+**測試覆蓋率**：
+- 後端整合測試：12 個案例（任務自動生成）
+- 前端 E2E 測試：Phase 1 + Phase 2（82% 通過率）
+- 前端單元測試：90-100% 覆蓋 Alert 元件
 
-### 📚 Documentation
+### 📚 文件
 
-- Updated PARALLEL_DEVELOPMENT_PLAN.md with Sprint 5 completion status
-- Updated WBS (16-1_wbs_development_plan_sprint4-8.md) with Task Management details
-- Added critical issues tracking (P0/P1/P2 priorities)
+- 更新 PARALLEL_DEVELOPMENT_PLAN.md 包含 Sprint 5 完成狀態
+- 更新 WBS (16-1_wbs_development_plan_sprint4-8.md) 包含任務管理詳細資訊
+- 新增關鍵問題追蹤（P0/P1/P2 優先級）
 
-### 🏗️ Architecture
+### 🏗️ 架構
 
-**Clean Architecture Compliance**:
-- Domain-driven design (DDD) for Task entity
-- Repository pattern for data access
-- Dependency inversion (ITaskRepository interface)
-- Clear separation: Domain → Application → Infrastructure → API
+**Clean Architecture 合規性**：
+- Task Entity 採用領域驅動設計（DDD）
+- 資料存取採用 Repository 模式
+- 依賴反轉（ITaskRepository 介面）
+- 清晰分層：Domain → Application → Infrastructure → API
 
-**Integration Points**:
-- Alert Service → Task Service (auto-generation)
-- Task API → Frontend (upcoming Task Board UI)
-- Patient-Therapist relationship → Task assignment
+**整合點**：
+- Alert Service → Task Service（自動生成）
+- Task API → Frontend（即將推出的 Task Board UI）
+- Patient-Therapist 關係 → 任務分配
 
 ---
 
