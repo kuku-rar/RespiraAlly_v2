@@ -92,9 +92,10 @@ erDiagram
         uuid log_id PK
         uuid patient_id FK
         date log_date
-        boolean medication_taken
-        integer water_intake_ml
-        integer steps_count "Nullable"
+        boolean medication_taken "Nullable (v4.9)"
+        integer water_intake_ml "Nullable (v4.9)"
+        integer exercise_minutes "Nullable, RENAMED from steps_count (v4.9)"
+        integer smoking_count "Nullable, NEW (v4.9)"
         text symptoms "Nullable"
         enum mood "GOOD, NEUTRAL, BAD"
         timestamp created_at
@@ -338,10 +339,11 @@ CREATE TABLE daily_logs (
     log_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     patient_id UUID NOT NULL REFERENCES patient_profiles(user_id) ON DELETE CASCADE,
     log_date DATE NOT NULL,
-    medication_taken BOOLEAN NOT NULL DEFAULT false,
-    water_intake_ml INTEGER NOT NULL CHECK (water_intake_ml >= 0 AND water_intake_ml <= 10000),
-    steps_count INTEGER CHECK (steps_count >= 0 AND steps_count <= 100000),
-    symptoms TEXT,
+    medication_taken BOOLEAN DEFAULT false,  -- ⚠️ Changed to nullable (v4.9)
+    water_intake_ml INTEGER CHECK (water_intake_ml >= 0 AND water_intake_ml <= 10000),  -- ⚠️ Changed to nullable (v4.9)
+    exercise_minutes INTEGER CHECK (exercise_minutes >= 0 AND exercise_minutes <= 480),  -- ⚠️ RENAMED from steps_count (v4.9)
+    smoking_count INTEGER CHECK (smoking_count >= 0 AND smoking_count <= 100),  -- ⚠️ NEW FIELD (v4.9)
+    symptoms TEXT CHECK (LENGTH(symptoms) <= 500),
     mood VARCHAR(20) CHECK (mood IN ('GOOD', 'NEUTRAL', 'BAD')),
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -648,13 +650,13 @@ WITH windows AS (
         COUNT(*) FILTER (WHERE log_date >= CURRENT_DATE - INTERVAL '7 days') AS logs_7d,
         COUNT(*) FILTER (WHERE log_date >= CURRENT_DATE - INTERVAL '7 days' AND medication_taken) AS medication_taken_7d,
         AVG(water_intake_ml) FILTER (WHERE log_date >= CURRENT_DATE - INTERVAL '7 days') AS avg_water_7d,
-        AVG(steps_count) FILTER (WHERE log_date >= CURRENT_DATE - INTERVAL '7 days') AS avg_steps_7d,
+        AVG(exercise_minutes) FILTER (WHERE log_date >= CURRENT_DATE - INTERVAL '7 days') AS avg_exercise_7d,  -- ⚠️ Changed from avg_steps_7d (v4.9)
 
         -- 近 30 天
         COUNT(*) FILTER (WHERE log_date >= CURRENT_DATE - INTERVAL '30 days') AS logs_30d,
         COUNT(*) FILTER (WHERE log_date >= CURRENT_DATE - INTERVAL '30 days' AND medication_taken) AS medication_taken_30d,
         AVG(water_intake_ml) FILTER (WHERE log_date >= CURRENT_DATE - INTERVAL '30 days') AS avg_water_30d,
-        AVG(steps_count) FILTER (WHERE log_date >= CURRENT_DATE - INTERVAL '30 days') AS avg_steps_30d,
+        AVG(exercise_minutes) FILTER (WHERE log_date >= CURRENT_DATE - INTERVAL '30 days') AS avg_exercise_30d,  -- ⚠️ Changed from avg_steps_30d (v4.9)
 
         -- 近 90 天
         COUNT(*) FILTER (WHERE log_date >= CURRENT_DATE - INTERVAL '90 days') AS logs_90d,
@@ -669,13 +671,13 @@ SELECT
     logs_7d,
     CASE WHEN logs_7d > 0 THEN ROUND((medication_taken_7d::NUMERIC / logs_7d) * 100) ELSE 0 END AS adherence_rate_7d,
     ROUND(COALESCE(avg_water_7d, 0))::INTEGER AS avg_water_intake_7d,
-    ROUND(COALESCE(avg_steps_7d, 0))::INTEGER AS avg_steps_7d,
+    ROUND(COALESCE(avg_exercise_7d, 0))::INTEGER AS avg_exercise_minutes_7d,  -- ⚠️ Changed from avg_steps_7d (v4.9)
 
     -- 30 天 KPI
     logs_30d,
     CASE WHEN logs_30d > 0 THEN ROUND((medication_taken_30d::NUMERIC / logs_30d) * 100) ELSE 0 END AS adherence_rate_30d,
     ROUND(COALESCE(avg_water_30d, 0))::INTEGER AS avg_water_intake_30d,
-    ROUND(COALESCE(avg_steps_30d, 0))::INTEGER AS avg_steps_30d,
+    ROUND(COALESCE(avg_exercise_30d, 0))::INTEGER AS avg_exercise_minutes_30d,  -- ⚠️ Changed from avg_steps_30d (v4.9)
 
     -- 90 天 KPI
     logs_90d,
@@ -696,7 +698,7 @@ SELECT
     log_date,
     medication_taken,
     water_intake_ml,
-    steps_count,
+    exercise_minutes,  -- ⚠️ Changed from steps_count (v4.9)
     symptoms,
     mood,
 
@@ -707,11 +709,11 @@ SELECT
         ROWS BETWEEN 6 PRECEDING AND CURRENT ROW
     ) AS water_intake_7d_ma,
 
-    AVG(steps_count) OVER (
+    AVG(exercise_minutes) OVER (  -- ⚠️ Changed from steps_count (v4.9)
         PARTITION BY patient_id
         ORDER BY log_date
         ROWS BETWEEN 6 PRECEDING AND CURRENT ROW
-    ) AS steps_7d_ma,
+    ) AS exercise_7d_ma,  -- ⚠️ Changed from steps_7d_ma (v4.9)
 
     -- 累計統計（用於累積趨勢圖）
     COUNT(*) OVER (

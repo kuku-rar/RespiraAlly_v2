@@ -6,16 +6,18 @@ services:
     image: pgvector/pgvector:pg15
     container_name: respirally-postgres
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-respirally}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-respirally_dev}
-      POSTGRES_DB: ${POSTGRES_DB:-respirally_db}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_INITDB_ARGS: "--auth-host=md5"  # Use MD5 for password authentication
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "15432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init.sql
+      # FIXME: WSL mount issue - temporarily disabled, will run manually
+      - ./database/init-db.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-respirally}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -27,7 +29,7 @@ services:
     image: redis:7-alpine
     container_name: respirally-redis
     ports:
-      - "${REDIS_PORT:-6379}:6379"
+      - "16379:6379"  # Use 16379 to avoid port conflict
     volumes:
       - redis_data:/data
     command: redis-server --appendonly yes
@@ -58,6 +60,33 @@ services:
       retries: 5
     networks:
       - respirally-network
+
+  # MinIO Object Storage (S3-compatible)
+  # 📁 Usage: Voice file storage for Sprint 6 (AI Voice Processing)
+  # 🚀 Start: docker-compose up -d minio
+  # 🌐 Console: http://localhost:9001 (minioadmin/minioadmin)
+  # ⏸️ Note: Not required for Sprint 2 (Patient & DailyLog API)
+  minio:
+    image: minio/minio:latest
+    container_name: respirally-minio
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+    ports:
+      - "9000:9000"  # API endpoint
+      - "9001:9001"  # Web console
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    networks:
+      - respirally-network
+    profiles:
+      - full  # Only start with --profile full or explicitly: docker-compose up -d minio
 
   # Backend API (FastAPI)
   backend:
@@ -134,6 +163,7 @@ volumes:
   postgres_data:
   redis_data:
   rabbitmq_data:
+  minio_data:
 
 networks:
   respirally-network:

@@ -2,6 +2,7 @@
 Rag Context - API Router
 Presentation Layer (Clean Architecture)
 """
+
 from fastapi import APIRouter
 
 router = APIRouter()

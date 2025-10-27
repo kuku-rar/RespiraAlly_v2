@@ -3,7 +3,7 @@
 ---
 
 **文件版本:** `v1.0.0`
-**最後更新:** `2025-10-18`
+**最後更新:** `2025-10-27`
 **主要作者:** `Claude Code AI`
 **狀態:** `草稿 (Draft)`
 
@@ -20,6 +20,19 @@
 
 ### 1.1 目的
 為 `RespiraAlly V2.0` 的**後端服務**提供統一、明確、易於遵循的 **API 接口契約**，定義後端 FastAPI 應用的所有 HTTP/WebSocket 端點、請求/回應格式、認證授權機制、錯誤處理策略,確保前端與後端間的高效協作。
+
+### 1.2 Phase-Sprint 開發階段映射
+
+為確保文件術語一致性，本系統採用以下 Phase-Sprint 對應關係（詳見 [02_product_requirements_document.md](./02_product_requirements_document.md) Section 4.1）：
+
+| Phase | 時程 | Sprint | 核心功能 | API 交付重點 |
+|-------|------|--------|----------|--------------|
+| **Phase 0: 核心驗證** | Week 1-4 | Sprint 0-2 | 專案管理、基礎設施、病患管理 | 認證 API、病患管理 API、日誌 API |
+| **Phase 1: 增值功能** | Week 5-8 | Sprint 3-4 | 問卷系統、GOLD ABE 風險引擎 | 問卷 API、風險評估 API、警示 API |
+| **Phase 2: AI 能力** | Week 9-12 | Sprint 5-6 | RAG 知識庫、AI 語音互動 | RAG API、語音處理 API |
+| **Phase 3: 優化上線** | Week 13-16 | Sprint 7-8 | 通知系統、效能優化、生產部署 | 通知 API、監控 API |
+
+**當前進度**: Sprint 4 (Phase 1) - 警示系統 API 開發中
 
 **本文檔專注於後端服務責任:**
 - ✅ 後端 API 端點設計 (RESTful API、WebSocket)
@@ -169,12 +182,32 @@
 *   **查詢參數:** `risk_bucket`, `adherence_rate_lte`, `last_active_gte`, `sort_by`, `skip`, `limit`
 *   **成功回應 (200 OK):** `PatientListResponse`
 
-#### `GET /patients/{patient_id}` (查詢病患 360° 檔案)
+#### `GET /patients/{user_id}` (查詢病患 360° 檔案)
 *   **描述:** 治療師查詢單一病患的完整檔案。
+*   **路徑參數:** `user_id` (UUID) - 病患的使用者 ID（來自 users 表）
 *   **授權:** `therapist` 角色，且為該病患的負責人。
 *   **成功回應 (200 OK):** `Patient360`
 
-#### `GET /patients/{patient_id}/kpis` (查詢病患 KPI)
+#### `PATCH /patients/{user_id}` (更新病患資訊)
+*   **描述:** 治療師更新病患資訊（部分更新）。
+*   **路徑參數:** `user_id` (UUID) - 病患的使用者 ID
+*   **授權:** `therapist` 角色，且為該病患的負責人。
+*   **請求體:** `PatientUpdate` (所有欄位皆為可選，支援部分更新)
+*   **成功回應 (200 OK):** `PatientResponse`
+*   **錯誤回應:**
+    *   `403 Forbidden`: 無權限修改該病患資料
+    *   `404 Not Found`: 病患不存在
+
+#### `DELETE /patients/{user_id}` (刪除病患記錄)
+*   **描述:** 治療師刪除病患記錄（目前為硬刪除，建議生產環境改用軟刪除）。
+*   **路徑參數:** `user_id` (UUID) - 病患的使用者 ID
+*   **授權:** `therapist` 角色，且為該病患的負責人。
+*   **成功回應 (204 No Content):** 刪除成功（無回應體）
+*   **錯誤回應:**
+    *   `403 Forbidden`: 無權限刪除該病患
+    *   `404 Not Found`: 病患不存在
+
+#### `GET /patients/{user_id}/kpis` (查詢病患 KPI)
 *   **描述:** 查詢病患的 KPI 快取資料 (依從率、健康指標、最新問卷等)。
 *   **授權:** `patient` (自己) 或 `therapist` (負責該病患)。
 *   **查詢參數:**
@@ -182,8 +215,9 @@
 *   **成功回應 (200 OK):** `PatientKPI`
 *   **性能要求:** < 50ms (直接查詢 patient_kpi_cache 表)
 
-#### `GET /patients/{patient_id}/health-timeline` (查詢健康時間序列)
+#### `GET /patients/{user_id}/health-timeline` (查詢健康時間序列)
 *   **描述:** 查詢病患的每日健康數據時間序列 (用於前端折線圖)。
+*   **路徑參數:** `user_id` (UUID) - 病患的使用者 ID
 *   **授權:** `patient` (自己) 或 `therapist` (負責該病患)。
 *   **查詢參數:**
     *   `days` (可選): 返回近 N 天數據,預設 30,最大 90
@@ -191,22 +225,24 @@
 *   **成功回應 (200 OK):** `List[TrendPoint]`
 *   **性能要求:** < 300ms (查詢 patient_health_timeline 視圖)
 
-#### `GET /patients/{patient_id}/survey-trends` (查詢問卷趨勢)
+#### `GET /patients/{user_id}/survey-trends` (查詢問卷趨勢)
 *   **描述:** 查詢病患的 CAT/mMRC 問卷歷史趨勢。
+*   **路徑參數:** `user_id` (UUID) - 病患的使用者 ID
 *   **授權:** `patient` (自己) 或 `therapist` (負責該病患)。
 *   **查詢參數:**
     *   `survey_type` (可選): 篩選問卷類型 ("CAT" 或 "mMRC"),不提供則返回所有
     *   `limit` (可選): 最多返回 N 筆,預設 10
 *   **成功回應 (200 OK):** `List[SurveyTrend]`
 
-#### `POST /patients/{patient_id}/kpis/refresh` (刷新病患 KPI 快取)
+#### `POST /patients/{user_id}/kpis/refresh` (刷新病患 KPI 快取)
 *   **描述:** 手動觸發 KPI 快取刷新 (調用 `refresh_patient_kpi_cache` 存儲過程)。
+*   **路徑參數:** `user_id` (UUID) - 病患的使用者 ID
 *   **授權:** `therapist` 角色。
 *   **成功回應 (200 OK):**
     ```json
     {
       "message": "KPI cache refreshed successfully",
-      "patient_id": "patient-uuid",
+      "user_id": "user-uuid",
       "refreshed_at": "2025-10-18T10:30:00Z"
     }
     ```

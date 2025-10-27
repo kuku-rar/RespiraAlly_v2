@@ -3,7 +3,7 @@
 ---
 
 **文件版本:** `v1.0`
-**最後更新:** `2025-10-16`
+**最後更新:** `2025-10-27`
 **主要作者:** `Claude Code AI`
 **狀態:** `活躍 (Active)`
 
@@ -20,6 +20,19 @@
 - **Phase 3+**: 根據實際需求與效能瓶頸，逐步拆分為微服務架構（若需要）
 
 此結構設計支持未來的架構演進，同時避免過早優化。
+
+## 1.1 Phase-Sprint 開發階段映射
+
+為確保文件術語一致性，本系統採用以下 Phase-Sprint 對應關係（詳見 [02_product_requirements_document.md](./02_product_requirements_document.md) Section 4.1）：
+
+| Phase | 時程 | Sprint | 專案結構演進重點 |
+|-------|------|--------|------------------|
+| **Phase 0: 核心驗證** | Week 1-4 | Sprint 0-2 | 建立 Modular Monolith 基礎結構 |
+| **Phase 1: 增值功能** | Week 5-8 | Sprint 3-4 | 擴展應用層模組（風險、警示） |
+| **Phase 2: AI 能力** | Week 9-12 | Sprint 5-6 | 新增 AI 相關模組（RAG、語音） |
+| **Phase 3: 優化上線** | Week 13-16 | Sprint 7-8 | 完善基礎設施（監控、CI/CD） |
+
+**當前階段**: Sprint 4 (Phase 1) - 專案結構穩定，模組邊界清晰
 
 ## 2. 核心設計原則
 

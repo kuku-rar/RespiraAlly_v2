@@ -4,23 +4,64 @@ RespiraAlly V2.0 - FastAPI Application Entry Point
 Modular Monolith Architecture with Clean Architecture principles
 Based on 7 Bounded Contexts (DDD Strategic Design)
 """
+
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
 
 from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from respira_ally.api.v1.routers import (
+    alert,
     auth,
     daily_log,
+    exacerbation,
     notification,
     patient,
     rag,
     risk,
     survey,
+    task,
 )
 from respira_ally.core.config import settings
+from respira_ally.core.exceptions.application_exceptions import (
+    ApplicationException,
+    ConflictError,
+    ExternalServiceError,
+    ForbiddenError,
+    InvalidOperationError,
+    ResourceNotFoundError,
+    UnauthorizedError,
+    ValidationError,
+)
+from respira_ally.core.exceptions.http_exceptions import (
+    aggregate_invariant_violation_handler,
+    application_exception_handler,
+    business_rule_violation_handler,
+    conflict_error_handler,
+    domain_exception_handler,
+    entity_already_exists_handler,
+    entity_not_found_handler,
+    external_service_error_handler,
+    forbidden_error_handler,
+    generic_exception_handler,
+    invalid_entity_state_handler,
+    invalid_operation_error_handler,
+    request_validation_error_handler,
+    resource_not_found_handler,
+    unauthorized_error_handler,
+    validation_error_handler,
+)
+from respira_ally.domain.exceptions.domain_exceptions import (
+    AggregateInvariantViolationError,
+    BusinessRuleViolationError,
+    DomainException,
+    EntityAlreadyExistsError,
+    EntityNotFoundError,
+    InvalidEntityStateError,
+)
 from respira_ally.infrastructure.database.session import engine
 
 
@@ -30,7 +71,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Startup
     print("🚀 Starting RespiraAlly V2.0...")
     print(f"📋 Environment: {settings.ENVIRONMENT}")
-    print(f"🗄️  Database: {settings.DATABASE_URL.split('@')[1] if '@' in settings.DATABASE_URL else 'N/A'}")
+    print(
+        f"🗄️  Database: {settings.DATABASE_URL.split('@')[1] if '@' in settings.DATABASE_URL else 'N/A'}"
+    )
 
     yield
 
@@ -59,6 +102,36 @@ app.add_middleware(
 )
 
 
+# ============================================================================
+# Global Exception Handlers
+# ============================================================================
+# Register exception handlers in order of specificity (most specific first)
+
+# Application Layer Exceptions
+app.add_exception_handler(ValidationError, validation_error_handler)
+app.add_exception_handler(ResourceNotFoundError, resource_not_found_handler)
+app.add_exception_handler(UnauthorizedError, unauthorized_error_handler)
+app.add_exception_handler(ForbiddenError, forbidden_error_handler)
+app.add_exception_handler(ConflictError, conflict_error_handler)
+app.add_exception_handler(ExternalServiceError, external_service_error_handler)
+app.add_exception_handler(InvalidOperationError, invalid_operation_error_handler)
+app.add_exception_handler(ApplicationException, application_exception_handler)
+
+# Domain Layer Exceptions
+app.add_exception_handler(EntityNotFoundError, entity_not_found_handler)
+app.add_exception_handler(EntityAlreadyExistsError, entity_already_exists_handler)
+app.add_exception_handler(InvalidEntityStateError, invalid_entity_state_handler)
+app.add_exception_handler(BusinessRuleViolationError, business_rule_violation_handler)
+app.add_exception_handler(AggregateInvariantViolationError, aggregate_invariant_violation_handler)
+app.add_exception_handler(DomainException, domain_exception_handler)
+
+# FastAPI Built-in Exceptions
+app.add_exception_handler(RequestValidationError, request_validation_error_handler)
+
+# Catch-all for unhandled exceptions
+app.add_exception_handler(Exception, generic_exception_handler)
+
+
 # Health Check Endpoint
 @app.get("/health", tags=["Health"])
 async def health_check() -> JSONResponse:
@@ -72,7 +145,7 @@ async def health_check() -> JSONResponse:
     )
 
 
-# Include API Routers (7 Bounded Contexts)
+# Include API Routers (7 Bounded Contexts + Sprint 4: Exacerbation + Alert + Sprint 5: Task)
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Auth"])
 app.include_router(patient.router, prefix="/api/v1/patients", tags=["Patients"])
 app.include_router(daily_log.router, prefix="/api/v1/daily-logs", tags=["Daily Logs"])
@@ -80,14 +153,21 @@ app.include_router(survey.router, prefix="/api/v1/surveys", tags=["Surveys"])
 app.include_router(risk.router, prefix="/api/v1/risk", tags=["Risk"])
 app.include_router(rag.router, prefix="/api/v1/rag", tags=["RAG"])
 app.include_router(notification.router, prefix="/api/v1/notifications", tags=["Notifications"])
+app.include_router(exacerbation.router, prefix="/api/v1/exacerbations", tags=["Exacerbations"])
+app.include_router(alert.router, prefix="/api/v1/alerts", tags=["Alerts"])
+app.include_router(task.router, prefix="/api/v1/tasks", tags=["Tasks"])
 
 
 if __name__ == "__main__":
     import uvicorn
 
+    # Security: Bind to 0.0.0.0 only in production (container environment)
+    # Development: Bind to 127.0.0.1 (localhost only) for security
+    host = "0.0.0.0" if settings.ENVIRONMENT == "production" else "127.0.0.1"
+
     uvicorn.run(
         "respira_ally.main:app",
-        host="0.0.0.0",
+        host=host,
         port=8000,
         reload=True,
         log_level="info",
