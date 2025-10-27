@@ -235,6 +235,39 @@ def is_therapist_or_higher(current_user: TokenData) -> bool:
     return current_user.role in [UserRole.THERAPIST, UserRole.SUPERVISOR, UserRole.ADMIN]
 
 
+def require_role(current_user: TokenData, required_role: str) -> None:
+    """
+    Enforce role requirement, raise HTTPException if not met
+
+    Args:
+        current_user: Current authenticated user
+        required_role: Required role string (e.g., "THERAPIST", "ADMIN")
+
+    Raises:
+        HTTPException: 403 Forbidden if user doesn't have required role
+
+    Example:
+        >>> require_role(current_user, "THERAPIST")  # Raises if not THERAPIST+
+    """
+    from fastapi import HTTPException, status
+
+    required_role_enum = UserRole(required_role)
+
+    # Role hierarchy: ADMIN > SUPERVISOR > THERAPIST > PATIENT
+    role_hierarchy = {
+        UserRole.PATIENT: 0,
+        UserRole.THERAPIST: 1,
+        UserRole.SUPERVISOR: 2,
+        UserRole.ADMIN: 3,
+    }
+
+    if role_hierarchy.get(current_user.role, 0) < role_hierarchy.get(required_role_enum, 999):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"This operation requires {required_role} role or higher"
+        )
+
+
 # ============================================================================
 # Permission Error Messages
 # ============================================================================
