@@ -33,150 +33,199 @@
 
 ---
 
-### 規格 1: `calculate_health_score`
+### 規格 1: `_classify_gold_group` (GOLD ABE 風險分級)
 
-**描述 (Description)**: 根據病患近期的一系列健康指標，計算其綜合健康分數。此分數用於動態更新風險等級。
+**描述 (Description)**: 根據 GOLD ABE 臨床指引（GOLD 2011）對 COPD 病患進行風險分級。此方法為風險評估的核心領域邏輯，基於病患症狀嚴重程度（CAT 問卷和 mMRC 呼吸困難量表）進行分類。
+
+**臨床背景**: GOLD ABE 分類是國際公認的 COPD 風險評估標準，用於指導治療決策和監測病情發展。
 
 **函式簽名 (Python Type Hints)**:
 ```python
-def calculate_health_score(
-    adherence_7d: float,         # 7 日依從率 (0.0 - 1.0)
-    water_avg_30d: float,        # 30 日平均飲水量 (ml)
-    exercise_avg_30d: float,     # 30 日平均運動時長 (min)
-    smoke_avg_7d: float,         # 7 日平均抽菸量 (支)
-    latest_cat_score: int,       # 最新 CAT 問卷分數 (0 - 40)
-    survey_risk_normalized: int, # 最新問卷正規化風險 (0 - 100)
-    bmi: Optional[float] = None, # BMI 值 (若有身高體重)
-    smoking_years: Optional[int] = None, # 吸菸年數 (若為吸菸者)
-) -> int:
-    """Calculates the patient's health score based on multiple factors."""
+def _classify_gold_group(
+    self,
+    cat_score: int,    # CAT 問卷分數 (0-40)
+    mmrc_grade: int,   # mMRC 呼吸困難等級 (0-4)
+) -> GoldGroup:
+    """
+    Classify patient into GOLD ABE group based on symptom severity.
+
+    Returns:
+        GoldGroup: 'A' (low risk) | 'B' (medium risk) | 'E' (high risk)
+    """
     ...
 ```
 
-**核心公式** (更新版,考慮新健康指標):
+**GOLD ABE 分類算法** (GOLD 2011 臨床指引):
 
-**基礎公式**:
-`S_base = 0.35×A₇ + 0.15×H₃₀ + 0.15×(100-N₃₀) + 0.15×(100-C) + 0.20×(100-R̂)`
+```
+症狀閾值定義:
+- high_symptoms_cat = (CAT 分數 >= 10)
+- high_symptoms_mmrc = (mMRC 等級 >= 2)
 
-**健康指標調整** (若資料可用):
-- **BMI 調整**:
-  - BMI < 18.5 (過輕): -5 分
-  - BMI 18.5-24 (正常): 0 分
-  - BMI 24-27 (過重): -3 分
-  - BMI ≥ 27 (肥胖): -8 分
-- **吸菸年數調整**:
-  - smoking_years ≥ 20: -10 分
-  - smoking_years 10-19: -5 分
-  - smoking_years 1-9: -2 分
-  - smoking_status = "NEVER": 0 分
+分類規則（無特殊情況，清晰的三分支邏輯）:
+┌─────────────────────────┬─────────────────────┬──────────┬────────────┐
+│ CAT 症狀                │ mMRC 症狀           │ GOLD 組別│ 風險等級   │
+├─────────────────────────┼─────────────────────┼──────────┼────────────┤
+│ CAT ≥ 10 (高症狀)       │ mMRC ≥ 2 (高症狀)   │ Group E  │ High (高)  │
+│ CAT ≥ 10 (高症狀)       │ mMRC < 2 (低症狀)   │ Group B  │ Medium (中)│
+│ CAT < 10 (低症狀)       │ mMRC ≥ 2 (高症狀)   │ Group B  │ Medium (中)│
+│ CAT < 10 (低症狀)       │ mMRC < 2 (低症狀)   │ Group A  │ Low (低)   │
+└─────────────────────────┴─────────────────────┴──────────┴────────────┘
 
-**最終分數**:
-`S_final = S_base + BMI_adjustment + Smoking_adjustment`
-*(確保最終分數在 0-100 範圍內)*
+簡化邏輯表達:
+IF (CAT ≥ 10) AND (mMRC ≥ 2) THEN Group E  // 雙高 → 高風險
+ELSE IF (CAT ≥ 10) OR (mMRC ≥ 2) THEN Group B  // 單高 → 中風險
+ELSE Group A  // 雙低 → 低風險
+```
 
-*備註: A₇ 為依從率百分比 (0-100), H₃₀, N₃₀, C, R̂ 都是經過正規化到 0-100 區間的值。*
+**與 Legacy 風險評分的映射** (ADR-014 混合策略):
+- Group A → risk_score=25, risk_level='low'
+- Group B → risk_score=50, risk_level='medium'
+- Group E → risk_score=75, risk_level='high'
+
+*註：Legacy 的 risk_score (0-100) 和 risk_level 欄位保留以維持向後兼容性，但 GOLD 組別為主要分類標準。*
 
 **契約式設計 (Design by Contract, DbC)**:
 *   **前置條件 (Preconditions)**:
-    1.  `adherence_7d` 必須在 `0.0` 到 `1.0` 之間。
-    2.  所有 `avg` 輸入值必須 `≥ 0`。
-    3.  `latest_cat_score` 必須在 `0` 到 `40` 之間。
-    4.  `survey_risk_normalized` 必須在 `0` 到 `100` 之間。
+    1.  `cat_score` 必須在 `0` 到 `40` 之間（CAT 問卷標準範圍）。
+    2.  `mmrc_grade` 必須在 `0` 到 `4` 之間（mMRC 量表標準範圍）。
 *   **後置條件 (Postconditions)**:
-    1.  返回的健康分數必須是一個 `0` 到 `100` 之間的整數。
+    1.  返回值必須為 `'A'`, `'B'`, 或 `'E'` 之一。
+    2.  分類結果必須符合 GOLD 2011 臨床指引規則。
 *   **不變性 (Invariants)**:
-    1.  權重總和 (`0.35 + 0.15 + 0.15 + 0.15 + 0.20`) 必須恆等於 `1.0`。
+    1.  相同的輸入必須產生相同的輸出（純函數，無副作用）。
+    2.  症狀閾值恆定：CAT 閾值=10, mMRC 閾值=2。
 
 ---
 
 ### 測試情境與案例 (Test Scenarios & Cases)
 
-#### 情境 1: 正常路徑 - 健康狀況良好的病患
+#### 情境 1: 高風險病患 - 雙高症狀 (Group E)
 
-*   **測試案例 ID**: `TC-RiskEngine-001`
-*   **描述**: 一個各項指標都表現良好的病患，應得到一個高的健康分數。
-*   **輸入值 (已正規化為 0-100)**:
-    *   `A₇` (依從率): 100
-    *   `H₃₀` (飲水): 90
-    *   `N₃₀` (運動): 85
-    *   `C` (抽菸): 0
-    *   `R̂` (問卷風險): 10
-*   **預期計算**:
-    ```
-    S = 0.35×A₇ + 0.15×H₃₀ + 0.15×(100-N₃₀) + 0.15×(100-C) + 0.20×(100-R̂)
-      = 0.35×100 + 0.15×90 + 0.15×(100-85) + 0.15×(100-0) + 0.20×(100-10)
-      = 35 + 13.5 + 2.25 + 15 + 18
-      = 83.75
-    ```
-*   **預期結果**: `round(83.75)` = **84**。屬於 "Low" risk bucket (≥80)。
-
-#### 情境 2: 正常路徑 - 健康狀況較差的病患
-
-*   **測試案例 ID**: `TC-RiskEngine-002`
-*   **描述**: 一個多項指標不佳的病患，應得到一個低的健康分數。
-*   **輸入值 (已正規化為 0-100)**:
-    *   `A₇` (依從率): 30
-    *   `H₃₀` (飲水): 40
-    *   `N₃₀` (運動): 20
-    *   `C` (抽菸): 50
-    *   `R̂` (問卷風險): 70
-*   **預期計算**:
-    ```
-    S = 0.35×30 + 0.15×40 + 0.15×(100-20) + 0.15×(100-50) + 0.20×(100-70)
-      = 10.5 + 6 + 12 + 7.5 + 6
-      = 42
-    ```
-*   **預期結果**: **42**。屬於 "High" risk bucket (<60)。
-
-#### 情境 3: 邊界情況 - 所有指標均為最差
-
-*   **測試案例 ID**: `TC-RiskEngine-003`
-*   **描述**: 測試分數的下限。
-*   **輸入值 (已正規化為 0-100)**: `A₇=0, H₃₀=0, N₃₀=0, C=100, R̂=100`
-*   **預期計算**:
-    ```
-    S = 0.35×0 + 0.15×0 + 0.15×(100-0) + 0.15×(100-100) + 0.20×(100-100)
-      = 0 + 0 + 15 + 0 + 0
-      = 15
-    ```
-*   **預期結果**: **15** (最低分)。
-
-#### 情境 4: 邊界情況 - 所有指標均為最佳
-
-*   **測試案例 ID**: `TC-RiskEngine-004`
-*   **描述**: 測試分數的上限。
-*   **輸入值 (已正規化為 0-100)**: `A₇=100, H₃₀=100, N₃₀=100, C=0, R̂=0`
-*   **預期計算**:
-    ```
-    S = 0.35×100 + 0.15×100 + 0.15×(100-100) + 0.15×(100-0) + 0.20×(100-0)
-      = 35 + 15 + 0 + 15 + 20
-      = 85
-    ```
-*   **預期結果**: **85** (最高分，不考慮 BMI 和吸菸調整)。
-*   **備註**: 滿分為 85 而非 100，因為 N₃₀（運動）在最佳值時對分數無貢獻（`100-N₃₀=0`）。若需調整滿分為 100，需重新平衡公式權重。
-
-#### 情境 5: 無效輸入 (違反前置條件)
-
-*   **測試案例 ID**: `TC-RiskEngine-005`
-*   **描述**: 輸入的依從率為負數。
-*   **測試步驟**: 呼叫 `calculate_health_score(adherence_7d=-0.5, ...)`
-*   **預期結果**: 拋出 `ValueError` 或類似的例外，並提示 "adherence_7d must be between 0.0 and 1.0"。
-
-#### 情境 6: 考慮新健康指標 - 肥胖且長期吸菸者
-
-*   **測試案例 ID**: `TC-RiskEngine-006`
-*   **描述**: 病患有肥胖問題 (BMI ≥ 27) 且長期吸菸 (≥20年),應額外扣分。
+*   **測試案例 ID**: `TC-GOLD-001`
+*   **描述**: CAT 和 mMRC 皆達到高症狀閾值，應分類為 Group E（高風險）。
 *   **輸入值**:
-    *   基礎指標: `A₇=80, H₃₀=70, N₃₀=60, C=30, R̂=40`
-    *   `bmi=29.5` (肥胖)
-    *   `smoking_years=25` (長期吸菸)
-*   **預期計算**:
-    *   `S_base = 0.30*80 + 0.15*70 + 0.15*(100-60) + 0.15*(100-30) + 0.20*(100-40)`
-    *   `S_base = 24 + 10.5 + 6 + 10.5 + 12 = 63`
-    *   `BMI_adjustment = -8` (肥胖)
-    *   `Smoking_adjustment = -10` (≥20年)
-    *   `S_final = 63 - 8 - 10 = 45`
-*   **預期結果**: `45`。屬於 "High" risk bucket (<60)。
+    *   `cat_score = 18` (≥10, 高症狀)
+    *   `mmrc_grade = 3` (≥2, 高症狀)
+*   **預期邏輯**:
+    ```
+    high_symptoms_cat = (18 >= 10) = True
+    high_symptoms_mmrc = (3 >= 2) = True
+    → Both high → Group E
+    ```
+*   **預期結果**: `gold_group = 'E'`
+*   **對應 Legacy 映射**: `risk_score = 75`, `risk_level = 'high'`
+
+#### 情境 2: 中風險病患 - CAT 高症狀，mMRC 低症狀 (Group B)
+
+*   **測試案例 ID**: `TC-GOLD-002`
+*   **描述**: 僅 CAT 達到高症狀閾值，mMRC 低於閾值，應分類為 Group B（中風險）。
+*   **輸入值**:
+    *   `cat_score = 12` (≥10, 高症狀)
+    *   `mmrc_grade = 1` (<2, 低症狀)
+*   **預期邏輯**:
+    ```
+    high_symptoms_cat = (12 >= 10) = True
+    high_symptoms_mmrc = (1 >= 2) = False
+    → One high → Group B
+    ```
+*   **預期結果**: `gold_group = 'B'`
+*   **對應 Legacy 映射**: `risk_score = 50`, `risk_level = 'medium'`
+
+#### 情境 3: 中風險病患 - mMRC 高症狀，CAT 低症狀 (Group B)
+
+*   **測試案例 ID**: `TC-GOLD-003`
+*   **描述**: 僅 mMRC 達到高症狀閾值，CAT 低於閾值，應分類為 Group B（中風險）。
+*   **輸入值**:
+    *   `cat_score = 8` (<10, 低症狀)
+    *   `mmrc_grade = 3` (≥2, 高症狀)
+*   **預期邏輯**:
+    ```
+    high_symptoms_cat = (8 >= 10) = False
+    high_symptoms_mmrc = (3 >= 2) = True
+    → One high → Group B
+    ```
+*   **預期結果**: `gold_group = 'B'`
+*   **對應 Legacy 映射**: `risk_score = 50`, `risk_level = 'medium'`
+
+#### 情境 4: 低風險病患 - 雙低症狀 (Group A)
+
+*   **測試案例 ID**: `TC-GOLD-004`
+*   **描述**: CAT 和 mMRC 皆低於高症狀閾值，應分類為 Group A（低風險）。
+*   **輸入值**:
+    *   `cat_score = 5` (<10, 低症狀)
+    *   `mmrc_grade = 1` (<2, 低症狀)
+*   **預期邏輯**:
+    ```
+    high_symptoms_cat = (5 >= 10) = False
+    high_symptoms_mmrc = (1 >= 2) = False
+    → Both low → Group A
+    ```
+*   **預期結果**: `gold_group = 'A'`
+*   **對應 Legacy 映射**: `risk_score = 25`, `risk_level = 'low'`
+
+#### 情境 5: 邊界測試 - 閾值臨界點 (Group E)
+
+*   **測試案例 ID**: `TC-GOLD-005`
+*   **描述**: CAT 和 mMRC 皆剛好達到閾值，應分類為 Group E。
+*   **輸入值**:
+    *   `cat_score = 10` (≥10, 邊界值)
+    *   `mmrc_grade = 2` (≥2, 邊界值)
+*   **預期邏輯**:
+    ```
+    high_symptoms_cat = (10 >= 10) = True  // 包含等於
+    high_symptoms_mmrc = (2 >= 2) = True   // 包含等於
+    → Both high → Group E
+    ```
+*   **預期結果**: `gold_group = 'E'`
+*   **臨床意義**: 閾值包含性（≥ 而非 >）符合 GOLD 2011 指引。
+
+#### 情境 6: 邊界測試 - 閾值下界 (Group A)
+
+*   **測試案例 ID**: `TC-GOLD-006`
+*   **描述**: CAT 和 mMRC 皆剛好低於閾值，應分類為 Group A。
+*   **輸入值**:
+    *   `cat_score = 9` (<10, 邊界值)
+    *   `mmrc_grade = 1` (<2, 邊界值)
+*   **預期邏輯**:
+    ```
+    high_symptoms_cat = (9 >= 10) = False
+    high_symptoms_mmrc = (1 >= 2) = False
+    → Both low → Group A
+    ```
+*   **預期結果**: `gold_group = 'A'`
+
+#### 情境 7: 極端值測試 - 最嚴重症狀 (Group E)
+
+*   **測試案例 ID**: `TC-GOLD-007`
+*   **描述**: CAT 和 mMRC 達到最大值，應分類為 Group E。
+*   **輸入值**:
+    *   `cat_score = 40` (CAT 問卷最大值)
+    *   `mmrc_grade = 4` (mMRC 量表最大值)
+*   **預期結果**: `gold_group = 'E'`
+
+#### 情境 8: 極端值測試 - 無症狀 (Group A)
+
+*   **測試案例 ID**: `TC-GOLD-008`
+*   **描述**: CAT 和 mMRC 達到最小值，應分類為 Group A。
+*   **輸入值**:
+    *   `cat_score = 0` (CAT 問卷最小值)
+    *   `mmrc_grade = 0` (mMRC 量表最小值)
+*   **預期結果**: `gold_group = 'A'`
+
+#### 情境 9: 無效輸入 - CAT 超出範圍
+
+*   **測試案例 ID**: `TC-GOLD-009`
+*   **描述**: CAT 分數超出有效範圍 (0-40)，應拋出驗證錯誤。
+*   **測試步驟**: 呼叫 `_classify_gold_group(cat_score=45, mmrc_grade=2)`
+*   **預期結果**: 拋出 `ValueError` 或 `ValidationError`，並提示 "cat_score must be between 0 and 40"。
+
+#### 情境 10: 無效輸入 - mMRC 超出範圍
+
+*   **測試案例 ID**: `TC-GOLD-010`
+*   **描述**: mMRC 等級超出有效範圍 (0-4)，應拋出驗證錯誤。
+*   **測試步驟**: 呼叫 `_classify_gold_group(cat_score=15, mmrc_grade=5)`
+*   **預期結果**: 拋出 `ValueError` 或 `ValidationError`，並提示 "mmrc_grade must be between 0 and 4"。
 
 ---
 

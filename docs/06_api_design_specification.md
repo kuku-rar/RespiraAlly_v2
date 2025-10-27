@@ -182,15 +182,15 @@
 *   **查詢參數:** `risk_bucket`, `adherence_rate_lte`, `last_active_gte`, `sort_by`, `skip`, `limit`
 *   **成功回應 (200 OK):** `PatientListResponse`
 
-#### `GET /patients/{user_id}` (查詢病患 360° 檔案)
+#### `GET /patients/{patient_id}` (查詢病患 360° 檔案)
 *   **描述:** 治療師查詢單一病患的完整檔案。
-*   **路徑參數:** `user_id` (UUID) - 病患的使用者 ID（來自 users 表）
+*   **路徑參數:** `patient_id` (UUID) - 病患 ID（對應 patient_profiles 表的 user_id）
 *   **授權:** `therapist` 角色，且為該病患的負責人。
 *   **成功回應 (200 OK):** `Patient360`
 
-#### `PATCH /patients/{user_id}` (更新病患資訊)
+#### `PATCH /patients/{patient_id}` (更新病患資訊)
 *   **描述:** 治療師更新病患資訊（部分更新）。
-*   **路徑參數:** `user_id` (UUID) - 病患的使用者 ID
+*   **路徑參數:** `patient_id` (UUID) - 病患 ID（對應 patient_profiles 表的 user_id）
 *   **授權:** `therapist` 角色，且為該病患的負責人。
 *   **請求體:** `PatientUpdate` (所有欄位皆為可選，支援部分更新)
 *   **成功回應 (200 OK):** `PatientResponse`
@@ -198,16 +198,16 @@
     *   `403 Forbidden`: 無權限修改該病患資料
     *   `404 Not Found`: 病患不存在
 
-#### `DELETE /patients/{user_id}` (刪除病患記錄)
+#### `DELETE /patients/{patient_id}` (刪除病患記錄)
 *   **描述:** 治療師刪除病患記錄（目前為硬刪除，建議生產環境改用軟刪除）。
-*   **路徑參數:** `user_id` (UUID) - 病患的使用者 ID
+*   **路徑參數:** `patient_id` (UUID) - 病患 ID（對應 patient_profiles 表的 user_id）
 *   **授權:** `therapist` 角色，且為該病患的負責人。
 *   **成功回應 (204 No Content):** 刪除成功（無回應體）
 *   **錯誤回應:**
     *   `403 Forbidden`: 無權限刪除該病患
     *   `404 Not Found`: 病患不存在
 
-#### `GET /patients/{user_id}/kpis` (查詢病患 KPI)
+#### `GET /patients/{patient_id}/kpis` (查詢病患 KPI)
 *   **描述:** 查詢病患的 KPI 快取資料 (依從率、健康指標、最新問卷等)。
 *   **授權:** `patient` (自己) 或 `therapist` (負責該病患)。
 *   **查詢參數:**
@@ -215,9 +215,9 @@
 *   **成功回應 (200 OK):** `PatientKPI`
 *   **性能要求:** < 50ms (直接查詢 patient_kpi_cache 表)
 
-#### `GET /patients/{user_id}/health-timeline` (查詢健康時間序列)
+#### `GET /patients/{patient_id}/health-timeline` (查詢健康時間序列)
 *   **描述:** 查詢病患的每日健康數據時間序列 (用於前端折線圖)。
-*   **路徑參數:** `user_id` (UUID) - 病患的使用者 ID
+*   **路徑參數:** `patient_id` (UUID) - 病患 ID（對應 patient_profiles 表的 user_id）
 *   **授權:** `patient` (自己) 或 `therapist` (負責該病患)。
 *   **查詢參數:**
     *   `days` (可選): 返回近 N 天數據,預設 30,最大 90
@@ -225,24 +225,24 @@
 *   **成功回應 (200 OK):** `List[TrendPoint]`
 *   **性能要求:** < 300ms (查詢 patient_health_timeline 視圖)
 
-#### `GET /patients/{user_id}/survey-trends` (查詢問卷趨勢)
+#### `GET /patients/{patient_id}/survey-trends` (查詢問卷趨勢)
 *   **描述:** 查詢病患的 CAT/mMRC 問卷歷史趨勢。
-*   **路徑參數:** `user_id` (UUID) - 病患的使用者 ID
+*   **路徑參數:** `patient_id` (UUID) - 病患 ID（對應 patient_profiles 表的 user_id）
 *   **授權:** `patient` (自己) 或 `therapist` (負責該病患)。
 *   **查詢參數:**
     *   `survey_type` (可選): 篩選問卷類型 ("CAT" 或 "mMRC"),不提供則返回所有
     *   `limit` (可選): 最多返回 N 筆,預設 10
 *   **成功回應 (200 OK):** `List[SurveyTrend]`
 
-#### `POST /patients/{user_id}/kpis/refresh` (刷新病患 KPI 快取)
+#### `POST /patients/{patient_id}/kpis/refresh` (刷新病患 KPI 快取)
 *   **描述:** 手動觸發 KPI 快取刷新 (調用 `refresh_patient_kpi_cache` 存儲過程)。
-*   **路徑參數:** `user_id` (UUID) - 病患的使用者 ID
+*   **路徑參數:** `patient_id` (UUID) - 病患 ID（對應 patient_profiles 表的 user_id）
 *   **授權:** `therapist` 角色。
 *   **成功回應 (200 OK):**
     ```json
     {
       "message": "KPI cache refreshed successfully",
-      "user_id": "user-uuid",
+      "patient_id": "patient-uuid",
       "refreshed_at": "2025-10-18T10:30:00Z"
     }
     ```
