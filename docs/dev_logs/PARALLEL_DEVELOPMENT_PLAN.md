@@ -1,10 +1,46 @@
 # 並行開發計劃 - Alert UI + Task Management System
 
-**文件版本**: v1.0
+**文件版本**: v1.1
 **創建日期**: 2025-10-27
+**最後更新**: 2025-10-27
 **適用 Sprint**: Sprint 5
 **預估總時程**: 24-32 小時（並行執行可縮短至 24-28 小時）
 **開發模式**: 雙軌並行（Frontend + Backend）
+**完成進度**: **87%** (39.5h / 45.5h)
+
+---
+
+## 🚨 **關鍵問題與阻擋事項**
+
+### **P0 - 必須在部署前修復**
+
+#### 1. 🚨 **Mock Data Patient ID Mismatch** (阻擋生產部署)
+- **影響元件**: AlertBadge, AlertList (病患詳細頁面)
+- **根本原因**: patient_id 在不同 Mock 資料來源間不一致
+- **影響範圍**: 病患詳細頁面的 Alert 相關功能完全無法使用
+- **預估修復時間**: 1 小時
+- **修復位置**: `frontend/dashboard/mocks/` 目錄下的所有 Mock 資料檔案
+- **建議行動**: **立即修復**，統一所有 Mock 資料的 patient_id 為同一個值
+- **負責人**: Role A (Frontend Developer)
+- **狀態**: ⚠️ **待修復**
+
+### **剩餘工作清單**
+
+#### 2. ⏳ **Task Board UI** (依賴 Role B 完成)
+- **預估時間**: 4 小時
+- **狀態**: Role B Task API 已完成，可以開始開發
+- **負責人**: Role A (Frontend Developer)
+
+#### 3. ⏳ **Task + Alert E2E Testing**
+- **預估時間**: 2 小時
+- **狀態**: 依賴 Task Board UI 完成
+- **負責人**: Role A + Role B (共同執行)
+
+### **已完成的主要功能**
+- ✅ **Alert UI** (100% 完成): AlertList, AlertDetailModal, AlertBadge
+- ✅ **Task Management Backend** (100% 完成): 完整 DDD 架構 + 13 個 API endpoints
+- ✅ **Alert E2E Testing** (100% 完成): Phase 1 + Phase 2 測試
+- ✅ **Bug 修復**: 2 個 BMI type error 已修復
 
 ---
 
@@ -1682,9 +1718,10 @@ Role A 和 Role B 在開發前必須共同確認：
 | Alert UI E2E Testing | 2h | 4.5h | ✅ | Claude Code | 2025-10-27 |
 | Task Board UI | 4h | - | ⏳ | Role A (依賴 B) | - |
 | Task + Alert E2E Testing | 2h | - | ⏳ | A + B | - |
-| **總計** | **38h** | **39.5h** | **82% 完成** | - | - |
+| **總計** | **38h** | **39.5h** | **87% 完成** | - | - |
 
 **並行執行實際時程**: 39.5 小時（Alert UI + Task Management Backend 全部完成）
+**剩餘工作**: 6 小時（Task Board UI 4h + E2E Testing 2h）
 
 #### Alert UI E2E Testing 詳細紀錄
 
@@ -1713,12 +1750,14 @@ Role A 和 Role B 在開發前必須共同確認：
    - Commit: `f6c8e2b`
 
 **發現但未修復的問題**:
-3. ❌ **Mock Data Patient ID Mismatch** - P0 (HIGH PRIORITY)
-   - AlertBadge 在病患詳細頁面無法顯示
-   - AlertList 在病患詳細頁面顯示為空
-   - 根本原因: patient_id 在不同 Mock 資料來源間不一致
-   - 預估修復時間: 1 小時
-   - 狀態: 待修復
+3. 🚨 **Mock Data Patient ID Mismatch** - **P0 CRITICAL (MUST FIX BEFORE DEPLOYMENT)**
+   - **影響**: AlertBadge 在病患詳細頁面無法顯示
+   - **影響**: AlertList 在病患詳細頁面顯示為空
+   - **根本原因**: patient_id 在不同 Mock 資料來源間不一致
+   - **預估修復時間**: 1 小時
+   - **狀態**: ⚠️ **待修復（阻擋生產部署）**
+   - **建議**: 立即修復，統一所有 Mock 資料的 patient_id
+   - **修復位置**: `frontend/dashboard/mocks/` 目錄下的所有 Mock 資料檔案
 
 **元件測試覆蓋率**:
 - AlertList: 90% ✅ 優秀
@@ -1762,17 +1801,45 @@ Role A 和 Role B 在開發前必須共同確認：
   - **錯誤處理**: 添加錯誤邊界和 loading 狀態
   - **Bug 修復**: 2 個 BMI type error 已修復
 
-### Phase 2 - Task Management (Role B)
-- [ ] ✅ Task Entity 遵循 DDD 設計，業務邏輯封裝在 Entity
-- [ ] ✅ Repository Pattern 完整實作，支援 CRUD + 過濾
-- [ ] ✅ Task API 端點完整，支援創建、列表、更新、狀態轉換
-- [ ] ✅ Alert → Task 自動創建功能正常運作
-- [ ] ✅ 任務優先級計算正確（基於 GOLD ABE + Alert Severity）
+### Phase 2 - Task Management (Role B) ✅ **已完成**
+- [x] ✅ Task Entity 遵循 DDD 設計，業務邏輯封裝在 Entity
+  - **完成日期**: 2025-10-27
+  - **實作位置**: `backend/src/respira_ally/domain/entities/task.py`
+  - **測試覆蓋**: Domain entity 業務邏輯測試完成
 
-### Phase 3 - 整合驗證
-- [ ] ✅ Task Board UI 拖拽功能正常
-- [ ] ✅ E2E 測試通過（Alert → Task → Therapist Action）
-- [ ] ✅ 無 Git 衝突，代碼整合順利
+- [x] ✅ Repository Pattern 完整實作，支援 CRUD + 過濾
+  - **完成日期**: 2025-10-27
+  - **實作位置**: `backend/src/respira_ally/infrastructure/repository_impls/task_repository_impl.py`
+  - **功能**: 完整 CRUD + 分頁、過濾、排序
+
+- [x] ✅ Task API 端點完整，支援創建、列表、更新、狀態轉換
+  - **完成日期**: 2025-10-27
+  - **實作位置**: `backend/src/respira_ally/api/v1/routers/task.py`
+  - **端點數**: 13 個 REST API endpoints
+
+- [x] ✅ Alert → Task 自動創建功能正常運作
+  - **完成日期**: 2025-10-27
+  - **實作位置**: `backend/src/respira_ally/application/alert/alert_service.py`
+  - **測試覆蓋**: 12 個整合測試案例 (641 行代碼)
+
+- [x] ✅ 任務優先級計算正確（基於 GOLD ABE + Alert Severity）
+  - **完成日期**: 2025-10-27
+  - **實作位置**: `backend/src/respira_ally/domain/services/task_priority_calculator.py`
+  - **測試**: 優先級計算邏輯測試通過
+
+### Phase 3 - 整合驗證 ⏳ **進行中**
+- [ ] ⏳ Task Board UI 拖拽功能正常
+  - **狀態**: 待開始（依賴 Role B Task API 完成）
+  - **預估時間**: 2h
+
+- [ ] ⏳ E2E 測試通過（Alert → Task → Therapist Action）
+  - **狀態**: 部分完成（Alert E2E 已完成）
+  - **待完成**: Task Board E2E 測試
+  - **預估時間**: 1h
+
+- [x] ✅ 無 Git 衝突，代碼整合順利
+  - **狀態**: Role A 和 Role B 均使用獨立分支，無衝突
+  - **Git 分支**: `feature/alert-ui`, `feature/task-management`
 
 ---
 
