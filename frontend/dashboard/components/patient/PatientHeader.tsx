@@ -92,11 +92,15 @@ export function PatientHeader({ patient }: PatientHeaderProps) {
             <AlertBadge
               patientId={patient.patient_id}
               onClick={() => {
-                // Scroll to alerts section or navigate to alerts tab
-                const alertsSection = document.getElementById('alerts-section')
-                if (alertsSection) {
-                  alertsSection.scrollIntoView({ behavior: 'smooth' })
-                }
+                // Set hash to trigger alerts tab switch
+                window.location.hash = 'alerts'
+                // Scroll to alerts section
+                setTimeout(() => {
+                  const alertsSection = document.getElementById('alerts-section')
+                  if (alertsSection) {
+                    alertsSection.scrollIntoView({ behavior: 'smooth' })
+                  }
+                }, 100)
               }}
             />
           </div>
