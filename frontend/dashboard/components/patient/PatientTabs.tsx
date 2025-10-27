@@ -8,7 +8,7 @@
 
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import type { PatientResponse } from '@/lib/types/patient'
 import type { DailyLogListResponse } from '@/lib/types/daily-log'
 import type { SurveyListResponse } from '@/lib/types/survey'
@@ -27,6 +27,23 @@ type TabId = 'profile' | 'daily-logs' | 'surveys' | 'alerts'
 
 export function PatientTabs({ patient, dailyLogs, surveys }: PatientTabsProps) {
   const [activeTab, setActiveTab] = useState<TabId>('profile')
+
+  // Listen for hash changes to auto-switch to alerts tab (from AlertBadge click)
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash.replace('#', '') as TabId
+      if (hash === 'alerts') {
+        setActiveTab('alerts')
+      }
+    }
+
+    // Check hash on mount
+    handleHashChange()
+
+    // Listen for hash changes
+    window.addEventListener('hashchange', handleHashChange)
+    return () => window.removeEventListener('hashchange', handleHashChange)
+  }, [])
 
   const tabs = [
     {
