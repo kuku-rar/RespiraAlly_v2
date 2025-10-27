@@ -11,6 +11,7 @@ from respira_ally.infrastructure.database.models.exacerbation import Exacerbatio
 from respira_ally.infrastructure.database.models.patient_profile import PatientProfileModel
 from respira_ally.infrastructure.database.models.risk_assessment import RiskAssessmentModel
 from respira_ally.infrastructure.database.models.survey_response import SurveyResponseModel
+from respira_ally.infrastructure.database.models.task import TaskModel
 from respira_ally.infrastructure.database.models.therapist_profile import TherapistProfileModel
 from respira_ally.infrastructure.database.models.user import UserModel
 
@@ -25,4 +26,6 @@ __all__ = [
     "ExacerbationModel",
     "RiskAssessmentModel",
     "AlertModel",
+    # Sprint 5: Task Management System
+    "TaskModel",
 ]

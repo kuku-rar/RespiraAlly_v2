@@ -13,6 +13,7 @@ from respira_ally.infrastructure.database.session import Base
 
 if TYPE_CHECKING:
     from respira_ally.infrastructure.database.models.patient_profile import PatientProfileModel
+    from respira_ally.infrastructure.database.models.task import TaskModel
     from respira_ally.infrastructure.database.models.user import UserModel
 
 
@@ -51,6 +52,13 @@ class TherapistProfileModel(Base):
         "PatientProfileModel",
         back_populates="therapist",
         foreign_keys="PatientProfileModel.therapist_id",
+    )
+
+    # Sprint 5: Task Management relationships
+    assigned_tasks: Mapped[list["TaskModel"]] = relationship(
+        "TaskModel",
+        foreign_keys="[TaskModel.assigned_to]",
+        back_populates="therapist"
     )
 
     def __repr__(self) -> str:

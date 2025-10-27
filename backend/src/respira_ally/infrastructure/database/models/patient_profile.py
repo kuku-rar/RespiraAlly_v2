@@ -14,6 +14,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from respira_ally.infrastructure.database.session import Base
 
 if TYPE_CHECKING:
+    from respira_ally.infrastructure.database.models.task import TaskModel
     from respira_ally.infrastructure.database.models.therapist_profile import TherapistProfileModel
     from respira_ally.infrastructure.database.models.user import UserModel
 
@@ -104,6 +105,13 @@ class PatientProfileModel(Base):
     user: Mapped["UserModel"] = relationship("UserModel", back_populates="patient_profile")
     therapist: Mapped["TherapistProfileModel | None"] = relationship(
         "TherapistProfileModel", back_populates="assigned_patients", foreign_keys=[therapist_id]
+    )
+
+    # Sprint 5: Task Management relationships
+    tasks: Mapped[list["TaskModel"]] = relationship(
+        "TaskModel",
+        foreign_keys="[TaskModel.patient_id]",
+        back_populates="patient"
     )
 
     # Constraints

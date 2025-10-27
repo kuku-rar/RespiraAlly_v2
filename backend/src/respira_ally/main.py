@@ -23,6 +23,7 @@ from respira_ally.api.v1.routers import (
     rag,
     risk,
     survey,
+    task,
 )
 from respira_ally.core.config import settings
 from respira_ally.core.exceptions.application_exceptions import (
@@ -144,7 +145,7 @@ async def health_check() -> JSONResponse:
     )
 
 
-# Include API Routers (7 Bounded Contexts + Sprint 4: Exacerbation + Alert)
+# Include API Routers (7 Bounded Contexts + Sprint 4: Exacerbation + Alert + Sprint 5: Task)
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Auth"])
 app.include_router(patient.router, prefix="/api/v1/patients", tags=["Patients"])
 app.include_router(daily_log.router, prefix="/api/v1/daily-logs", tags=["Daily Logs"])
@@ -154,6 +155,7 @@ app.include_router(rag.router, prefix="/api/v1/rag", tags=["RAG"])
 app.include_router(notification.router, prefix="/api/v1/notifications", tags=["Notifications"])
 app.include_router(exacerbation.router, prefix="/api/v1/exacerbations", tags=["Exacerbations"])
 app.include_router(alert.router, prefix="/api/v1/alerts", tags=["Alerts"])
+app.include_router(task.router, prefix="/api/v1/tasks", tags=["Tasks"])
 
 
 if __name__ == "__main__":
