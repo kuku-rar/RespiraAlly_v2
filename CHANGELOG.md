@@ -9,8 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 🐛 Fixed (2025-10-28)
+- **P0 Critical**: Fixed PostgreSQL enum schema mismatch for Task model
+  - Root cause: Alembic migration created enum types without schema specification
+  - Solution: Aligned database columns and SQLAlchemy model to use `development` schema enums
+  - Files modified: `backend/src/respira_ally/infrastructure/database/models/task.py`
+  - Impact: Task Board drag-and-drop now fully functional, status updates persist to database
+  - Verification: ✅ E2E tested with Playwright, API returns 200 OK, database updates confirmed
+
 ### 🚀 Sprint 6 Planning
-- Task Board UI: Kanban board with drag-and-drop functionality
+- Task Board UI: Kanban board with drag-and-drop functionality ✅ **COMPLETED**
 - Notification System MVP: Design and implementation
 - Alert Lifecycle Management: Acknowledge/Resolve endpoints
 - Technical Debt: Database-driven rule engine (DEBT-001)

@@ -795,9 +795,9 @@ Validate Task Board UI with real backend API connections, verify database operat
 4. ✅ **Visual Verification**: Priority colors, task types, due dates all display correctly
 5. ❌ **Drag-and-Drop Test**: Attempted status update, encountered PostgreSQL enum error
 
-### Remaining Issues
+### ✅ Resolved Issues (2025-10-28)
 
-#### ❌ P0: PostgreSQL Enum Type Error
+#### ✅ P0: PostgreSQL Enum Type Error - **RESOLVED**
 
 **Error Message**:
 ```
@@ -805,28 +805,41 @@ ERROR: type "task_status_enum" does not exist at character 41
 STATEMENT: UPDATE development.tasks SET status=$1::task_status_enum, ...
 ```
 
-**Root Cause**:
-- Enum types only existed in `production` schema
-- `development` schema tasks table lacked corresponding enum type definitions
-- SQLAlchemy defaults to searching `public` schema for enum types
-- Connection pool may be caching stale metadata
+**Root Cause Analysis** (遵循 Linus 原則 - 從源頭分析):
+- **Source**: Alembic migration file (`2025_10_27_1900-create_tasks_table_minimal.py`)
+- **Bug**: Lines 27-29 created enum types **WITHOUT schema specification**
+  ```python
+  # BUG: No schema specified!
+  op.execute("CREATE TYPE task_type_enum AS ENUM (...)")
+  ```
+- **Result**: Enums created in `production` schema (based on search_path), but table created in `development` schema
+- **Consequence**: Column type `production.task_status_enum` vs SQLAlchemy cast `::task_status_enum` → schema mismatch
 
-**Attempted Fixes**:
-1. ✅ Created enum types in `development` schema:
+**Final Solution** (最簡方法):
+1. ✅ **Database Fix**: Altered column types to use `development` schema enums
    ```sql
-   CREATE TYPE development.task_status_enum AS ENUM ('TODO', 'IN_PROGRESS', 'DONE', 'CANCELLED');
-   CREATE TYPE development.task_priority_enum AS ENUM ('CRITICAL', 'HIGH', 'MEDIUM', 'LOW');
-   CREATE TYPE development.task_type_enum AS ENUM ('ALERT_TRIGGERED', 'MANUAL', 'SCHEDULED');
+   ALTER TABLE development.tasks
+     ALTER COLUMN status TYPE development.task_status_enum,
+     ALTER COLUMN task_type TYPE development.task_type_enum,
+     ALTER COLUMN priority TYPE development.task_priority_enum;
    ```
-2. ✅ Created enum types in `public` schema (SQLAlchemy default)
-3. ✅ Restarted backend service to clear connection pool
-4. ❌ Error persists - likely connection pool still caching old metadata
+2. ✅ **Code Fix**: Modified SQLAlchemy model to explicitly specify schema
+   ```python
+   from sqlalchemy.dialects.postgresql import ENUM as PG_ENUM
 
-**Next Steps**:
-- Consider restarting PostgreSQL container entirely
-- Examine SQLAlchemy model enum configuration in `task.py`
-- Review asyncpg driver type cache mechanism
-- Alternative: Drop and recreate development schema
+   status: Mapped[str] = mapped_column(
+       PG_ENUM(..., name="task_status_enum", schema="development", create_type=False),
+       ...
+   )
+   ```
+
+**Verification Results**:
+- ✅ `POST /api/v1/tasks/{id}/start` returns 200 OK
+- ✅ Database status successfully updated to `IN_PROGRESS`
+- ✅ Frontend drag-and-drop triggers API correctly
+- ✅ E2E test with Playwright: All operations working
+
+**Commit**: `fix(backend): P0 Critical - Fix PostgreSQL enum schema mismatch for Task model` (7490977)
 
 ### Test Metrics
 

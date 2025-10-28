@@ -586,17 +586,28 @@
 - **待辦工時**: 16-20h (DEBT-001 規則引擎) + 1-2h (Enum Type Fix)
 - **完成度**: 85% (103h / 121h)
 
-**Sprint 5 完成成果** (2025-10-27):
+**Sprint 5 完成成果** (2025-10-27 ~ 2025-10-28):
 - ✅ Task Management System (100%): 完整 DDD 架構 + 13 個 API + 自動任務生成
 - ✅ Alert UI (100%): AlertList, AlertDetailModal, AlertBadge
 - ✅ E2E Testing: 12 個整合測試案例 + Alert UI E2E (82% 通過率)
 - ✅ Task Board UI (100%): Kanban 看板 + 拖拽功能 + UI 測試完成 (75% 通過率)
-- ⏳ Task Board Real API Integration (80%): 前端配置、CORS、API 路徑、測試帳號、後端 Bug 修復 (剩餘：PostgreSQL enum type 問題)
+- ✅ **Task Board Real API Integration (100%)**: ✅ P0 已解決 (2025-10-28)
+  - ✅ 前端配置、CORS、API 路徑對齊
+  - ✅ 測試帳號建立、資料庫測試資料
+  - ✅ 後端 Bug 修復 (task.metadata → task.task_metadata)
+  - ✅ **PostgreSQL Enum Schema Mismatch 完全解決**
+    - Root Cause: Alembic migration 未指定 schema → enum 在 production，table 在 development
+    - Solution: 資料庫欄位改用 development enum + SQLAlchemy 模型明確指定 schema="development"
+    - Verification: E2E 測試通過，API 200 OK，資料庫更新確認
+
+**Sprint 5+ 完成事項** (2025-10-28):
+- ✅ **P0 - PostgreSQL Enum Type Fix** [2h]: ✅ **已完成** - 遵循 Linus 原則從源頭分析 Alembic migration，使用最簡方案解決
+  - Commit: `fix(backend): P0 Critical - Fix PostgreSQL enum schema mismatch for Task model` (7490977)
+  - Impact: Task Board drag-and-drop 完全可用，狀態更新持久化至資料庫
 
 **待完成事項** (優先級排序):
-1. 🚨 **P0 - PostgreSQL Enum Type Fix** [1-2h]: 修復 development schema enum type 問題（阻擋 Task Board drag-and-drop）
-2. 🚨 **P0 - Mock Data Fix** [1h]: 修復 Patient ID 不一致問題（阻擋部署）
-3. 🔧 **P2 - DEBT-001** [16-20h]: 資料庫驅動規則引擎（技術債務）
+1. 🚨 **P0 - Mock Data Fix** [1h]: 修復 Patient ID 不一致問題（阻擋部署）
+2. 🔧 **P2 - DEBT-001** [16-20h]: 資料庫驅動規則引擎（技術債務）
 
 ---
 
