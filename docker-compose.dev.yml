@@ -1,0 +1,151 @@
+# RespiraAlly Development Environment
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+
+version: '3.8'
+
+services:
+  # Backend API - Development Mode
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: respirally-backend-dev
+    environment:
+      # Database Configuration - Development Schema
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      DB_SCHEMA: development  # Use development schema
+
+      # Application Settings
+      ENVIRONMENT: development
+      DEBUG: "true"
+      LOG_LEVEL: DEBUG
+
+      # JWT Settings
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-dev-secret-key-change-in-production}
+      JWT_ALGORITHM: HS256
+      ACCESS_TOKEN_EXPIRE_MINUTES: 60
+      REFRESH_TOKEN_EXPIRE_DAYS: 7
+
+      # CORS Settings (permissive for development)
+      CORS_ORIGINS: http://localhost:3000,http://localhost:5173
+
+      # Redis Configuration
+      REDIS_URL: redis://redis:6379/0
+
+      # RabbitMQ Configuration
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASSWORD:-guest}@rabbitmq:5672/
+
+      # MinIO Configuration (optional)
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
+    ports:
+      - "8000:8000"
+    volumes:
+      # Mount source code for hot reload
+      - ./backend:/app
+      # Preserve uv cache
+      - backend_cache:/root/.cache/uv
+    command: uvicorn src.respira_ally.main:app --host 0.0.0.0 --port 8000 --reload
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - respirally-network
+
+  # Dashboard - Development Mode
+  dashboard:
+    build:
+      context: ./frontend/dashboard
+      dockerfile: Dockerfile
+      target: deps  # Only build deps stage for development
+    container_name: respirally-dashboard-dev
+    environment:
+      # Next.js Configuration
+      NODE_ENV: development
+      NEXT_PUBLIC_API_URL: http://localhost:8000/api/v1
+      NEXT_TELEMETRY_DISABLED: 1
+
+      # Development Settings
+      FAST_REFRESH: "true"
+      WATCHPACK_POLLING: "true"  # Enable for WSL/Docker
+    ports:
+      - "3000:3000"
+    volumes:
+      # Mount source code for hot reload
+      - ./frontend/dashboard:/app
+      # Preserve node_modules
+      - dashboard_node_modules:/app/node_modules
+      # Preserve Next.js cache
+      - dashboard_next:/app/.next
+    command: npm run dev
+    depends_on:
+      - backend
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - respirally-network
+
+  # LIFF App - Development Mode
+  liff:
+    build:
+      context: ./frontend/liff
+      dockerfile: Dockerfile
+      target: deps  # Only build deps stage for development
+    container_name: respirally-liff-dev
+    environment:
+      # Vite Configuration
+      NODE_ENV: development
+      VITE_API_BASE_URL: http://localhost:8000/api/v1
+      VITE_LIFF_ID: ${LINE_LIFF_ID:-mock_liff_id_12345}
+      VITE_MOCK_MODE: ${VITE_MOCK_MODE:-true}
+
+      # Development Settings
+      VITE_HMR_PROTOCOL: ws
+      VITE_HMR_HOST: localhost
+      VITE_HMR_PORT: 5173
+    ports:
+      - "5173:5173"
+    volumes:
+      # Mount source code for hot reload
+      - ./frontend/liff:/app
+      # Preserve node_modules
+      - liff_node_modules:/app/node_modules
+    command: npm run dev -- --host 0.0.0.0
+    depends_on:
+      - backend
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:5173"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - respirally-network
+
+volumes:
+  backend_cache:
+  dashboard_node_modules:
+  dashboard_next:
+  liff_node_modules:
+
+networks:
+  respirally-network:
+    external: true

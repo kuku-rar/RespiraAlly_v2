@@ -88,82 +88,23 @@ services:
     profiles:
       - full  # Only start with --profile full or explicitly: docker-compose up -d minio
 
-  # Backend API (FastAPI)
-  backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    container_name: respirally-backend
-    environment:
-      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-respirally}:${POSTGRES_PASSWORD:-respirally_dev}@postgres:5432/${POSTGRES_DB:-respirally_db}
-      - REDIS_HOST=redis
-      - RABBITMQ_HOST=rabbitmq
-    ports:
-      - "8000:8000"
-    volumes:
-      - ./backend:/app
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
-    command: uvicorn respira_ally.main:app --host 0.0.0.0 --port 8000 --reload
-    networks:
-      - respirally-network
-    profiles:
-      - full  # Only start with --profile full
-
-  # Dashboard (Next.js)
-  dashboard:
-    build:
-      context: ./frontend/dashboard
-      dockerfile: Dockerfile
-    container_name: respirally-dashboard
-    environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:8000
-    ports:
-      - "3000:3000"
-    volumes:
-      - ./frontend/dashboard:/app
-      - /app/node_modules
-      - /app/.next
-    depends_on:
-      - backend
-    command: npm run dev
-    networks:
-      - respirally-network
-    profiles:
-      - full  # Only start with --profile full
-
-  # LIFF App (Vite + React)
-  liff:
-    build:
-      context: ./frontend/liff
-      dockerfile: Dockerfile
-    container_name: respirally-liff
-    environment:
-      - VITE_API_BASE_URL=http://localhost:8000
-      - VITE_LIFF_ID=${LINE_LIFF_ID}
-    ports:
-      - "5173:5173"
-    volumes:
-      - ./frontend/liff:/app
-      - /app/node_modules
-    depends_on:
-      - backend
-    command: npm run dev
-    networks:
-      - respirally-network
-    profiles:
-      - full  # Only start with --profile full
+  # Frontend and Backend services are defined in:
+  # - docker-compose.dev.yml (Development environment with development schema)
+  # - docker-compose.prod.yml (Production environment with production schema)
+  #
+  # Usage:
+  #   Development: docker-compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+  #   Production:  docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 
 volumes:
   postgres_data:
   redis_data:
   rabbitmq_data:
   minio_data:
+  backend_cache:
+  dashboard_node_modules:
+  dashboard_next:
+  liff_node_modules:
 
 networks:
   respirally-network:
