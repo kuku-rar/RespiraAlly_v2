@@ -10,8 +10,8 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
-from sqlalchemy import DateTime, Enum, ForeignKey, String, Text, text
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import DateTime, ForeignKey, String, Text, text
+from sqlalchemy.dialects.postgresql import ENUM as PG_ENUM, JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from respira_ally.infrastructure.database.session import Base
@@ -85,36 +85,39 @@ class TaskModel(Base):
 
     # Task Classification
     task_type: Mapped[str] = mapped_column(
-        Enum(
+        PG_ENUM(
             "ALERT_TRIGGERED",
             "MANUAL",
             "SCHEDULED",
             name="task_type_enum",
-            create_type=True,
+            schema="development",
+            create_type=False,
         ),
         nullable=False,
         comment="Task type: ALERT_TRIGGERED/MANUAL/SCHEDULED",
     )
     priority: Mapped[str] = mapped_column(
-        Enum(
+        PG_ENUM(
             "CRITICAL",
             "HIGH",
             "MEDIUM",
             "LOW",
             name="task_priority_enum",
-            create_type=True,
+            schema="development",
+            create_type=False,
         ),
         nullable=False,
         comment="Task priority: CRITICAL/HIGH/MEDIUM/LOW",
     )
     status: Mapped[str] = mapped_column(
-        Enum(
+        PG_ENUM(
             "TODO",
             "IN_PROGRESS",
             "DONE",
             "CANCELLED",
             name="task_status_enum",
-            create_type=True,
+            schema="development",
+            create_type=False,
         ),
         nullable=False,
         server_default=text("'TODO'"),
