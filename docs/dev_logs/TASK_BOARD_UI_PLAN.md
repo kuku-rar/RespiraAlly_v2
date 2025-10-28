@@ -880,10 +880,51 @@ STATEMENT: UPDATE development.tasks SET status=$1::task_status_enum, ...
 4. Connection pool caching can mask database changes - require full restart
 5. Test data creation should match real user workflows (therapist-patient assignment)
 
+### 🐳 Docker Deployment Readiness (Updated 2025-10-28)
+
+**✅ 開發/生產環境完全分離**
+
+本專案現已實現完整的 Docker 多環境部署架構，支援：
+
+**開發環境** (`docker-compose.dev.yml`):
+```bash
+docker-compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+```
+- 使用 `development` schema
+- Hot Reload 啟用（後端 uvicorn --reload，前端 npm run dev）
+- 代碼掛載（volume mount）支援即時更新
+- DEBUG 日誌級別
+
+**生產環境** (`docker-compose.prod.yml`):
+```bash
+docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+```
+- 使用 `production` schema
+- 多 worker 進程（uvicorn --workers 4）
+- 優化構建（multi-stage build）
+- 資源限制與日誌輪替
+
+**Schema 隔離機制**:
+- 開發環境所有數據寫入 `development.patient_profiles` 等表
+- 生產環境所有數據寫入 `production.patient_profiles` 等表
+- PostgreSQL search_path 自動設定，確保零干擾
+- 單一控制點：`config.py` 的 `get_db_schema()` 方法
+
+**Task Board 部署測試建議**:
+1. 使用開發環境進行完整端到端測試
+2. 驗證任務拖曳、狀態更新、API 呼叫
+3. 確認 development schema 數據隔離
+4. 準備好後，在生產環境重新測試（使用 production schema）
+
+**相關文檔**:
+- Docker 使用指南：`DOCKER.md`
+- Schema 配置說明：`/tmp/schema_flexible_config.md`
+- 環境隔離驗證：`/tmp/schema_control_verification.md`
+
 ---
 
-**Status**: ⏳ Integration In Progress - 80% Complete
+**Status**: ⏳ Integration In Progress - 80% Complete | 🐳 Docker Ready
 
 **Blocking Issue**: PostgreSQL enum type error preventing drag-and-drop testing
 
-**Next Step**: Resolve enum type issue, complete end-to-end API integration testing
+**Next Step**: Resolve enum type issue, complete end-to-end API integration testing in Docker dev environment

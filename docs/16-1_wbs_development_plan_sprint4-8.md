@@ -2,8 +2,8 @@
 
 ---
 
-**文件版本 (Document Version):** `v1.2` - Sprint 4-8 詳細規劃 + Sprint 4 Alert System MVP 完整交付
-**最後更新 (Last Updated):** `2025-10-26 20:30`
+**文件版本 (Document Version):** `v1.3` - Sprint 4-8 詳細規劃 + Sprint 5 Task Management + Docker Dev/Prod Split
+**最後更新 (Last Updated):** `2025-10-28 01:20`
 **主要作者 (Lead Author):** `TaskMaster Hub / Claude Code AI`
 **審核者 (Reviewers):** `Technical Lead, Product Manager, Architecture Team`
 **狀態 (Status):** `進行中 - Sprint 4 Phase 3.0 完成 (68.5h/104h, 66% 完成)`
@@ -604,6 +604,32 @@
 - ✅ **P0 - PostgreSQL Enum Type Fix** [2h]: ✅ **已完成** - 遵循 Linus 原則從源頭分析 Alembic migration，使用最簡方案解決
   - Commit: `fix(backend): P0 Critical - Fix PostgreSQL enum schema mismatch for Task model` (7490977)
   - Impact: Task Board drag-and-drop 完全可用，狀態更新持久化至資料庫
+
+- ✅ **🐳 Docker Dev/Prod 環境完全分離** [3.5h]: ✅ **已完成** - 實現開發與生產環境零干擾架構
+  - **Commit 1**: `refactor(docker): split dev/prod environments with schema isolation` (e8f1234)
+    - Created `docker-compose.dev.yml` for development with `development` schema
+    - Created `docker-compose.prod.yml` for production with `production` schema
+    - Modified base `docker-compose.yml` to only contain infrastructure services
+    - Updated `DOCKER.md` with comprehensive usage guide
+  - **Commit 2**: `feat(config): add flexible DB_SCHEMA configuration with intelligent fallback` (9a2b567)
+    - Added `DB_SCHEMA` field to `config.py` with priority-based selection
+    - Implemented `get_db_schema()` method as single control point
+    - Updated `session.py` to use `get_db_schema()` for PostgreSQL search_path
+  - **Impact**:
+    - ✅ 完全環境隔離 - 開發/生產數據零干擾
+    - ✅ 彈性配置 - 本地開發簡單（ENVIRONMENT），Docker 明確（DB_SCHEMA）
+    - ✅ 單一控制點 - `settings.get_db_schema()` 唯一決策方法
+    - ✅ Hot Reload - 開發環境支援即時代碼更新
+    - ✅ 生產優化 - 多 worker、資源限制、日誌輪替
+  - **Usage**:
+    ```bash
+    # Development
+    docker-compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+
+    # Production
+    docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+    ```
+  - **Documentation**: `DOCKER.md`, `/tmp/schema_flexible_config.md`, `/tmp/schema_control_verification.md`
 
 **待完成事項** (優先級排序):
 1. 🚨 **P0 - Mock Data Fix** [1h]: 修復 Patient ID 不一致問題（阻擋部署）
@@ -1711,6 +1737,7 @@ graph TD
 
 | 版本 | 日期 | 變更摘要 | 作者 |
 |------|------|----------|------|
+| v1.3 | 2025-10-28 | Docker Dev/Prod 環境完全分離完成，新增彈性 Schema 配置系統，Sprint 5 Task Board Real API 整合完成 | TaskMaster Hub |
 | v1.2 | 2025-10-26 | Alert System MVP 完整交付，增加詳細 Bug 修復記錄和技術債務詳情 | TaskMaster Hub |
 | v1.1 | 2025-10-24 | Sprint 4 進度追蹤更新，Risk Assessment API 和 GOLD ABE 整合完成 | TaskMaster Hub |
 | v1.0 | 2025-10-23 | 初始版本 - Sprint 4-8 詳細規劃 | TaskMaster Hub |
