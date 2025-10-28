@@ -18,10 +18,28 @@ class Base(DeclarativeBase):
     pass
 
 
-# Determine schema based on environment
-# Development: use 'development' schema for testing
-# Production: use 'production' schema for live data
-_schema = "development" if settings.ENVIRONMENT == "development" else "production"
+# ============================================================================
+# SINGLE SOURCE OF TRUTH for Schema Selection
+# ============================================================================
+# Intelligent schema selection with flexible configuration:
+#
+# 📋 Priority Order:
+# 1. DB_SCHEMA env var (explicit) → Docker deployment, full control
+# 2. ENVIRONMENT env var (auto-derive) → Local development, convenient
+#
+# 🔧 Usage Examples:
+# - Local dev: ENVIRONMENT=development → schema=development
+# - Docker dev: DB_SCHEMA=development → schema=development (explicit)
+# - Docker prod: DB_SCHEMA=production → schema=production (explicit)
+#
+# 🎯 Benefits:
+# - Local: Just set ENVIRONMENT, schema auto-derived
+# - Docker: Explicit DB_SCHEMA for clear separation
+# - Single control point: settings.get_db_schema()
+# ============================================================================
+
+# Get schema using intelligent fallback
+_schema = settings.get_db_schema()
 
 # Async Engine with schema-aware connection
 engine = create_async_engine(
@@ -33,7 +51,10 @@ engine = create_async_engine(
     pool_recycle=3600,  # Recycle connections after 1 hour
     connect_args={
         "server_settings": {
-            "search_path": f"{_schema}, public"  # Set schema based on environment
+            # CRITICAL: This sets PostgreSQL's search_path for ALL queries
+            # Format: "schema1, schema2, ..." (searches in order)
+            # We prioritize our target schema, fallback to public for extensions
+            "search_path": f"{_schema}, public"
         }
     },
 )

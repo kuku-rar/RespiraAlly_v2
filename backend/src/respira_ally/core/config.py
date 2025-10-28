@@ -34,9 +34,32 @@ class Settings(BaseSettings):
         default="postgresql+asyncpg://admin:admin@localhost:15432/respirally_db",
         description="PostgreSQL connection string with asyncpg driver",
     )
+    DB_SCHEMA: str | None = Field(
+        default=None,
+        description="PostgreSQL schema to use (development or production). "
+        "If not set, will auto-derive from ENVIRONMENT",
+    )
     DB_POOL_SIZE: int = Field(default=10, description="Database connection pool size")
     DB_MAX_OVERFLOW: int = Field(default=20, description="Max overflow connections")
     DB_ECHO: bool = Field(default=False, description="SQLAlchemy echo SQL queries")
+
+    def get_db_schema(self) -> str:
+        """
+        Get database schema with intelligent fallback.
+
+        Priority:
+        1. DB_SCHEMA (if explicitly set) - Docker deployment
+        2. Auto-derive from ENVIRONMENT - Local development
+
+        Examples:
+        - Local dev: ENVIRONMENT=development → schema=development
+        - Docker dev: DB_SCHEMA=development → schema=development
+        - Docker prod: DB_SCHEMA=production → schema=production
+        """
+        if self.DB_SCHEMA:
+            return self.DB_SCHEMA
+        # Auto-derive from ENVIRONMENT for local development
+        return "development" if self.ENVIRONMENT == "development" else "production"
 
     @field_validator("DATABASE_URL")
     @classmethod
