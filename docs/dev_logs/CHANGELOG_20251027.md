@@ -807,7 +807,190 @@ TaskBoard (主看板)
 
 ---
 
+---
+
+## 🔌 Task Board Real API Integration Testing (2025-10-27 晚上)
+
+### 🎯 測試目標
+驗證 Task Board UI 與真實後端 API 的整合，測試拖曳功能的實際狀態更新流程。
+
+### ✅ 完成的工作
+
+#### 1. 前端環境配置
+- ✅ 關閉 Mock Mode (`NEXT_PUBLIC_MOCK_MODE=false`)
+- ✅ 前端服務成功啟動 (localhost:3001)
+- ✅ 安裝缺失依賴 (`@hello-pangea/dnd`)
+
+#### 2. 後端服務驗證
+- ✅ FastAPI 服務運行正常 (localhost:8000)
+- ✅ PostgreSQL 數據庫連接正常 (localhost:15432)
+- ✅ 創建測試數據：
+  - 4 個測試任務（TODO: 2, IN_PROGRESS: 1, DONE: 1）
+  - 測試治療師帳號：`test@therapist.com` / `SecurePass123!`
+  - 測試病患：陳世明 (ID: e4a3c1e1-9b44-42cc-91b3-e457a72f3360)
+
+#### 3. 前端 API 路徑修正
+**檔案**: `frontend/dashboard/lib/api/tasks.ts`
+
+**問題**: API 路徑不匹配
+- 前端原路徑: `/api/v1/patients/{id}/tasks`
+- 後端實際路徑: `/api/v1/tasks/patients/{id}/`
+
+**修復**:
+```typescript
+// Line 206 - 修改前
+const url = `/patients/${patientId}/tasks${queryString ? `?${queryString}` : ''}`
+
+// Line 206 - 修改後
+const url = `/tasks/patients/${patientId}/${queryString ? `?${queryString}` : ''}`
+
+// Line 251 - 修改前
+return apiClient.get<TaskStatsResponse>(`/patients/${patientId}/tasks/stats`)
+
+// Line 251 - 修改後
+return apiClient.get<TaskStatsResponse>(`/tasks/patients/${patientId}/stats`)
+```
+
+**結果**: ✅ GET API 成功返回任務數據
+
+#### 4. 後端 Bug 修復
+
+**Bug 1: 任務 metadata 屬性名稱錯誤**
+- **檔案**: `backend/src/respira_ally/infrastructure/repository_impls/task_repository_impl.py`
+- **問題**: Line 164 使用 `task.metadata` 但領域模型定義為 `task.task_metadata`
+- **修復**:
+  ```python
+  # 修改前
+  model.task_metadata = task.metadata
+
+  # 修改後
+  model.task_metadata = task.task_metadata
+  ```
+
+**Bug 2: PostgreSQL Enum 類型缺失**
+- **問題**: 任務狀態更新 API 報錯 `type "task_status_enum" does not exist`
+- **根本原因**:
+  - Enum 類型只存在於 `production` schema
+  - `development` schema 的 tasks 表缺少對應的 enum 類型定義
+  - SQLAlchemy 默認查找 `public` schema 的 enum 類型
+
+- **修復**: 在 `public` 和 `development` schema 創建 enum 類型
+  ```sql
+  -- public schema (SQLAlchemy 默認查找)
+  CREATE TYPE public.task_status_enum AS ENUM ('TODO', 'IN_PROGRESS', 'DONE', 'CANCELLED');
+  CREATE TYPE public.task_priority_enum AS ENUM ('CRITICAL', 'HIGH', 'MEDIUM', 'LOW');
+  CREATE TYPE public.task_type_enum AS ENUM ('ALERT_TRIGGERED', 'MANUAL', 'SCHEDULED');
+
+  -- development schema (資料表所在位置)
+  CREATE TYPE development.task_status_enum AS ENUM ('TODO', 'IN_PROGRESS', 'DONE', 'CANCELLED');
+  CREATE TYPE development.task_priority_enum AS ENUM ('CRITICAL', 'HIGH', 'MEDIUM', 'LOW');
+  CREATE TYPE development.task_type_enum AS ENUM ('ALERT_TRIGGERED', 'MANUAL', 'SCHEDULED');
+  ```
+
+#### 5. 使用者測試流程
+
+**Test Flow**:
+1. ✅ 登入成功 (`test@therapist.com`)
+2. ✅ 導航至病患列表 → 找到測試病患「陳世明」
+3. ✅ 進入病患詳情頁面
+4. ✅ 切換至「任務看板」標籤
+5. ✅ Task Board 成功載入，顯示 4 個測試任務：
+   - 待處理 (2): 電話訪談、每週用藥遵從性追蹤
+   - 進行中 (1): 追蹤高 CAT 分數
+   - 已完成 (1): 每月例行追蹤
+
+### ⚠️ 遺留問題
+
+#### P0 - 任務狀態更新 API 失敗
+**問題描述**: POST `/api/v1/tasks/{task_id}/start` 返回 500 Internal Server Error
+
+**已嘗試的修復**:
+1. ✅ 修復 `task.metadata` → `task.task_metadata` 屬性名稱
+2. ✅ 創建 PostgreSQL enum 類型（public + development schema）
+3. ✅ 重啟後端服務以清除連接池緩存
+4. ❌ 問題仍然存在（連接池可能仍緩存舊的數據庫元數據）
+
+**錯誤訊息**:
+```
+ERROR: type "task_status_enum" does not exist at character 41
+STATEMENT: UPDATE development.tasks SET status=$1::task_status_enum, ...
+```
+
+**可能原因**:
+- PostgreSQL 連接池緩存了舊的數據庫 schema 元數據
+- SQLAlchemy ORM 需要明確的 schema 限定 enum 類型
+- Asyncpg 驅動未刷新類型緩存
+
+**臨時解決方案**:
+手動更新數據庫來測試前端刷新功能（繞過 API）
+
+**長期解決方案**:
+修改 SQLAlchemy 模型配置，明確指定 enum 類型的 schema
+
+**影響範圍**:
+- ❌ 拖曳操作無法更新任務狀態
+- ✅ 任務列表載入正常（GET API 正常）
+- ✅ UI 拖曳動畫與驗證邏輯正常
+
+### 📊 測試指標
+
+**總工時**: 3.5 小時
+- 環境配置與驗證: 0.5h
+- API 路徑修正: 0.5h
+- 後端 Bug 修復: 2.0h
+- 使用者測試: 0.5h
+
+**Bug 修復**:
+- ✅ 前端 API 路徑不匹配 (P0)
+- ✅ 後端 metadata 屬性名稱錯誤 (P0)
+- ⏳ PostgreSQL enum 類型問題 (P0 - 部分修復)
+
+**測試覆蓋**:
+- ✅ 前端 UI 載入
+- ✅ 使用者認證
+- ✅ 任務數據獲取 (GET API)
+- ⏳ 任務狀態更新 (POST API - 失敗)
+
+### 🔧 下一步行動
+
+**立即行動** (P0):
+1. **深入診斷 enum 類型問題** [2h]
+   - 檢查 SQLAlchemy 模型的 enum 配置
+   - 驗證 asyncpg 驅動的類型緩存機制
+   - 考慮完全重啟 PostgreSQL 容器以清除所有緩存
+
+2. **臨時驗證方案** [0.5h]
+   - 手動更新數據庫任務狀態
+   - 測試前端刷新與重新載入功能
+   - 驗證 UI 狀態同步邏輯
+
+**後續工作** (P1):
+3. **完整端到端測試** [1h]
+   - 修復 API 問題後重新測試完整拖曳流程
+   - 驗證所有狀態轉換（TODO → IN_PROGRESS → DONE）
+   - 測試錯誤處理與回滾機制
+
+4. **文檔更新與提交** [0.5h]
+   - 更新 WBS 文件
+   - 更新 CHANGELOG
+   - 提交今天的進展
+
+### 📝 技術筆記
+
+**學到的經驗**:
+1. PostgreSQL 多 schema 環境需要特別注意 enum 類型的 schema 限定
+2. SQLAlchemy + asyncpg 組合需要明確的類型映射配置
+3. 連接池緩存可能導致數據庫結構變更無法即時生效
+4. Mock Mode 與 Real API 測試應該更早並行進行
+
+**架構改進建議**:
+1. 考慮使用單一 schema 策略以簡化 enum 類型管理
+2. 添加數據庫遷移腳本的自動化測試
+3. 實施更完善的 API 整合測試覆蓋
+
+---
+
 **文件維護者**: Claude Code (TaskMaster Hub Coordination System)
-**更新日期**: 2025-10-27 18:30
-**下次審查**: Sprint 5 Phase 1 完成後
+**更新日期**: 2025-10-27 22:45
+**下次審查**: P0 Bug 修復完成後
 **格式**: Keep a Changelog v1.0.0

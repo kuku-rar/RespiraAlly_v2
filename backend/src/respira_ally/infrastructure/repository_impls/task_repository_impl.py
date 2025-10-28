@@ -161,7 +161,7 @@ class TaskRepositoryImpl(ITaskRepository):
         model.assigned_to = task.assigned_to
         model.due_date = task.due_date
         model.completed_at = task.completed_at
-        model.task_metadata = task.metadata
+        model.task_metadata = task.task_metadata
         model.updated_at = datetime.utcnow()
 
         await self.db.commit()

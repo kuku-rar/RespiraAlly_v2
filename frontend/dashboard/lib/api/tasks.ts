@@ -203,7 +203,7 @@ export async function fetchPatientTasks(
   if (params?.page_size !== undefined) queryParams.append('page_size', params.page_size.toString())
 
   const queryString = queryParams.toString()
-  const url = `/patients/${patientId}/tasks${queryString ? `?${queryString}` : ''}`
+  const url = `/tasks/patients/${patientId}/${queryString ? `?${queryString}` : ''}`
 
   return apiClient.get<TaskListResponse>(url)
 }
@@ -248,7 +248,7 @@ export async function getTaskStats(patientId: string): Promise<TaskStatsResponse
   }
 
   // Real API call
-  return apiClient.get<TaskStatsResponse>(`/patients/${patientId}/tasks/stats`)
+  return apiClient.get<TaskStatsResponse>(`/tasks/patients/${patientId}/stats`)
 }
 
 /**

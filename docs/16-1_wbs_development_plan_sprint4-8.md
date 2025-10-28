@@ -581,20 +581,22 @@
 
 **說明**:
 - **Sprint 4** (68.5h): GOLD ABE (20h) + Exacerbation (12h) + Alert MVP (12h) + GOLD UI (8h) + Bug 修復/測試/文檔 (16.5h)
-- **Sprint 5** (43.5h): Task Management Backend (24h) + Alert UI (11.5h) + E2E Testing (4h) + Task Board UI (4h)
-- **已完成總工時**: 99.5h (Sprint 4: 52h + Sprint 5: 47.5h)
-- **待辦工時**: 16-20h (DEBT-001 規則引擎)
-- **完成度**: 86% (99.5h / 115.5h)
+- **Sprint 5** (47h): Task Management Backend (24h) + Alert UI (11.5h) + E2E Testing (4h) + Task Board UI (4h) + Task Board Real API Testing (3.5h)
+- **已完成總工時**: 103h (Sprint 4: 52h + Sprint 5: 51h)
+- **待辦工時**: 16-20h (DEBT-001 規則引擎) + 1-2h (Enum Type Fix)
+- **完成度**: 85% (103h / 121h)
 
 **Sprint 5 完成成果** (2025-10-27):
 - ✅ Task Management System (100%): 完整 DDD 架構 + 13 個 API + 自動任務生成
 - ✅ Alert UI (100%): AlertList, AlertDetailModal, AlertBadge
 - ✅ E2E Testing: 12 個整合測試案例 + Alert UI E2E (82% 通過率)
 - ✅ Task Board UI (100%): Kanban 看板 + 拖拽功能 + UI 測試完成 (75% 通過率)
+- ⏳ Task Board Real API Integration (80%): 前端配置、CORS、API 路徑、測試帳號、後端 Bug 修復 (剩餘：PostgreSQL enum type 問題)
 
 **待完成事項** (優先級排序):
-1. 🚨 **P0 - Mock Data Fix** [1h]: 修復 Patient ID 不一致問題（阻擋部署）
-2. 🔧 **P2 - DEBT-001** [16-20h]: 資料庫驅動規則引擎（技術債務）
+1. 🚨 **P0 - PostgreSQL Enum Type Fix** [1-2h]: 修復 development schema enum type 問題（阻擋 Task Board drag-and-drop）
+2. 🚨 **P0 - Mock Data Fix** [1h]: 修復 Patient ID 不一致問題（阻擋部署）
+3. 🔧 **P2 - DEBT-001** [16-20h]: 資料庫驅動規則引擎（技術債務）
 
 ---
 

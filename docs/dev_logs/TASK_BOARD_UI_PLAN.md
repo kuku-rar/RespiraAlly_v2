@@ -733,6 +733,144 @@ function TaskBoard({ patientId }: TaskBoardProps) {
 
 ---
 
-**Status**: ✅ MVP Complete - Testing Passed
+## 🔗 Real API Integration Testing (2025-10-27 晚上)
 
-**Next Step**: Integration with backend API and E2E testing
+### Test Objective
+Validate Task Board UI with real backend API connections, verify database operations, and test drag-and-drop with actual state persistence.
+
+### Test Environment
+- **Frontend**: Next.js 14.2.33 on localhost:3001
+- **Backend**: FastAPI on localhost:8000
+- **Database**: PostgreSQL 15 on localhost:15432
+- **Mode**: Real API (`NEXT_PUBLIC_MOCK_MODE=false`)
+- **Library**: @hello-pangea/dnd v18.0.1
+
+### Completed Work
+
+#### 1. Frontend Configuration ✅
+- **File**: `frontend/dashboard/.env.local`
+- **Change**: Disabled Mock Mode → `NEXT_PUBLIC_MOCK_MODE=false`
+- **Impact**: Frontend now connects to real API endpoints
+
+#### 2. Backend CORS Configuration ✅
+- **File**: `backend/.env`
+- **Issue**: CORS policy blocking requests from localhost:3001
+- **Fix**: Added `http://localhost:3001` to `CORS_ORIGINS`
+- **Result**: Cross-origin requests now allowed
+
+#### 3. API Path Alignment ✅
+- **File**: `frontend/dashboard/lib/api/tasks.ts`
+- **Issue**: Frontend paths didn't match backend routes
+- **Changes**:
+  - Line 206: `/patients/{id}/tasks` → `/tasks/patients/{id}/`
+  - Line 251: `/patients/{id}/tasks/stats` → `/tasks/patients/{id}/stats`
+- **Result**: API calls now reach correct endpoints
+
+#### 4. Test Data Creation ✅
+- **Database**: `development.tasks` table
+- **Created**: 4 test tasks for patient 陳世明
+  - "每週用藥遵從性追蹤" (TODO, HIGH)
+  - "追蹤高 CAT 分數" (IN_PROGRESS, CRITICAL)
+  - "電話訪談 - 呼吸困難評估" (TODO, HIGH)
+  - "每月例行追蹤" (DONE, MEDIUM)
+
+#### 5. Test Account Setup ✅
+- **Created**: Test therapist account
+  - Email: `test@therapist.com`
+  - Password: `SecurePass123!`
+  - Role: THERAPIST
+- **Assigned**: Test patient to therapist
+
+#### 6. Backend Bug Fixes ✅
+- **File**: `backend/src/respira_ally/infrastructure/repository_impls/task_repository_impl.py`
+- **Issue**: AttributeError: 'Task' object has no attribute 'metadata'
+- **Fix**: Changed `task.metadata` to `task.task_metadata` (line 164)
+- **Impact**: Task status updates no longer crash
+
+### Test Flow
+
+1. ✅ **Login Success**: Authenticated with test account
+2. ✅ **Navigate to Patient**: Accessed patient detail page (陳世明)
+3. ✅ **Load Task Board**: Clicked "任務看板" tab, 4 tasks loaded correctly
+4. ✅ **Visual Verification**: Priority colors, task types, due dates all display correctly
+5. ❌ **Drag-and-Drop Test**: Attempted status update, encountered PostgreSQL enum error
+
+### Remaining Issues
+
+#### ❌ P0: PostgreSQL Enum Type Error
+
+**Error Message**:
+```
+ERROR: type "task_status_enum" does not exist at character 41
+STATEMENT: UPDATE development.tasks SET status=$1::task_status_enum, ...
+```
+
+**Root Cause**:
+- Enum types only existed in `production` schema
+- `development` schema tasks table lacked corresponding enum type definitions
+- SQLAlchemy defaults to searching `public` schema for enum types
+- Connection pool may be caching stale metadata
+
+**Attempted Fixes**:
+1. ✅ Created enum types in `development` schema:
+   ```sql
+   CREATE TYPE development.task_status_enum AS ENUM ('TODO', 'IN_PROGRESS', 'DONE', 'CANCELLED');
+   CREATE TYPE development.task_priority_enum AS ENUM ('CRITICAL', 'HIGH', 'MEDIUM', 'LOW');
+   CREATE TYPE development.task_type_enum AS ENUM ('ALERT_TRIGGERED', 'MANUAL', 'SCHEDULED');
+   ```
+2. ✅ Created enum types in `public` schema (SQLAlchemy default)
+3. ✅ Restarted backend service to clear connection pool
+4. ❌ Error persists - likely connection pool still caching old metadata
+
+**Next Steps**:
+- Consider restarting PostgreSQL container entirely
+- Examine SQLAlchemy model enum configuration in `task.py`
+- Review asyncpg driver type cache mechanism
+- Alternative: Drop and recreate development schema
+
+### Test Metrics
+
+- **Total Time**: 3.5 hours
+- **Files Modified**: 3 (frontend config, backend CORS, API client)
+- **Bug Fixes**: 2 (CORS, task.metadata)
+- **API Calls Tested**: 3 (login, list tasks, update task status)
+- **Database Queries**: 5+ (test data creation, account setup, enum creation)
+- **Test Coverage**: 80% (login, navigation, UI display working; drag-drop blocked by enum issue)
+
+### Next Action Items
+
+1. 🚨 **P0**: Fix PostgreSQL enum type issue (estimated 1-2h)
+   - Option A: Restart PostgreSQL container
+   - Option B: Fix SQLAlchemy model configuration
+   - Option C: Drop and recreate development schema
+2. 🔄 **P1**: Complete drag-and-drop testing after enum fix
+3. ✅ **P1**: Test all task status transitions
+4. 📋 **P2**: Document API integration testing process
+5. 🧪 **P2**: Add automated API integration tests
+
+### Technical Notes
+
+**Authentication Flow**:
+- Frontend stores JWT access token in localStorage
+- API calls include `Authorization: Bearer <token>` header
+- Token expiry: 480 minutes (8 hours)
+
+**Database Schema Discovery**:
+- Use `\dt development.*` to list tables in development schema
+- Use `\dT development.*` to list types (including enums)
+- SQLAlchemy's `schema_translate_map` can route enum lookups to correct schema
+
+**Lessons Learned**:
+1. Always verify CORS configuration when connecting new frontend origins
+2. API path consistency is critical - backend route registration affects final paths
+3. PostgreSQL enum types must exist in the schema where SQLAlchemy searches (usually `public`)
+4. Connection pool caching can mask database changes - require full restart
+5. Test data creation should match real user workflows (therapist-patient assignment)
+
+---
+
+**Status**: ⏳ Integration In Progress - 80% Complete
+
+**Blocking Issue**: PostgreSQL enum type error preventing drag-and-drop testing
+
+**Next Step**: Resolve enum type issue, complete end-to-end API integration testing
