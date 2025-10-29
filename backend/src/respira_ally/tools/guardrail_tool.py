@@ -7,7 +7,7 @@ COPD Guardrail Tool - Safety Check for User Input
 import os
 from typing import Type
 
-from crewai.tools import BaseTool
+from langchain.tools import BaseTool
 from openai import OpenAI
 from pydantic import BaseModel, Field
 

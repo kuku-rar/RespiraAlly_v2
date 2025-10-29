@@ -7,7 +7,7 @@ COPD Knowledge RAG Tool - pgvector Semantic Search
 import os
 from typing import Type
 
-from crewai.tools import BaseTool
+from langchain.tools import BaseTool
 from pydantic import BaseModel, Field
 
 from respira_ally.core.config import settings

@@ -7,7 +7,8 @@ Health Agent - COPD Care Companion with RAG
 import os
 from uuid import UUID
 
-from crewai import Agent, LLM
+from crewai import Agent
+from langchain_openai import ChatOpenAI
 
 from respira_ally.tools import COPDKnowledgeTool
 
@@ -27,8 +28,8 @@ def create_health_agent(user_id: UUID | str) -> Agent:
     Returns:
         CrewAI Agent 實例（memory=False + RAG）
     """
-    # 使用適當溫度保持對話自然性
-    health_llm = LLM(
+    # 使用適當溫度保持對話自然性（使用 LangChain ChatOpenAI）
+    health_llm = ChatOpenAI(
         model=os.getenv("MODEL_NAME", "gpt-4o-mini"),
         temperature=0.7,  # 較高溫度讓對話更自然
     )

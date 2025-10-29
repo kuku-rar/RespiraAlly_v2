@@ -6,7 +6,8 @@ Guardrail Agent - COPD Safety Check
 
 import os
 
-from crewai import Agent, LLM
+from crewai import Agent
+from langchain_openai import ChatOpenAI
 
 from respira_ally.tools import GuardrailTool
 
@@ -23,8 +24,8 @@ def create_guardrail_agent() -> Agent:
     Returns:
         CrewAI Agent 實例（memory=False）
     """
-    # 使用低溫度確保一致性
-    guardrail_llm = LLM(
+    # 使用低溫度確保一致性（使用 LangChain ChatOpenAI）
+    guardrail_llm = ChatOpenAI(
         model=os.getenv("MODEL_NAME", "gpt-4o-mini"),
         temperature=0,  # 安全檢查需要確定性
     )
