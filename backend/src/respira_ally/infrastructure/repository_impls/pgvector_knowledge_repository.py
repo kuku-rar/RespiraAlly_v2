@@ -2,7 +2,8 @@
 PgVector Knowledge Repository Implementation
 """
 from openai import AsyncOpenAI
-from sqlalchemy import select, text
+from pgvector.sqlalchemy import Vector
+from sqlalchemy import cast, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from respira_ally.core.config import settings
@@ -66,40 +67,56 @@ class PgvectorKnowledgeRepository(KnowledgeRepository):
         # 1. 生成查詢的 embedding
         query_embedding = await self._generate_embedding(query)
 
-        # 2. 構建 SQL 查詢
-        # pgvector cosine similarity: <-> operator (距離越小越相似)
-        # 轉換為分數: 1 - distance (分數越高越相似)
-        stmt = select(
-            COPDKnowledgeBaseModel,
-            (1 - COPDKnowledgeBaseModel.embedding.cosine_distance(query_embedding)).label(
-                "similarity_score"
-            ),
-        )
+        # 2. 使用原生 SQL 進行 pgvector 查詢
+        # 將 embedding 轉為字串格式供 PostgreSQL 使用
+        embedding_str = "[" + ",".join(map(str, query_embedding)) + "]"
 
-        # 可選的類別篩選
+        # 獲取當前 schema
+        schema = settings.get_db_schema()
+
+        # 構建查詢（使用原生 SQL 以正確處理 vector 類型）
+        # 使用字串替換而非參數綁定來處理 vector 類型
         if category:
-            stmt = stmt.where(COPDKnowledgeBaseModel.category == category)
-
-        # 按相似度排序，取前 K 個
-        stmt = stmt.order_by(text("similarity_score DESC")).limit(top_k)
+            query_sql = text(f"""
+                SELECT
+                    id, category, question, answer, keywords, notes,
+                    embedding, created_at, updated_at,
+                    1 - (embedding <=> '{embedding_str}'::vector) AS similarity_score
+                FROM {schema}.copd_knowledge_base
+                WHERE category = :category
+                ORDER BY similarity_score DESC
+                LIMIT :limit
+            """)
+            params = {"category": category, "limit": top_k}
+        else:
+            query_sql = text(f"""
+                SELECT
+                    id, category, question, answer, keywords, notes,
+                    embedding, created_at, updated_at,
+                    1 - (embedding <=> '{embedding_str}'::vector) AS similarity_score
+                FROM {schema}.copd_knowledge_base
+                ORDER BY similarity_score DESC
+                LIMIT :limit
+            """)
+            params = {"limit": top_k}
 
         # 3. 執行查詢
-        result = await self.db.execute(stmt)
-        rows = result.all()
+        result = await self.db.execute(query_sql, params)
+        rows = result.fetchall()
 
         # 4. 轉換為 Document value objects
         documents = []
         for row in rows:
-            kb_entry, score = row
+            # 原生 SQL 返回的是 Row 對象，使用索引或列名訪問
             doc = Document(
-                content=f"Q: {kb_entry.question}\n\nA: {kb_entry.answer}",
+                content=f"Q: {row.question}\n\nA: {row.answer}",
                 metadata={
-                    "id": str(kb_entry.id),
-                    "category": kb_entry.category,
-                    "keywords": kb_entry.keywords,
-                    "notes": kb_entry.notes,
+                    "id": str(row.id),
+                    "category": row.category,
+                    "keywords": row.keywords,
+                    "notes": row.notes,
                 },
-                score=float(score),
+                score=float(row.similarity_score),
             )
             documents.append(doc)
 

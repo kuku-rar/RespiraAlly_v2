@@ -1079,22 +1079,149 @@ def reciprocal_rank_fusion(dense_results, sparse_results, k=60):
 
 ---
 
-## Sprint 6: AI 語音處理鏈 + 營養評估 [144h]
+## Sprint 6: LLM Agent System + AI Worker Service [144h]
 
-**Sprint 目標**: 建立完整的 AI 語音問答處理鏈 (STT → LLM → TTS)，整合 RAG 系統，實現 LIFF 語音提問功能。**同時補充延後的營養評估功能**。
+**Sprint 目標**:
+- **Phase 1 (已完成)**: 建立 CrewAI Multi-Agent AI 架構，實作 Guardrail + Health Agent，整合 RAG 知識檢索系統
+- **Phase 2 (規劃中)**: 建立完整的 AI 語音問答處理鏈 (STT → LLM → TTS)，整合 LINE Webhook，實現 LIFF 語音提問功能。**同時補充延後的營養評估功能**。
 
 **時程**: Week 11-12 (2 weeks)
-
-**關鍵交付物**:
-- ✅ RabbitMQ 任務佇列配置
-- ✅ AI Worker 服務 (STT/LLM/TTS)
-- ✅ LIFF 語音錄製介面
-- ✅ WebSocket 推送機制
-- ✅ 營養評估 KPI (MNA-SF/MUST 量表 + InBody 指標)
 
 **技術決策參考**:
 - [ADR-016] AI Worker 架構設計 (待創建)
 - [ADR-017] WebSocket vs Server-Sent Events (待創建)
+
+---
+
+### 🎉 Sprint 6 Phase 1: LLM + RAG Agent System 完成狀態 (2025-10-29)
+
+**完成度**: ✅ **80% 完成** - Agent 系統與知識庫就緒，pgvector 相容性待修復
+
+#### ✨ 已完成交付物
+
+**1. CrewAI Agent System** [已完成]
+- ✅ **Guardrail Agent** (安全檢查代理)
+  - 配置: `memory=False` (不使用 CrewAI 內建 ChromaDB)
+  - 功能: 檢測違法、成人內容、不當醫療建議
+  - 技術: LangChain ChatOpenAI + GuardrailTool
+  - 檔案: `backend/src/respira_ally/agents/guardrail_agent.py`
+
+- ✅ **Health Agent** (健康照護代理)
+  - 配置: `memory=False`
+  - 功能: 整合 RAG 知識檢索，提供 COPD 照護回覆
+  - 技術: LangChain ChatOpenAI + COPDKnowledgeTool
+  - 檔案: `backend/src/respira_ally/agents/health_agent.py`
+
+- ✅ **AgentManager** (協調器)
+  - 兩階段處理流程: Guardrail 檢查 → Health Agent 回覆
+  - Fallback 機制: CrewAI 失敗時降級為 OpenAI + RAG
+  - 檔案: `backend/src/respira_ally/agents/manager.py`
+
+- ✅ **技術棧**: CrewAI 0.28.0 + LangChain ChatOpenAI
+
+**2. COPD 知識庫系統** [已完成]
+- ✅ **153 筆 COPD Q&A** 載入完成
+  - 資料來源: `backend/data/COPD_QA.xlsx`
+  - 載入腳本: `scripts/load_copd_knowledge.py`
+
+- ✅ **96 個詳細分類**
+  - 包含：疾病認識、藥物治療、呼吸訓練、營養飲食、急性發作、情緒支持等
+
+- ✅ **OpenAI Embeddings**
+  - 模型: text-embedding-3-small (1536 維向量)
+  - 所有 Q&A 已生成向量嵌入
+
+- ✅ **pgvector 擴充功能**已啟用
+  - PostgreSQL 向量搜尋就緒
+  - 資料表: `development.copd_knowledge_base`
+
+**3. AI Tools Implementation** [已完成]
+- ✅ **GuardrailTool** - 安全檢查工具
+  - 使用 OpenAI API 判斷輸入安全性
+  - 檢測類別: 違法內容、成人內容、不當醫療建議
+  - 回傳: "OK" 或 "BLOCK: <原因>"
+  - 檔案: `backend/src/respira_ally/tools/guardrail_tool.py`
+
+- ✅ **COPDKnowledgeTool** - RAG 知識檢索工具
+  - pgvector 語義搜尋 (待修復相容性問題)
+  - 關鍵字搜尋備用方案 (`search_by_keywords`)
+  - 回傳格式化的知識檢索結果
+  - 檔案: `backend/src/respira_ally/tools/rag_tool.py`
+
+#### 🐛 修復的問題
+
+**P1 Critical: CrewAI 0.28.0 導入相容性問題**
+- **問題**: `cannot import name 'LLM' from 'crewai'`
+- **根本原因**: CrewAI 0.28.0 不提供 LLM 和 BaseTool 類別，需使用 LangChain
+- **解決方案**:
+  - Agents: `from langchain_openai import ChatOpenAI` (取代 `from crewai import LLM`)
+  - Tools: `from langchain.tools import BaseTool` (取代 `from crewai.tools import BaseTool`)
+- **影響檔案**:
+  - `backend/src/respira_ally/agents/guardrail_agent.py`
+  - `backend/src/respira_ally/agents/health_agent.py`
+  - `backend/src/respira_ally/tools/guardrail_tool.py`
+  - `backend/src/respira_ally/tools/rag_tool.py`
+- **驗證**: ✅ 所有模組導入測試通過
+
+#### ⚠️ 已知問題
+
+**ISSUE-001: pgvector + asyncpg 相容性問題** [P1 優先級]
+- **症狀**: `asyncpg.exceptions.UndefinedObjectError: type "vector" does not exist`
+- **根本原因**: asyncpg 需要明確註冊自訂 PostgreSQL 類型（如 pgvector 的 `vector` 類型）
+- **影響**: 向量語義搜尋功能暫時無法使用
+- **變通方案**: 可使用關鍵字搜尋（`search_by_keywords` 方法）
+- **待修復**: 需在連接池啟動時註冊 pgvector 類型
+- **優先級**: P1 (不阻塞其他功能開發)
+
+#### 🏗️ 架構設計
+
+**DDD Repository Pattern** [已實作]
+- **知識庫介面**: `domain/repositories/knowledge_repository.py`
+  - 定義知識檢索的領域契約
+
+- **對話歷史介面**: `domain/repositories/conversation_repository.py`
+  - 定義對話歷史的領域契約
+
+- **pgvector 實作**: `infrastructure/repository_impls/pgvector_knowledge_repository.py`
+  - 實作語義搜尋與關鍵字搜尋
+
+- **Redis 實作**: `infrastructure/repository_impls/redis_conversation_repository.py`
+  - 實作對話歷史儲存
+
+**Agent 協作模式** [遵循 beloved_grandson 設計原則]
+- `memory=False` - 不使用 CrewAI 內建 ChromaDB 記憶
+- Repository Pattern - 使用 DDD 介面分離關注點
+- 兩階段處理 - Guardrail 檢查 → Health Agent 回覆
+- Fallback 機制 - CrewAI 失敗時降級為 OpenAI + RAG
+
+#### 📊 效能指標
+
+- **知識庫覆蓋度**: 153 筆 Q&A，涵蓋 96 個 COPD 照護主題
+- **向量維度**: 1536 維 (OpenAI text-embedding-3-small)
+- **預估 Token 使用**:
+  - Guardrail 檢查: ~100-200 tokens
+  - RAG 檢索: ~1000-1500 tokens（含檢索結果）
+  - Health Agent 回覆: ~200-500 tokens
+  - **單次對話**: ~1300-2200 tokens
+- **預估成本** (gpt-4o-mini): ~$0.0003-0.0005 USD/對話
+
+#### 📋 Phase 1 後續待辦事項
+
+- 🔄 修復 pgvector 與 asyncpg 的類型相容性問題
+- ⏳ 實作 LINE Webhook → RabbitMQ Publisher
+- ⏳ 實作 RabbitMQ Consumer + Agent 調用
+- ⏳ 端到端測試（LINE → Agent → Response）
+
+---
+
+### Sprint 6 Phase 2: 原規劃項目 (待開始)
+
+**關鍵交付物**:
+- ⬜ RabbitMQ 任務佇列配置
+- ⬜ AI Worker 服務 (STT/LLM/TTS)
+- ⬜ LIFF 語音錄製介面
+- ⬜ WebSocket 推送機制
+- ⬜ 營養評估 KPI (MNA-SF/MUST 量表 + InBody 指標)
 
 ---
 
