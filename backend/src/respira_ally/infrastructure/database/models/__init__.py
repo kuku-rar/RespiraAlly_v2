@@ -5,6 +5,7 @@ Import all models here for Alembic autogenerate to detect them.
 """
 
 from respira_ally.infrastructure.database.models.alert import AlertModel
+from respira_ally.infrastructure.database.models.copd_knowledge_base import COPDKnowledgeBaseModel
 from respira_ally.infrastructure.database.models.daily_log import DailyLogModel
 from respira_ally.infrastructure.database.models.event_log import EventLogModel
 from respira_ally.infrastructure.database.models.exacerbation import ExacerbationModel
@@ -28,4 +29,6 @@ __all__ = [
     "AlertModel",
     # Sprint 5: Task Management System
     "TaskModel",
+    # Sprint 6: RAG Knowledge Base
+    "COPDKnowledgeBaseModel",
 ]
