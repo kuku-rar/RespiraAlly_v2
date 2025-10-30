@@ -14,6 +14,7 @@ from respira_ally.domain.value_objects.knowledge import Document
 from respira_ally.infrastructure.database.models.copd_knowledge_base import (
     COPDKnowledgeBaseModel,
 )
+from respira_ally.infrastructure.database.session import register_pgvector_type
 
 
 class PgvectorKnowledgeRepository(KnowledgeRepository):
@@ -22,6 +23,8 @@ class PgvectorKnowledgeRepository(KnowledgeRepository):
 
     使用 OpenAI text-embedding-3-small 生成 embeddings
     使用 pgvector cosine similarity 進行語義搜尋
+
+    ISSUE-001 FIX: 自動註冊 pgvector 類型以支援 asyncpg
     """
 
     def __init__(self, db_session: AsyncSession):
@@ -32,6 +35,35 @@ class PgvectorKnowledgeRepository(KnowledgeRepository):
         self.db = db_session
         self.openai_client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
         self.embedding_model = "text-embedding-3-small"  # 1536 dimensions
+        self._vector_type_registered = False  # ISSUE-001: Track registration status
+
+    async def _ensure_vector_type_registered(self):
+        """
+        確保 pgvector 類型已註冊（ISSUE-001 修復）
+
+        只會執行一次，之後會快取註冊狀態並記錄 vector schema
+        """
+        if not self._vector_type_registered:
+            # Register the vector type
+            await register_pgvector_type(self.db)
+
+            # Get the schema where vector type exists
+            from sqlalchemy import text
+
+            result = await self.db.execute(
+                text(
+                    """
+                SELECT n.nspname AS schema
+                FROM pg_type t
+                JOIN pg_namespace n ON t.typnamespace = n.oid
+                WHERE t.typname = 'vector'
+                LIMIT 1
+            """
+                )
+            )
+            row = result.fetchone()
+            self._vector_schema = row.schema if row else "public"
+            self._vector_type_registered = True
 
     async def _generate_embedding(self, text: str) -> list[float]:
         """
@@ -64,6 +96,9 @@ class PgvectorKnowledgeRepository(KnowledgeRepository):
         Returns:
             相關文檔列表（按相似度分數排序，最相關的在前）
         """
+        # 0. ISSUE-001 FIX: 確保 pgvector 類型已註冊
+        await self._ensure_vector_type_registered()
+
         # 1. 生成查詢的 embedding
         query_embedding = await self._generate_embedding(query)
 
@@ -74,7 +109,8 @@ class PgvectorKnowledgeRepository(KnowledgeRepository):
         # 獲取當前 schema
         schema = settings.get_db_schema()
 
-        # 構建查詢（使用原生 SQL 以正確處理 vector 類型）
+        # ISSUE-001 FIX: 使用 pgvector 的操作符和函數（不需要 schema 限定）
+        # asyncpg 已註冊 vector 類型，可直接使用操作符
         # 使用字串替換而非參數綁定來處理 vector 類型
         if category:
             query_sql = text(f"""
