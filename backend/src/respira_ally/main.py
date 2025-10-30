@@ -18,6 +18,7 @@ from respira_ally.api.v1.routers import (
     auth,
     daily_log,
     exacerbation,
+    line_webhook,
     notification,
     patient,
     rag,
@@ -145,7 +146,7 @@ async def health_check() -> JSONResponse:
     )
 
 
-# Include API Routers (7 Bounded Contexts + Sprint 4: Exacerbation + Alert + Sprint 5: Task)
+# Include API Routers (7 Bounded Contexts + Sprint 4: Exacerbation + Alert + Sprint 5: Task + Sprint 6: LINE)
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Auth"])
 app.include_router(patient.router, prefix="/api/v1/patients", tags=["Patients"])
 app.include_router(daily_log.router, prefix="/api/v1/daily-logs", tags=["Daily Logs"])
@@ -156,6 +157,7 @@ app.include_router(notification.router, prefix="/api/v1/notifications", tags=["N
 app.include_router(exacerbation.router, prefix="/api/v1/exacerbations", tags=["Exacerbations"])
 app.include_router(alert.router, prefix="/api/v1/alerts", tags=["Alerts"])
 app.include_router(task.router, prefix="/api/v1/tasks", tags=["Tasks"])
+app.include_router(line_webhook.router, prefix="/api/v1", tags=["LINE"])
 
 
 if __name__ == "__main__":
