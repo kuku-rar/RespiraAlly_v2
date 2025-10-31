@@ -9,6 +9,7 @@ Implements async message processing with robust error handling.
 import asyncio
 import json
 import logging
+import time
 from typing import Any
 
 import aio_pika
@@ -32,6 +33,18 @@ from respira_ally.infrastructure.repository_impls.pgvector_knowledge_repository 
     PgvectorKnowledgeRepository,
 )
 from respira_ally.services.agent_manager import AgentManager
+
+# LINE Client imports
+from respira_ally.infrastructure.line.line_client import (
+    LineMessagingClient,
+    LineAPIError,
+    LineRateLimitError,
+    MessageSendMethod,
+)
+from respira_ally.application.services.message_classifier import (
+    MessageClassifier,
+    MessageComplexity,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -87,6 +100,14 @@ class LineMessageConsumer:
 
         # Agent Manager (initialized later with repositories)
         self.agent_manager: AgentManager | None = None
+
+        # LINE Messaging Client (Hybrid Reply + Push strategy)
+        self.line_client = LineMessagingClient(
+            access_token=settings.LINE_CHANNEL_ACCESS_TOKEN,
+        )
+
+        # Message Classifier (decides Reply vs Push)
+        self.message_classifier = MessageClassifier()
 
         logger.info(
             f"LineMessageConsumer initialized for queue: {queue_name} "
@@ -212,12 +233,23 @@ class LineMessageConsumer:
 
     async def _handle_text_message(self, event_data: dict[str, Any]) -> None:
         """
-        Handle text message event
+        Handle text message event with intelligent Reply/Push strategy
+
+        **Flow**:
+        1. Classify message complexity
+        2. Start processing timer
+        3. Process with Agent Manager
+        4. Decide Reply vs Push based on:
+           - Message complexity
+           - Processing time
+           - Reply token validity
+        5. Send response via optimal method (Reply = FREE, Push = PAID)
+        6. Save conversation history
 
         Args:
             event_data: Deserialized event data
         """
-        # Reconstruct event object (optional, for type safety)
+        # Extract event data
         patient_id = event_data.get("patient_id")
         text = event_data.get("text")
         line_user_id = event_data.get("line_user_id")
@@ -225,28 +257,89 @@ class LineMessageConsumer:
 
         logger.info(f"Processing text message from patient {patient_id}: {text[:50]}...")
 
-        # Process with Agent Manager
+        # Validate dependencies
         if not self.agent_manager:
             logger.error("AgentManager not initialized")
             return
 
         try:
-            # Call Agent Manager to process message
+            # Step 1: Classify message complexity
+            should_use_reply, reason = self.message_classifier.should_use_reply_api(text)
+            complexity = self.message_classifier.classify_complexity(text)
+
+            logger.info(
+                f"Message classified: complexity={complexity.value}, "
+                f"should_use_reply={should_use_reply}, reason={reason}"
+            )
+
+            # Step 2: Start processing timer
+            start_time = time.time()
+
+            # Step 3: Process with Agent Manager
             response = await self.agent_manager.handle_message(
                 user_id=patient_id,
                 user_input=text,
-                include_context=True,  # Include conversation history
+                include_context=True,
             )
 
-            logger.info(f"Agent response: {response[:100]}...")
+            elapsed_time = time.time() - start_time
+            logger.info(f"Agent processing completed in {elapsed_time:.2f}s")
 
-            # TODO: Send response back to LINE
-            # This could be done by:
-            # 1. Publishing a LineMessageProcessedEvent
-            # 2. Another consumer handles LINE Bot API call
-            # For now, we just log the response
+            # Step 4: Intelligent decision - Reply or Push?
+            send_method = MessageSendMethod.PUSH  # Default to Push
 
-            # Save to conversation history
+            if reply_token and elapsed_time < 25:  # 25s safety buffer (30s token expiry)
+                # Fast enough to use Reply API (FREE)
+                send_method = MessageSendMethod.REPLY
+                logger.info(f"✅ Using Reply API (took {elapsed_time:.2f}s < 25s)")
+            elif reply_token and elapsed_time >= 25:
+                # Too slow, Reply Token likely expired
+                logger.warning(
+                    f"⚠️ Processing took {elapsed_time:.2f}s >= 25s, "
+                    f"Reply Token likely expired. Fallback to Push API"
+                )
+            else:
+                # No Reply Token available
+                logger.info("ℹ️ No Reply Token available, using Push API")
+
+            # Step 5: Send response to LINE
+            try:
+                if send_method == MessageSendMethod.REPLY and reply_token:
+                    # Try Reply API first (FREE)
+                    method, api_response = await self.line_client.send_text_message(
+                        text=response,
+                        reply_token=reply_token,
+                        user_id=line_user_id,
+                    )
+                else:
+                    # Use Push API (PAID)
+                    method, api_response = await self.line_client.send_text_message(
+                        text=response,
+                        user_id=line_user_id,
+                    )
+
+                logger.info(
+                    f"✅ Message sent via {method.value} API "
+                    f"(total time: {time.time() - start_time:.2f}s)"
+                )
+
+                # Log cost tracking
+                stats = self.line_client.get_usage_stats()
+                logger.info(
+                    f"📊 Cost stats: Reply={stats['reply_count']} (FREE), "
+                    f"Push={stats['push_count']} (PAID), "
+                    f"Ratio={stats['reply_ratio_percent']:.1f}% free, "
+                    f"Estimated monthly cost={stats['estimated_monthly_cost_twd']:.2f} TWD"
+                )
+
+            except LineRateLimitError as e:
+                logger.error(f"⚠️ Rate limit hit: {e}")
+                # TODO: Implement retry queue or alert
+            except LineAPIError as e:
+                logger.error(f"❌ LINE API error: {e}", exc_info=True)
+                # TODO: Publish error event
+
+            # Step 6: Save to conversation history
             if self.agent_manager.conversation_repo:
                 try:
                     # Save user message
@@ -261,12 +354,24 @@ class LineMessageConsumer:
                         role="assistant",
                         content=response,
                     )
+                    logger.info("✅ Conversation saved to database")
                 except Exception as e:
                     logger.error(f"Failed to save conversation: {str(e)}")
 
         except Exception as e:
             logger.error(f"Agent processing failed: {str(e)}", exc_info=True)
-            # TODO: Publish error event or send fallback response
+
+            # Send fallback error message to user
+            try:
+                error_message = "抱歉，系統目前繁忙中，請稍後再試。"
+                await self.line_client.send_text_message(
+                    text=error_message,
+                    reply_token=reply_token,
+                    user_id=line_user_id,
+                )
+                logger.info("Sent fallback error message to user")
+            except Exception as send_error:
+                logger.error(f"Failed to send error message: {send_error}")
 
     async def _handle_audio_message(self, event_data: dict[str, Any]) -> None:
         """
