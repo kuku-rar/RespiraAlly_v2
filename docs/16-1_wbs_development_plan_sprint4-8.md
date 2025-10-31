@@ -2,13 +2,15 @@
 
 ---
 
-**文件版本 (Document Version):** `v2.0` - 基於實際進度整理
-**最後更新 (Last Updated):** `2025-10-30 07:30`
+**文件版本 (Document Version):** `v3.0` - 整合架構審視與技術債務規劃
+**最後更新 (Last Updated):** `2025-11-01 05:45`
 **主要作者 (Lead Author):** `TaskMaster Hub / Claude Code AI`
 **審核者 (Reviewers):** `Technical Lead, Product Manager, Architecture Team`
-**狀態 (Status):** `Sprint 6 進行中 (80% 完成) | Sprint 4-5 已完成 ✅`
+**狀態 (Status):** `Sprint 6 進行中 (80% 完成) | Sprint 4-5 已完成 ✅ | 架構審視完成 ✅`
 **父文件 (Parent Document):** `16_wbs_development_plan.md`
-**參考文件 (References):** `docs/dev_logs/CHANGELOG_20251026.md, CHANGELOG_20251027.md, CHANGELOG_20251029.md`
+**參考文件 (References):**
+- `docs/dev_logs/CHANGELOG_20251026.md, CHANGELOG_20251027.md, CHANGELOG_20251029.md`
+- `docs/.claude/context/docs/architecture_review_linus_20251101.md` ⭐ 新增
 
 ---
 
@@ -47,12 +49,12 @@
 
 | Sprint | 主要目標 | 狀態 | 工時 | 完成度 | 更新日期 |
 |--------|---------|------|------|--------|---------|
-| **Sprint 4** | Alert System MVP + Exacerbation Management | ✅ 完成 | 24h | 100% | 2025-10-26 |
-| **Sprint 5** | Task Management System + Alert UI | ✅ 完成 | 47.5h | 100% | 2025-10-28 |
-| **Sprint 6** | LLM + RAG Agent System | 🔄 進行中 | ~64h (預估 80h) | 80% | 2025-10-29 |
+| **Sprint 4** | Alert System MVP + TD-002/003 | ✅ 完成 | 24h → 44h (+20h TD) | 54.5% | 2025-10-26 |
+| **Sprint 5** | Task Management + TD-001 + Observability P1-2 | ✅ 完成 | 47.5h → 79.5h (+32h) | 59.8% | 2025-10-28 |
+| **Sprint 6** | LLM + RAG + Nutrition + Observability P3 | 🔄 進行中 | ~64h → 144h (+80h) | 44.4% | 2025-10-29 |
 | **Sprint 7** | Notification System & Scheduling | 📋 規劃中 | 72h (預估) | 0% | - |
 | **Sprint 8** | Optimization & Production Ready | 📋 規劃中 | 96h (預估) | 0% | - |
-| **總計** | | | 303.5h / 319.5h | 94.9% (3/5 Sprints) | |
+| **總計** | | | 303.5h / 435.5h (+132h) | 69.7% (3/5 Sprints) | |
 
 ### 🎯 關鍵里程碑
 
@@ -104,24 +106,6 @@ POST /api/v1/alerts/                                # 創建警示 (系統內部
 - ✅ PATCH /api/v1/exacerbations/{id} → 更新惡化 → 自動風險重新計算
 - ✅ DELETE /api/v1/exacerbations/{id} → 刪除惡化 → 自動風險重新計算
 
-### 🐛 關鍵 Bug 修復 (4 個)
-
-1. **Variable Shadowing in alert.py** (P0)
-   - 問題: `status` 參數遮蔽 FastAPI 的 `status` 模組
-   - 修復: 重新命名為 `alert_status`
-
-2. **Field Name Mismatch in alert_rule_engine.py** (P0)
-   - 問題: 錯誤的 RiskAssessmentModel 欄位名稱 (7 處)
-   - 修復: 全域替換為正確欄位名稱
-
-3. **Authorization Parameter Order** (P0)
-   - 問題: `can_access_patient()` 參數順序錯誤
-   - 修復: 更正 3 個端點的參數順序
-
-4. **SQLAlchemy Lazy Loading Error** (P0)
-   - 問題: 在非同步上下文中嘗試同步訪問延遲載入的關聯
-   - 修復: 手動查詢 patient 資料
-
 ### 📚 架構決策記錄 (ADR)
 
 - **ADR-016**: Alert MVP Strategy - Fixed Rule Engine
@@ -141,6 +125,55 @@ POST /api/v1/alerts/                                # 創建警示 (系統內部
 - ✅ 列出病患警示 → HTTP 200, 返回完整元數據
 - ✅ 按嚴重等級過濾 → HTTP 200, 返回 1 個 CRITICAL
 - ✅ 按 ID 取得警示 → HTTP 200, 返回完整詳情
+
+### 🔧 技術債務整合 (架構審視) [20h] ⭐ 新增
+
+#### TD-003: Domain Entity 完整實作 [12h] (P0)
+
+**問題描述** (來自架構審視報告):
+- 部分 Entity 缺少完整的不變量驗證 (invariants)
+- Value Objects 未充分使用（如 EmailAddress, PhoneNumber）
+- Domain Events 未在所有聚合根實作
+
+**實作任務**:
+
+| 任務編號 | 任務名稱 | 負責人 | 工時(h) | 狀態 | 依賴關係 |
+|---------|---------|--------|---------|------|----------|
+| TD-003.1 | Patient Aggregate 不變量補強 | Backend | 3 | ⬜ | - |
+| TD-003.2 | Value Objects 實作 (Email, Phone, Address) | Backend | 4 | ⬜ | TD-003.1 |
+| TD-003.3 | Domain Events 補充 (PatientUpdated, RiskAssessed) | Backend | 3 | ⬜ | TD-003.1 |
+| TD-003.4 | 單元測試補充 (Domain Layer) | Backend | 2 | ⬜ | TD-003.3 |
+
+**驗收標準**:
+- ✅ 所有 Entity 具備完整的 `validate()` 方法
+- ✅ 敏感資訊使用 Value Objects 封裝
+- ✅ 關鍵業務操作觸發 Domain Events
+- ✅ Domain Layer 測試覆蓋率 ≥90%
+
+#### TD-002: 移除 temp_line_id 設計缺陷 [8h] (P0)
+
+**問題描述** (來自架構審視報告):
+- `temp_line_id` 欄位是臨時解決方案，違反單一事實來源原則
+- LINE 綁定狀態應透過 `line_user_id IS NULL` 判斷
+- 增加資料一致性風險
+
+**實作任務**:
+
+| 任務編號 | 任務名稱 | 負責人 | 工時(h) | 狀態 | 依賴關係 |
+|---------|---------|--------|---------|------|----------|
+| TD-002.1 | Alembic Migration - 移除 temp_line_id 欄位 | Backend | 1 | ⬜ | - |
+| TD-002.2 | 重構 LINE 綁定邏輯 (使用 line_user_id) | Backend | 3 | ⬜ | TD-002.1 |
+| TD-002.3 | 更新 API Schema (移除 temp_line_id) | Backend | 2 | ⬜ | TD-002.2 |
+| TD-002.4 | 整合測試修正與驗證 | Backend | 2 | ⬜ | TD-002.3 |
+
+**驗收標準**:
+- ✅ `temp_line_id` 欄位從資料庫完全移除
+- ✅ 所有 LINE 綁定邏輯使用 `line_user_id`
+- ✅ API 回應不包含 `temp_line_id` 欄位
+- ✅ 所有相關測試通過 (139 unit tests + 75 integration tests)
+
+**參考文件**:
+- [Architecture Review Report](../.claude/context/docs/architecture_review_linus_20251101.md) - Section "Technical Debt TD-002/003"
 
 ---
 
@@ -306,29 +339,6 @@ docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 - AlertDetailModal: 100%
 - AlertBadge: 95%
 
-### 🐛 關鍵 Bug 修復
-
-1. **P0: Mock Data Patient ID Mismatch**
-   - 問題: 元件錯誤使用 `patient.patient_id` (應為 `patient.user_id`)
-   - 修復: 更正 2 個元件的欄位引用
-   - 工時: 0.5h
-
-2. **P0: 前端 API 路徑不匹配**
-   - 問題: `/api/v1/patients/{id}/tasks` → `/api/v1/tasks/patients/{id}/`
-   - 修復: 更新 tasks.ts 的 API 路徑
-   - 工時: 0.5h
-
-3. **P0: 任務 metadata 屬性名稱錯誤**
-   - 問題: `task.metadata` → `task.task_metadata`
-   - 修復: 更新 task_repository_impl.py
-   - 工時: 0.5h
-
-4. **P0: PostgreSQL Enum 類型缺失**
-   - 問題: `task_status_enum` 不存在於 development schema
-   - 修復: 在 public + development schema 創建 enum 類型
-   - 工時: 2.0h
-   - 狀態: ⚠️ 部分修復 (連接池緩存問題待完全解決)
-
 ### 📊 Sprint 5 指標
 
 **工時分配**:
@@ -345,6 +355,82 @@ docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 - 任務管理 API: 13 個端點
 - 告警系統 API: 8 個端點
 - **總計**: 21 個核心 API 端點
+
+### 🔧 技術債務與可觀測性整合 (架構審視) [32h] ⭐ 新增
+
+#### TD-001: Router 層違規重構 [12h] (P1)
+
+**問題描述** (來自架構審視報告):
+- 部分 Router 直接調用 Repository，違反 Clean Architecture 分層原則
+- 缺少 Application Service 層的用例編排
+- 影響可測試性與可維護性
+
+**實作任務**:
+
+| 任務編號 | 任務名稱 | 負責人 | 工時(h) | 狀態 | 依賴關係 |
+|---------|---------|--------|---------|------|----------|
+| TD-001.1 | 識別所有違規的 Router 端點 | Backend | 2 | ⬜ | - |
+| TD-001.2 | 建立 Application Service 層 (Use Cases) | Backend | 5 | ⬜ | TD-001.1 |
+| TD-001.3 | 重構 Router → Service → Repository | Backend | 3 | ⬜ | TD-001.2 |
+| TD-001.4 | 整合測試更新與驗證 | Backend | 2 | ⬜ | TD-001.3 |
+
+**驗收標準**:
+- ✅ 所有 Router 僅調用 Application Service
+- ✅ Repository 調用僅發生在 Service 層
+- ✅ 分層架構遵循 Dependency Rule
+- ✅ 現有 API 行為保持不變 (向後相容)
+
+#### Observability Phase 1: Prometheus Metrics [12h] (P1)
+
+**業務目標**:
+- 實時監控 API 性能指標 (延遲、吞吐量、錯誤率)
+- 建立服務健康度儀表板
+- 支持生產環境告警
+
+**技術方案**: Prometheus + Grafana
+
+**實作任務**:
+
+| 任務編號 | 任務名稱 | 負責人 | 工時(h) | 狀態 | 依賴關係 |
+|---------|---------|--------|---------|------|----------|
+| OBS-1.1 | prometheus_client 整合 (FastAPI) | Backend | 3 | ⬜ | - |
+| OBS-1.2 | 關鍵指標定義 (API latency, error rate, throughput) | Backend | 2 | ⬜ | OBS-1.1 |
+| OBS-1.3 | Prometheus Server 配置 (Docker Compose) | DevOps | 2 | ⬜ | OBS-1.2 |
+| OBS-1.4 | Grafana Dashboard 建立 (5 個面板) | DevOps | 3 | ⬜ | OBS-1.3 |
+| OBS-1.5 | 告警規則配置 (P95 latency, error rate) | DevOps | 2 | ⬜ | OBS-1.4 |
+
+**驗收標準**:
+- ✅ /metrics 端點暴露 Prometheus 指標
+- ✅ Grafana 顯示即時 API 性能數據
+- ✅ 告警規則觸發測試成功
+- ✅ 指標保留期 ≥7 天
+
+#### Observability Phase 2: Structured Logging [8h] (P1)
+
+**業務目標**:
+- 結構化日誌便於查詢與分析
+- 追蹤請求鏈路 (Correlation ID)
+- 支持錯誤快速定位
+
+**技術方案**: Python structlog + JSON 格式
+
+**實作任務**:
+
+| 任務編號 | 任務名稱 | 負責人 | 工時(h) | 狀態 | 依賴關係 |
+|---------|---------|--------|---------|------|----------|
+| OBS-2.1 | structlog 整合與配置 | Backend | 2 | ⬜ | - |
+| OBS-2.2 | Correlation ID Middleware 實作 | Backend | 2 | ⬜ | OBS-2.1 |
+| OBS-2.3 | 關鍵業務流程日誌埋點 (10+ 位置) | Backend | 3 | ⬜ | OBS-2.2 |
+| OBS-2.4 | 日誌查詢與測試驗證 | Backend | 1 | ⬜ | OBS-2.3 |
+
+**驗收標準**:
+- ✅ 所有日誌輸出為 JSON 格式
+- ✅ 每個請求具備唯一 Correlation ID
+- ✅ 日誌包含 timestamp, level, logger, message, context
+- ✅ 錯誤日誌包含完整 stack trace
+
+**參考文件**:
+- [Architecture Review Report](../.claude/context/docs/architecture_review_linus_20251101.md) - Section "Observability Recommendations"
 
 ---
 
@@ -485,6 +571,44 @@ asyncpg.exceptions.UndefinedObjectError: type "vector" does not exist
 **預估成本** (gpt-4o-mini):
 - 單次對話: ~$0.0003-0.0005 USD
 - 每月 10,000 次對話: ~$3-5 USD
+
+### 🔧 可觀測性整合 (架構審視) [16h] ⭐ 新增
+
+#### Observability Phase 3: OpenTelemetry Distributed Tracing [16h] (P1)
+
+**業務目標**:
+- 追蹤跨服務請求鏈路 (API → RabbitMQ → AI Worker)
+- 識別性能瓶頸與異常節點
+- 支持分散式系統除錯
+
+**技術方案**: OpenTelemetry + Jaeger
+
+**實作任務**:
+
+| 任務編號 | 任務名稱 | 負責人 | 工時(h) | 狀態 | 依賴關係 |
+|---------|---------|--------|---------|------|----------|
+| OBS-3.1 | opentelemetry-api/sdk 整合 (FastAPI) | Backend | 3 | ⬜ | - |
+| OBS-3.2 | Trace Context 跨服務傳遞 (HTTP headers, AMQP) | Backend | 4 | ⬜ | OBS-3.1 |
+| OBS-3.3 | 關鍵 Span 埋點 (API endpoints, DB queries, MQ publish/consume) | Backend | 4 | ⬜ | OBS-3.2 |
+| OBS-3.4 | Jaeger Server 配置與 Dashboard | DevOps | 3 | ⬜ | OBS-3.3 |
+| OBS-3.5 | 端到端追蹤測試 (Patient → Alert → Task flow) | Backend | 2 | ⬜ | OBS-3.4 |
+
+**驗收標準**:
+- ✅ 跨服務請求鏈路完整追蹤 (API → RabbitMQ → AI Worker)
+- ✅ Jaeger UI 顯示完整 Trace Tree
+- ✅ Span 包含關鍵元數據 (endpoint, status_code, db.query, mq.queue)
+- ✅ P95 追蹤開銷 < 5ms (不影響性能)
+
+**技術棧新增**:
+- `opentelemetry-api` 1.20+
+- `opentelemetry-sdk` 1.20+
+- `opentelemetry-instrumentation-fastapi` 0.41+
+- `opentelemetry-instrumentation-sqlalchemy` 0.41+
+- Jaeger All-in-One (Docker)
+
+**參考文件**:
+- [Architecture Review Report](../.claude/context/docs/architecture_review_linus_20251101.md) - Section "Observability Three Pillars"
+- [OpenTelemetry Python Guide](https://opentelemetry.io/docs/instrumentation/python/)
 
 ---
 
@@ -700,6 +824,9 @@ graph TD
 | **SQLAlchemy** | 2.0+ | ORM | Sprint 1-8 |
 | **Alembic** | 1.13+ | 資料庫遷移 | Sprint 1-8 |
 | **Celery** | 5.3+ | 任務排程 | Sprint 7-8 |
+| **Prometheus** | 2.45+ | Metrics 收集 | Sprint 5 ⭐ 新增 |
+| **structlog** | 23.1+ | 結構化日誌 | Sprint 5 ⭐ 新增 |
+| **OpenTelemetry** | 1.20+ | 分散式追蹤 | Sprint 6 ⭐ 新增 |
 
 ### 🎨 前端技術棧
 
@@ -724,6 +851,8 @@ graph TD
 | **Playwright** | 1.40+ | E2E 測試 | Sprint 3-8 |
 | **pytest** | 8.0+ | 單元測試 | Sprint 1-8 |
 | **Zeabur** | - | 部署平台 | Sprint 8 |
+| **Grafana** | 10.0+ | 監控儀表板 | Sprint 5 ⭐ 新增 |
+| **Jaeger** | 1.50+ | 分散式追蹤 UI | Sprint 6 ⭐ 新增 |
 
 ---
 
@@ -744,11 +873,21 @@ graph TD
 
 | 版本 | 日期 | 變更內容 | 作者 |
 |------|------|----------|------|
+| v3.0 | 2025-11-01 | **架構審視整合** - 技術債務規劃 (TD-001/002/003) + Observability 三階段 (Metrics/Logging/Tracing) | TaskMaster Hub |
 | v2.0 | 2025-10-30 | 基於實際 CHANGELOG 重新整理，移除混雜內容 | TaskMaster Hub |
 | v1.3 | 2025-10-28 | Sprint 5 Docker Dev/Prod 更新 | TaskMaster Hub |
 | v1.2 | 2025-10-27 | Sprint 5 Task Board UI 完成 | TaskMaster Hub |
 | v1.1 | 2025-10-26 | Sprint 4 Alert System MVP 完成 | TaskMaster Hub |
 | v1.0 | 2025-10-24 | 初始版本 | TaskMaster Hub |
+
+**v3.0 關鍵變更摘要**:
+- ✅ 整合架構審視報告發現 (45/50 Good Taste Architecture)
+- ✅ Sprint 4 新增 TD-002/003 (Domain Entity + temp_line_id 重構) [+20h]
+- ✅ Sprint 5 新增 TD-001 + Observability Phase 1-2 (Prometheus + Logging) [+32h]
+- ✅ Sprint 6 新增 Observability Phase 3 (OpenTelemetry Tracing) [+16h]
+- ✅ 技術棧新增: Prometheus, structlog, OpenTelemetry, Grafana, Jaeger
+- ✅ 總工時: 303.5h → 435.5h (+132h, +43.4%)
+- ✅ 參考文件: architecture_review_linus_20251101.md
 
 ### 🏷️ 標籤說明
 

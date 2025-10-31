@@ -104,7 +104,7 @@
 ⏸ 5.5 營養評估 KPI [56h] - 延後至 MVP 後 (Sprint 6+)
     理由: 需求不明確 (量表未選定、風險權重未確認)，採實用主義路線先聚焦核心功能
 
-6.0 Sprint 4: GOLD ABE 風險引擎 & 預警系統 [67h] ⭐ v3.4 架構變更 [Week 7-8]
+6.0 Sprint 4: GOLD ABE 風險引擎 & 預警系統 [87h] ⭐ v3.5 架構審視整合 [Week 7-8]
 ├── 6.1 資料庫 Schema 建置 (GOLD ABE) [8h] ⭐ ADR-013 v2.0, ADR-014
 ├── 6.2 GOLD ABE 分級引擎 API [24h] (含 Hybrid 向後相容 mapping)
 ├── 6.3 急性發作記錄管理 API [12h]
@@ -112,19 +112,26 @@
 ├── 6.5 前端 TypeScript Types 修正 (Hybrid) [2h] ⭐ 向後相容策略
 ├── 6.6 前端 UI Components 修正 [4h] (HealthKPIDashboard + 急性發作顯示)
 ├── 6.7 前端 Mock Data 更新 [0.5h]
-└── 6.8 文件與測試 [4.5h]
+├── 6.8 文件與測試 [4.5h]
+├── 6.9 技術債 TD-003: Domain Entity 完整實作 [12h] ⭐ P0 架構審視
+└── 6.10 技術債 TD-002: 移除 temp_line_id 設計缺陷 [8h] ⭐ P0 架構審視
 
-7.0 Sprint 5: RAG 系統基礎 [80h] [Week 9-10]
+7.0 Sprint 5: RAG 系統基礎 & Observability [112h] ⭐ v3.5 架構審視整合 [Week 9-10]
 ├── 7.1 pgvector 擴展與向量化 [24h]
 ├── 7.2 衛教內容管理 API [20h]
 ├── 7.3 Hybrid 檢索實作 [28h]
-└── 7.4 Dashboard 衛教管理頁 [8h]
+├── 7.4 Dashboard 衛教管理頁 [8h]
+├── 7.5 技術債 TD-001: Router 層違規重構 [12h] ⭐ P1 架構審視
+├── 7.6 Observability Phase 1: Prometheus Metrics [12h] ⭐ P1 架構審視
+└── 7.7 Observability Phase 2: Structured Logging [8h] ⭐ P1 架構審視
 
-8.0 Sprint 6: AI 語音處理鏈 [88h] [Week 11-12]
+8.0 Sprint 6: AI 語音處理鏈 & Distributed Tracing [160h] ⭐ v3.5 架構審視整合 [Week 11-12]
 ├── 8.1 RabbitMQ 任務佇列 [16h]
 ├── 8.2 AI Worker 服務 [40h]
 ├── 8.3 LIFF 語音錄製介面 [20h]
-└── 8.4 WebSocket 推送機制 [12h]
+├── 8.4 WebSocket 推送機制 [12h]
+├── 8.5 營養評估 KPI [56h] ⭐ 從 Sprint 3 延後
+└── 8.6 Observability Phase 3: OpenTelemetry Distributed Tracing [16h] ⭐ P1 架構審視
 
 9.0 Sprint 7: 通知系統 & 排程 [72h] [Week 13-14]
 ├── 9.1 APScheduler 排程服務 [16h]
@@ -155,13 +162,13 @@
 | 3.0 Sprint 1 (基礎設施) ⭐ | 104h (+8h) | 89h | 85.6% | 🔄 |
 | 4.0 Sprint 2 (病患管理) ⭐ | 155.75h (+27.75h) | 133.75h | 85.9% | 🔄 |
 | 5.0 Sprint 3 (儀表板+TTS) ⭐ | 96h ⭐ 調整 | 96h | 100% | ✅ |
-| 6.0 Sprint 4 (GOLD ABE風險) ⭐ | 67h (-37h) | 44.5h | 66.4% | 🔄 |
-| 7.0 Sprint 5 (RAG 系統) | 80h | 0h | 0% | ⬜ |
-| 8.0 Sprint 6 (AI 語音+營養) ⭐ | 144h (+56h) | 0h | 0% | ⬜ |
+| 6.0 Sprint 4 (GOLD ABE風險+TD) ⭐ | 87h (+20h) | 44.5h | 51.1% | 🔄 |
+| 7.0 Sprint 5 (RAG+Observability) ⭐ | 112h (+32h) | 0h | 0% | ⬜ |
+| 8.0 Sprint 6 (AI 語音+營養+Tracing) ⭐ | 160h (+72h) | 0h | 0% | ⬜ |
 | 9.0 Sprint 7 (通知系統) | 72h | 0h | 0% | ⬜ |
 | 10.0 Sprint 8 (優化上線) | 96h | 0h | 0% | ⬜ |
 | 11.0 測試品保 (持續) | 80h | 0h | 0% | ⬜ |
-| **總計** | **996h** ⭐ v3.4 調整 (-37h) | **479.75h** | **~48.2%** | **🔄** |
+| **總計** | **1120h** ⭐ v3.5 架構審視整合 (+124h) | **479.75h** | **~42.8%** | **🔄** |
 
 **狀態圖示說明:**
 - ✅ 已完成 (Completed)
@@ -175,6 +182,38 @@
 > **📋 完整變更日誌**: 請參閱 [開發日誌 CHANGELOG](./dev_logs/CHANGELOG.md)
 
 ### 最近更新 (Recent Updates)
+
+#### v3.5 (2025-11-01) - 架構審視整合與技術債務規劃 ✅
+- **階段**: 架構審視報告整合與 Sprint 4-6 技術債務規劃
+- **工時**: +124h (總計 1120h)
+- **核心成就**:
+  - ✅ **架構審視報告完成** ([architecture_review_linus_20251101.md](../.claude/context/docs/architecture_review_linus_20251101.md)):
+    - 完整 C4 模型分析 (System Context, Container, Component)
+    - DDD 戰略設計驗證 (界限上下文映射、統一語言、聚合設計)
+    - Clean Architecture 分層驗證
+    - 品質屬性權衡分析 (ATAM)
+    - 技術債務識別 (TD-001, TD-002, TD-003)
+    - 架構評分: 45/50 (Good Taste Architecture)
+  - ✅ **Sprint 4 技術債整合** (+20h):
+    - TD-003: Domain Entity 完整實作 [12h] (P0)
+    - TD-002: 移除 temp_line_id 設計缺陷 [8h] (P0)
+  - ✅ **Sprint 5 Observability Phase 1-2** (+32h):
+    - TD-001: Router 層違規重構 [12h] (P1)
+    - Prometheus Metrics 實作 [12h] (P1)
+    - Structured Logging 實作 [8h] (P1)
+  - ✅ **Sprint 6 Observability Phase 3** (+16h):
+    - OpenTelemetry Distributed Tracing [16h] (P1)
+  - ✅ **Sprint 6 營養評估整合** (+56h):
+    - 從 Sprint 3 延後的營養評估 KPI 系統
+- **技術決策**:
+  - 採用 Linus Torvalds 哲學進行架構審視 ("Good Taste", "Never Break Userspace")
+  - 技術債優先級: P0 (Sprint 4) → P1 (Sprint 5-6) → P2 (Sprint 7-8)
+  - Observability 三階段: Metrics → Logging → Tracing
+- **進度**: 總計 1120h, 已完成 479.75h (42.8%)
+- **里程碑**: 🎉 架構審視完成，技術債務規劃完成，Observability 路線圖確立
+- **參考文件**:
+  - [Architecture Review Report](./.claude/context/docs/architecture_review_linus_20251101.md)
+  - [WBS Sprint 4-8 Detail](./16-1_wbs_development_plan_sprint4-8.md)
 
 #### v3.0.4 (2025-10-20) - Sprint 2 Week 1 基礎修復完成 ✅
 - **階段**: Sprint 2 Week 1 基礎建設與修復
@@ -751,17 +790,17 @@
 | WBS 模組 | 總工時 | 已完成 | 進度 | 狀態 | ADR 參考 |
 |---------|--------|--------|------|------|---------|
 | 1.0 專案管理 ⭐ | 87h (+71h) | 17h | 19.5% | 🔄 | - |
-| 2.0 系統架構 ⭐ | 148h (+36h) | 148h | 100% | ✅ | ADR-001~009 |
+| 2.0 系統架構 ⭐ | 148h (+36h) | 148h | 100% | ✅ | ADR-001~009, 架構審視報告 |
 | 3.0 Sprint 1 ⭐ | 104h (+8h) | 89h | 85.6% | 🔄 | - |
 | 4.0 Sprint 2 ⭐ | 155.75h (+27.75h) | 133.75h | 85.9% | 🔄 | ADR-009 |
 | 5.0 Sprint 3 ⭐ | 96h (-80h) | 96h | 100% | ✅ | ADR-010, ADR-011 |
-| 6.0 Sprint 4 ⭐ | 67h (-37h) | 44.5h | 66.4% | 🔄 | ADR-013 v2.0, ADR-014 |
-| 7.0 Sprint 5 | 80h | 0h | 0% | ⬜ | - |
-| 8.0 Sprint 6 | 88h (+56h 營養) | 0h | 0% | ⬜ | - |
+| 6.0 Sprint 4 ⭐ | 87h (+20h) | 44.5h | 51.1% | 🔄 | ADR-013 v2.0, ADR-014, TD-002/003 |
+| 7.0 Sprint 5 ⭐ | 112h (+32h) | 0h | 0% | ⬜ | TD-001, Observability Phase 1-2 |
+| 8.0 Sprint 6 ⭐ | 160h (+72h) | 0h | 0% | ⬜ | Observability Phase 3 |
 | 9.0 Sprint 7 | 72h | 0h | 0% | ⬜ | - |
 | 10.0 Sprint 8 | 96h | 0h | 0% | ⬜ | - |
 | 11.0 測試品保 | 80h | 0h | 0% | ⬜ | - |
-| **總計** | **996h** ⭐ v3.4 (-37h) | **479.75h** | **~48.2%** | **🔄** | **14 ADRs** |
+| **總計** | **1120h** ⭐ v3.5 架構審視整合 (+124h) | **479.75h** | **~42.8%** | **🔄** | **14 ADRs + 架構審視** |
 
 ### 📅 Sprint 進度分析
 
