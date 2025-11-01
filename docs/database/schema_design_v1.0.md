@@ -1,9 +1,10 @@
 # RespiraAlly V2.0 資料庫 Schema 設計
 
-**文件版本**: v2.1 (新增 AI 處理日誌表)
-**最後更新**: 2025-10-18
+**文件版本**: v2.2 (TD-002 - 修正 users 表約束)
+**最後更新**: 2025-11-01
 **設計者**: Claude Code AI - Data Engineer
 **狀態**: 詳細設計中 (Detailed Design)
+**變更紀錄**: TD-002 - 允許 PATIENT 創建時無 line_user_id
 
 ---
 
@@ -254,16 +255,22 @@ CREATE TABLE users (
     deleted_at TIMESTAMP WITH TIME ZONE  -- Soft delete
 );
 
--- Check: 至少有一個登入方式
+-- TD-002 (2025-11-01): 修正約束邏輯
+-- ✅ 允許 PATIENT 在未綁定 LINE 前創建 (line_user_id=NULL)
+-- ✅ PATIENT 首次 LINE LIFF 登入時綁定 line_user_id
+-- ✅ 消除使用 temp_line_id 污染永久欄位的設計缺陷
+
+-- Check: 至少有一個登入方式 (PATIENT 例外 - 可以沒有)
 ALTER TABLE users ADD CONSTRAINT users_login_method_check
-    CHECK (line_user_id IS NOT NULL OR email IS NOT NULL);
+    CHECK (role = 'PATIENT' OR (line_user_id IS NOT NULL OR email IS NOT NULL));
 
--- Check: Role 與登入方式對應
-ALTER TABLE users ADD CONSTRAINT users_patient_line_check
-    CHECK (role != 'PATIENT' OR line_user_id IS NOT NULL);
-
+-- Check: THERAPIST 必須有 email
 ALTER TABLE users ADD CONSTRAINT users_therapist_email_check
     CHECK (role != 'THERAPIST' OR email IS NOT NULL);
+
+-- REMOVED (TD-002): users_patient_line_check - PATIENT 不再強制要求 line_user_id
+-- 舊約束: CHECK (role != 'PATIENT' OR line_user_id IS NOT NULL)
+-- 移除原因: 允許治療師在病患未綁定 LINE 時創建病患記錄
 ```
 
 #### `patient_profiles` - 病患檔案
