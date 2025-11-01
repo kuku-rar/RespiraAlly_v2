@@ -5,6 +5,11 @@ from decimal import Decimal
 from typing import Literal, Optional
 from uuid import UUID
 
+from respira_ally.domain.events.patient_events import (
+    DomainEvent,
+    create_patient_created_event,
+    create_patient_updated_event,
+)
 from respira_ally.domain.exceptions import BusinessRuleViolationError
 from respira_ally.domain.value_objects import Address, PhoneNumber
 
@@ -30,8 +35,12 @@ class Patient:
     created_at: datetime.datetime = field(default_factory=datetime.datetime.now)
     updated_at: datetime.datetime = field(default_factory=datetime.datetime.now)
 
+    # Domain Events (private, not persisted)
+    _domain_events: list[DomainEvent] = field(default_factory=list, init=False, repr=False)
+
     def __post_init__(self):
         self._validate()
+        # Note: PatientCreatedEvent should be published by the factory/service creating the patient
 
     @property
     def age(self) -> int:
@@ -57,13 +66,39 @@ class Patient:
     def update_profile(self, **kwargs):
         """
         Updates patient profile attributes and enforces validation rules.
+
+        Publishes PatientUpdatedEvent after successful update.
+
+        Args:
+            **kwargs: Attributes to update (e.g., name, height_cm, weight_kg)
+
+        Raises:
+            BusinessRuleViolationError: If updated attributes violate invariants
         """
+        # Track which fields are being updated
+        updated_fields = []
+        old_bmi = self.bmi
+
         for key, value in kwargs.items():
             if hasattr(self, key) and value is not None:
                 setattr(self, key, value)
-        
+                updated_fields.append(key)
+
         self.updated_at = datetime.datetime.now()
         self._validate()
+
+        # Check if BMI changed (height or weight updated)
+        bmi_changed = old_bmi != self.bmi
+
+        # Publish PatientUpdatedEvent
+        event = create_patient_updated_event(
+            patient_id=self.user_id,
+            therapist_id=self.therapist_id,
+            updated_fields=updated_fields,
+            bmi_changed=bmi_changed,
+            new_bmi=self.bmi if bmi_changed else None,
+        )
+        self._add_domain_event(event)
 
     def _validate(self):
         """
@@ -115,4 +150,40 @@ class Patient:
             raise BusinessRuleViolationError("User ID is required.")
         if not self.therapist_id:
             raise BusinessRuleViolationError("Therapist ID is required.")
+
+    # ============================================================================
+    # Domain Events Management (DDD Event-Driven Architecture)
+    # ============================================================================
+
+    def _add_domain_event(self, event: DomainEvent) -> None:
+        """
+        Adds a domain event to the internal event list.
+
+        Private method - only called by aggregate methods.
+
+        Args:
+            event: Domain event to add
+        """
+        self._domain_events.append(event)
+
+    def get_domain_events(self) -> list[DomainEvent]:
+        """
+        Returns a copy of all domain events.
+
+        Events should be published by the Application Service or Repository
+        after successfully persisting the aggregate.
+
+        Returns:
+            List of domain events (copy)
+        """
+        return self._domain_events.copy()
+
+    def clear_domain_events(self) -> None:
+        """
+        Clears all domain events.
+
+        Should be called after events are successfully published by the
+        Application Service or Repository.
+        """
+        self._domain_events.clear()
 
