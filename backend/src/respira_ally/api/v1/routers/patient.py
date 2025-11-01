@@ -10,7 +10,6 @@ Endpoints:
 - DELETE /patients/{user_id} - Delete patient (therapist only)
 """
 
-import secrets
 from decimal import Decimal
 from typing import Annotated, Literal
 from uuid import UUID
@@ -73,11 +72,9 @@ async def create_patient(
     if not therapist_user or therapist_user.role != "THERAPIST":
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Therapist not found")
 
-    # 2. Create user account for patient
-    temp_line_id = f"temp_{secrets.token_hex(8)}"
-
+    # 2. Create user account for patient (TD-002: line_user_id=NULL before LINE binding)
     new_user = UserModel(
-        line_user_id=temp_line_id,
+        line_user_id=None,  # NULL until LINE binding (fixed in TD-002)
         role="PATIENT",
         email=None,  # Patients don't have email (use LINE)
         hashed_password=None,  # No password for LINE users
