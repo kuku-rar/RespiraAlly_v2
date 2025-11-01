@@ -2,10 +2,11 @@
 
 ---
 
-**文件版本:** `v1.0.0`
-**最後更新:** `2025-10-27`
+**文件版本:** `v1.1.0`
+**最後更新:** `2025-11-01`
 **主要作者:** `Claude Code AI`
 **狀態:** `草稿 (Draft)`
+**變更紀錄:** TD-002 - 修正 line_user_id 欄位設計缺陷
 
 **相關文檔:**
 - **系統架構:** [./05_architecture_and_design.md](./05_architecture_and_design.md) - 整體架構設計
@@ -904,7 +905,8 @@ def verify_message(message: Dict) -> bool:
 ### 7.1 `PatientCreate`
 ```python
 class PatientCreate(BaseModel):
-    line_user_id: str
+    # 身份資訊 (TD-002: line_user_id 現在是可選的)
+    line_user_id: Optional[str] = None  # LINE User ID（創建時可為 None，之後綁定）
     name: str
     gender: Literal["MALE", "FEMALE", "OTHER"]
     birth_date: date
@@ -923,6 +925,13 @@ class PatientCreate(BaseModel):
     # 聯絡資訊
     phone: Optional[str] = None
 ```
+
+**TD-002 變更說明 (2025-11-01):**
+- ✅ `line_user_id` 現在是**可選欄位**（`Optional[str] = None`）
+- ✅ 允許治療師在病患尚未綁定 LINE 帳號時創建病患記錄
+- ✅ `line_user_id=NULL` 語意：病患記錄存在但尚未綁定 LINE
+- ✅ 病患首次通過 LINE LIFF 登入時，系統將自動綁定 `line_user_id`
+- ✅ 這消除了之前使用 `temp_line_id = f"temp_{secrets.token_hex(8)}"` 污染永久欄位的設計缺陷
 
 ### 7.2 `DailyLogCreate`
 ```python
