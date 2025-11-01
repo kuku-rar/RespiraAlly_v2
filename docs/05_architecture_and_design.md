@@ -2652,6 +2652,7 @@ async def process_voice_task_async(task_data):
 | **ADR-007** | 擬人化孫女口吻訊息 | 已決定 | [ADR-007](./adr/ADR-007-persona-based-messaging-tone.md) |
 | **ADR-008** | 治療師登入失敗鎖定策略 | 已決定 | [ADR-008](./adr/ADR-008-login-lockout-policy.md) |
 | **ADR-009** | Modular Monolith 而非微服務 (MVP) | 已決定 | [05_architecture_and_design.md](./05_architecture_and_design.md) |
+| **ADR-010** | TD-002: 允許 PATIENT 創建時無 LINE binding | 已完成 | [TD-002 Changelog](#td-002-patient-line_user_id-constraint-fix-2025-11-01) |
 
 ---
 
@@ -3404,3 +3405,107 @@ sequenceDiagram
 ---
 
 **文件結束** | 最後更新: 2025-10-19
+
+## 附錄 D: 技術債務修復記錄 (Technical Debt Fixes)
+
+### TD-002: PATIENT line_user_id Constraint Fix (2025-11-01)
+
+#### 問題描述 (Problem Statement)
+
+**設計缺陷**: 使用臨時值污染永久欄位
+
+原始設計在 `backend/src/respira_ally/api/v1/routers/patient.py` 中：
+```python
+# ❌ 錯誤設計 - 使用臨時值污染永久欄位
+temp_line_id = f"temp_{secrets.token_hex(8)}"
+new_user = UserModel(
+    line_user_id=temp_line_id,  # 臨時值污染永久欄位
+    role="PATIENT",
+)
+```
+
+**根本原因 (Root Cause)**:
+- 資料庫約束 `users_patient_line_check` 強制要求 PATIENT 必須有 `line_user_id`
+- 但治療師創建病患時，病患尚未綁定 LINE 帳號
+- 為了滿足約束，使用臨時值 `temp_xxx` 填充，違反 "Good Taste" 原則
+
+#### Linus Torvalds "Good Taste" 分析
+
+> "Bad programmers worry about the code. Good programmers worry about data structures."
+
+**數據結構問題**:
+1. **污染語意**: `line_user_id` 應該只存儲真實的 LINE User ID，不應包含臨時值
+2. **特殊情況**: 需要額外邏輯識別 `temp_` 前綴，增加複雜度
+3. **數據清理**: 需要後續清理臨時值，增加維護成本
+
+**好的設計應該是**:
+- NULL 表示 "尚未綁定"
+- 有值表示 "已綁定"
+- 沒有特殊情況，沒有臨時值
+
+#### 解決方案 (Solution)
+
+**資料庫約束修正**:
+```sql
+-- ✅ 修正後: 允許 PATIENT 沒有 line_user_id
+ALTER TABLE users DROP CONSTRAINT IF EXISTS users_patient_line_check;
+
+-- ✅ 修正後: PATIENT 可以沒有登錄方式（創建時）
+ALTER TABLE users DROP CONSTRAINT IF EXISTS users_login_method_check;
+ALTER TABLE users ADD CONSTRAINT users_login_method_check
+    CHECK (role = 'PATIENT' OR (line_user_id IS NOT NULL OR email IS NOT NULL));
+```
+
+**程式碼修正**:
+```python
+# ✅ 正確設計 - 使用 NULL 語意
+new_user = UserModel(
+    line_user_id=None,  # NULL until LINE binding (fixed in TD-002)
+    role="PATIENT",
+    email=None,
+    hashed_password=None,
+)
+```
+
+#### NULL 語意 (NULL Semantics)
+
+| line_user_id 值 | 語意 | 允許登入? | 使用場景 |
+|-----------------|------|-----------|----------|
+| NULL | 病患記錄存在但尚未綁定 LINE | ❌ | 治療師創建病患記錄 |
+| "U123abc..." | 已綁定 LINE User ID | ✅ | 病患首次 LINE LIFF 登入後 |
+
+#### 影響範圍 (Impact)
+
+**✅ 向後相容**:
+- 現有已綁定 LINE 的病患不受影響
+- LINE 登入流程不變
+- 只影響新創建的病患記錄
+
+**✅ 消除技術債**:
+- 移除所有 `temp_line_id` 生成邏輯
+- 移除 `import secrets` 依賴
+- 簡化數據清理流程
+
+#### 實施記錄 (Implementation)
+
+1. **Migration**: `alembic/versions/2025_11_01_0825-remove_temp_line_id_constraint.py`
+2. **ORM Model**: `backend/src/respira_ally/infrastructure/database/models/user.py`
+3. **Router Layer**: `backend/src/respira_ally/api/v1/routers/patient.py`
+4. **Documentation**:
+   - API 規範: `docs/06_api_design_specification.md` (v1.0.0 → v1.1.0)
+   - 資料庫設計: `docs/database/schema_design_v1.0.md` (v2.1 → v2.2)
+   - 架構設計: `docs/05_architecture_and_design.md` (本文檔)
+
+#### 經驗教訓 (Lessons Learned)
+
+**Linus 的智慧應用**:
+1. **消除特殊情況**: 不要用臨時值填充永久欄位
+2. **數據結構優先**: 好的數據結構讓程式碼更簡單
+3. **NULL 是朋友**: NULL 比臨時值更有語意
+
+**DDD 原則應用**:
+- NULL 明確表達了聚合的生命週期狀態
+- 病患聚合可以在 LINE binding 前存在
+- 綁定 LINE 是一個明確的領域事件
+
+---
