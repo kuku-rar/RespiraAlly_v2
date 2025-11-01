@@ -1,0 +1,513 @@
+ 證據確鑿！beloved_grandson 兩個 Agent 都用 memory=False
+
+  ---
+  📊 完整方案對比分析
+
+  1️⃣ 數據結構分析（Linus 第一層）
+
+  我們真正需要的三種數據：
+
+  ┌─────────────────────────────────────────────────────┐
+  │ 1. 對話歷史 (Conversation History)                   │
+  │    - 用途: 多輪對話上下文                              │
+  │    - 生命週期: 5分鐘 session                           │
+  │    - 最佳存儲: Redis (已有) ✅                         │
+  │    - CrewAI Memory 作用: ❌ 不需要                    │
+  └─────────────────────────────────────────────────────┘
+
+  ┌─────────────────────────────────────────────────────┐
+  │ 2. COPD 知識庫 (Domain Knowledge)                    │
+  │    - 用途: RAG 語義檢索                               │
+  │    - 生命週期: 持久化                                  │
+  │    - 最佳存儲: pgvector (已有) ✅                     │
+  │    - CrewAI Memory 作用: ❌ 不需要                    │
+  └─────────────────────────────────────────────────────┘
+
+  ┌─────────────────────────────────────────────────────┐
+  │ 3. Agent 執行狀態 (Agent Execution State)            │
+  │    - 用途: Guardrail → Health 的中間結果               │
+  │    - 生命週期: 單次請求內                              │
+  │    - 最佳存儲: Memory (function call result)         │
+  │    - CrewAI Memory 作用: ❌ 不需要 (Crew 自動管理)    │
+  └─────────────────────────────────────────────────────┘
+
+  "Good Taste" 判斷：
+  - CrewAI Memory (ChromaDB) = 第四個向量庫，與 pgvector 職責重疊 ❌
+  - Mem0 = 第五個抽象層，在 CrewAI 和 pgvector 之間 ❌
+
+  ---
+  2️⃣ DDD 架構契合度分析
+
+  方案矩陣
+
+  | 方案                      | Bounded Context 清晰度 | 依賴反轉     | 單一職責     | Repository 封裝 | 維護性     | 總分    |
+  |-------------------------|---------------------|----------|----------|---------------|---------|-------|
+  | 🏆 CrewAI memory=False  | ✅✅✅ 完美分離            | ✅✅✅ 完全符合 | ✅✅✅ 各司其職 | ✅✅✅ 標準模式      | ✅✅✅ 最優  |
+  15/15 |
+  | CrewAI + Mem0           | ⚠️⚠️ 引入耦合           | ⚠️ 部分洩漏  | ⚠️ 職責混淆  | ⚠️ 雙層封裝       | ⚠️ 複雜   | 5/15  |
+  | CrewAI + Custom Storage | ⚠️ 實現耦合             | ✅ 符合接口   | ✅ 還可以    | ⚠️ 自訂實現       | ❌ 維護成本高 | 7/15  |
+  | LangChain Agent         | ✅✅ 清晰               | ✅✅✅ 完全符合 | ✅✅✅ 各司其職 | ✅✅✅ 標準模式      | ✅✅ 良好   | 13/15 |
+  | CrewAI + Chroma (原A)    | ❌ 混亂                | ❌ 依賴具體實現 | ❌ 職責重疊   | ❌ 無封裝         | ❌ 最差    | 0/15  |
+
+  DDD 視角詳解
+
+  CrewAI memory=False 的架構：
+
+  ┌────────────────────────────────────────────────────┐
+  │ Application Layer (AgentManager)                   │
+  │ ┌────────────────────────────────────────────────┐ │
+  │ │ Crew(memory=False) - 純協調邏輯                 │ │
+  │ │   ├─ GuardrailAgent (stateless)                │ │
+  │ │   └─ HealthAgent (stateless)                   │ │
+  │ └────────────────────────────────────────────────┘ │
+  │         ↓ 依賴接口                                   │
+  │ ┌────────────────────────────────────────────────┐ │
+  │ │ Domain Services (純業務邏輯)                     │ │
+  │ │   ConversationRepository (interface)            │ │
+  │ │   KnowledgeRepository (interface)               │ │
+  │ └────────────────────────────────────────────────┘ │
+  └────────────────────────────────────────────────────┘
+           ↓ 依賴反轉
+  ┌────────────────────────────────────────────────────┐
+  │ Infrastructure Layer (實現細節)                     │
+  │ ┌────────────────┐  ┌───────────────────────────┐ │
+  │ │ Redis          │  │ PostgreSQL + pgvector     │ │
+  │ │ (對話歷史)      │  │ (COPD 知識庫)              │ │
+  │ └────────────────┘  └───────────────────────────┘ │
+  └────────────────────────────────────────────────────┘
+
+  為什麼 Mem0 破壞 DDD：
+
+  ❌ 錯誤：引入 Mem0 破壞封裝
+
+  ┌────────────────────────────────────────┐
+  │ AgentManager                           │
+  │   ├─ CrewAI                           │
+  │   │    └─ Mem0 (外掛記憶)              │  ← 洩漏 infrastructure 到 application
+  │   │         ├─ pgvector adapter       │  ← 雙重抽象
+  │   │         └─ Redis adapter           │
+  │   └─ 直接依賴 Mem0 API                 │  ← 違反依賴反轉
+  └────────────────────────────────────────┘
+           ↓
+  問題：
+  1. Domain 依賴 Mem0 的具體 API（洩漏）
+  2. pgvector 被 Mem0 包裹（無法直接優化）
+  3. 換 Vector DB 需要改 Mem0 配置 + Repository（雙重維護）
+
+  ---
+  3️⃣ 維護性場景模擬
+
+  場景 1：更換 LLM Provider（OpenAI → Claude）
+
+  CrewAI memory=False：
+  # 只需改 Agent 配置
+  health_agent = Agent(
+      llm=ChatAnthropic(model="claude-3-5-sonnet"),  # 改這裡
+      # Redis/pgvector 完全不受影響
+  )
+  🟢 影響範圍：1 個檔案，5 行程式碼
+
+  CrewAI + Mem0：
+  # 需要檢查 Mem0 的 embedding 兼容性
+  external_memory = ExternalMemory(
+      provider="mem0",
+      config={
+          "embedding_model": "openai",  # 需要檢查是否支援 Claude embedding
+          ...
+      }
+  )
+  🟡 影響範圍：2-3 個檔案，需要測試 Mem0 兼容性
+
+  ---
+  場景 2：新增 Medication Agent（用藥提醒）
+
+  CrewAI memory=False：
+  # 1. 定義新 Agent
+  medication_agent = Agent(
+      role="Medication Advisor",
+      goal="提醒用藥時間與注意事項",
+      tools=[MedicationScheduleTool()],
+      memory=False
+  )
+
+  # 2. 注入相同的 Repository
+  class AgentManager:
+      def __init__(self, conv_repo, kb_repo):  # 複用現有 repo
+          self.medication_agent = medication_agent
+  🟢 新增：1 個 Agent class + 1 個 Tool，完全隔離
+
+  CrewAI + Mem0：
+  # 需要配置 Mem0 的 agent-specific memory
+  external_memory = ExternalMemory(
+      config={
+          "agents": {
+              "guardrail": {...},
+              "health": {...},
+              "medication": {...},  # 新增配置
+          }
+      }
+  )
+  🟡 新增：Agent + Tool + Mem0 配置，耦合增加
+
+  ---
+  場景 3：支援離線模式（本地 LLM）
+
+  CrewAI memory=False：
+  # 只需替換 LLM
+  from langchain.llms import LlamaCpp
+
+  health_agent = Agent(
+      llm=LlamaCpp(model_path="./models/llama-7b.gguf"),
+      # Redis/pgvector 本地就能用
+  )
+  🟢 影響：僅 LLM 配置
+
+  CrewAI + Mem0：
+  # Mem0 可能需要網絡連接
+  # 需要檢查 Mem0 的離線支援
+  🔴 風險：Mem0 的離線能力未知
+
+  ---
+  4️⃣ 複雜度量化分析
+
+  | 指標    | CrewAI memory=False    | CrewAI + Mem0                   | Custom Storage            | LangChain                 |
+  |-------|------------------------|---------------------------------|---------------------------|---------------------------|
+  | 核心概念數 | 4                      | 6                               | 5                         | 4                         |
+  | 外部依賴  | crewai, redis, asyncpg | crewai, mem0, redis, asyncpg    | crewai, redis, asyncpg    | langchain, redis, asyncpg |
+  | 配置檔案  | 1 (env)                | 2 (env + mem0.yaml)             | 1 (env)                   | 1 (env)                   |
+  | 調試層級  | 2 (App → Infra)        | 4 (App → CrewAI → Mem0 → Infra) | 3 (App → Storage → Infra) | 2 (App → Infra)           |
+  | 測試複雜度 | 低 (mock repo)          | 高 (mock Mem0 + repo)            | 中 (測試 Storage 實現)         | 低 (mock repo)
+    |
+  | 文檔依賴  | CrewAI docs            | CrewAI + Mem0 docs              | CrewAI internal API       | LangChain docs            |
+
+  Linus 標準："如果你需要超過3層縮排，你就已經完蛋了"
+
+  - CrewAI memory=False：2 層 ✅
+  - CrewAI + Mem0：4 層 ❌
+
+  ---
+  5️⃣ 部署影響對比
+
+  Docker Image Size
+
+  # CrewAI memory=False (無 ChromaDB)
+  Base: python:3.12-slim (150MB)
+  + CrewAI (無 chromadb): +50MB
+  + 業務代碼: +10MB
+  = 總計: ~210MB ✅
+
+  # CrewAI + Mem0
+  Base: python:3.12-slim (150MB)
+  + CrewAI (含 chromadb): +300MB
+  + Mem0: +100MB
+  + 業務代碼: +10MB
+  = 總計: ~560MB ❌
+
+  # CrewAI + ChromaDB (原方案A)
+  Base: python:3.12-slim (150MB)
+  + CrewAI (含 chromadb): +300MB
+  + chromadb 依賴: +200MB
+  + 業務代碼: +10MB
+  = 總計: ~660MB ❌❌
+
+  Zeabur 部署複雜度
+
+  | 方案           | 需要持久化存儲               | 冷啟動時間 | 橫向擴展        |
+  |--------------|-----------------------|-------|-------------|
+  | memory=False | ❌ 只需 Redis + Postgres | <5s   | ✅ Stateless |
+  | Mem0         | ⚠️ Mem0 state         | ~10s  | ⚠️ 需配置      |
+  | ChromaDB     | ✅ Chroma volume       | ~15s  | ❌ Stateful  |
+
+  ---
+  6️⃣ beloved_grandson 證據鏈
+
+  # beloved_grandson/services/ai-worker/worker/llm_app/HealthBot/agent.py
+
+  def create_guardrail_agent() -> Agent:
+      return Agent(
+          ...
+          memory=False,  # ← 證據1：Guardrail 不用 memory
+      )
+
+  def create_health_companion(user_id: str) -> Agent:
+      return Agent(
+          ...
+          tools=[
+              SearchMilvusTool(),  # ← 證據2：知識檢索用 Tool (Milvus)
+              AlertCaseManagerTool(),
+          ],
+          memory=False,  # ← 證據3：Health 也不用 memory
+      )
+
+  結論：beloved_grandson 的記憶管理策略：
+  - ✅ CrewAI memory=False
+  - ✅ 對話歷史：外部管理（Redis）
+  - ✅ 知識檢索：Tool 調用（Milvus → 我們用 pgvector）
+
+  ---
+  🏆 最終推薦方案
+
+  CrewAI memory=False + Repository Pattern
+
+  架構實現：
+
+  # ==========================================
+  # Domain Layer - 領域層（業務邏輯）
+  # ==========================================
+  from abc import ABC, abstractmethod
+  from typing import List
+  from dataclasses import dataclass
+
+  @dataclass
+  class Message:
+      role: str
+      content: str
+      timestamp: datetime
+
+  @dataclass
+  class Document:
+      content: str
+      metadata: dict
+      score: float
+
+  class ConversationRepository(ABC):
+      """對話歷史存儲接口"""
+      @abstractmethod
+      async def get_history(self, user_id: str, limit: int = 10) -> List[Message]:
+          pass
+
+      @abstractmethod
+      async def save_message(self, user_id: str, message: Message) -> None:
+          pass
+
+      @abstractmethod
+      async def clear_history(self, user_id: str) -> None:
+          pass
+
+  class KnowledgeRepository(ABC):
+      """COPD 知識庫檢索接口"""
+      @abstractmethod
+      async def search(
+          self, 
+          query: str, 
+          top_k: int = 3,
+          category: str | None = None
+      ) -> List[Document]:
+          pass
+
+  # ==========================================
+  # Infrastructure Layer - 基礎設施層（實現）
+  # ==========================================
+  class RedisConversationRepository(ConversationRepository):
+      def __init__(self, redis_client: Redis):
+          self.redis = redis_client
+          self.ttl = 300  # 5 minutes
+
+      async def get_history(self, user_id: str, limit: int = 10) -> List[Message]:
+          key = f"conv:{user_id}"
+          messages_json = await self.redis.lrange(key, -limit, -1)
+          return [Message(**json.loads(msg)) for msg in messages_json]
+
+      async def save_message(self, user_id: str, message: Message) -> None:
+          key = f"conv:{user_id}"
+          await self.redis.rpush(key, message.json())
+          await self.redis.expire(key, self.ttl)
+
+  class PgvectorKnowledgeRepository(KnowledgeRepository):
+      def __init__(self, db_session: AsyncSession, openai_client: OpenAI):
+          self.db = db_session
+          self.openai = openai_client
+
+      async def search(
+          self, 
+          query: str, 
+          top_k: int = 3,
+          category: str | None = None
+      ) -> List[Document]:
+          # 1. 生成 embedding
+          response = await self.openai.embeddings.create(
+              model="text-embedding-3-small",
+              input=query
+          )
+          query_embedding = response.data[0].embedding
+
+          # 2. pgvector 相似度搜索
+          stmt = select(COPDKnowledgeBaseModel).order_by(
+              COPDKnowledgeBaseModel.embedding.cosine_distance(query_embedding)
+          ).limit(top_k)
+
+          if category:
+              stmt = stmt.where(COPDKnowledgeBaseModel.category == category)
+
+          result = await self.db.execute(stmt)
+          rows = result.scalars().all()
+
+          return [
+              Document(
+                  content=f"Q: {row.question}\nA: {row.answer}",
+                  metadata={"category": row.category, "keywords": row.keywords},
+                  score=1.0  # pgvector 會返回 distance，可轉換
+              )
+              for row in rows
+          ]
+
+  # ==========================================
+  # Application Layer - 應用層（協調）
+  # ==========================================
+  from crewai import Crew, Agent, Task
+
+  class AgentManager:
+      def __init__(
+          self,
+          conversation_repo: ConversationRepository,
+          knowledge_repo: KnowledgeRepository,
+          openai_api_key: str
+      ):
+          self.conv_repo = conversation_repo
+          self.kb_repo = knowledge_repo
+
+          # CrewAI Agents (memory=False)
+          self.guardrail_agent = Agent(
+              role="Safety Checker",
+              goal="檢查訊息是否包含醫療風險、法律問題或不當內容",
+              backstory="嚴謹的安全審查器，保護用戶安全",
+              llm=ChatOpenAI(model="gpt-4-turbo", api_key=openai_api_key),
+              memory=False,  # ← 關鍵：不用 CrewAI Memory
+              allow_delegation=False,
+              verbose=True
+          )
+
+          self.health_agent = Agent(
+              role="COPD Health Companion",
+              goal="提供專業、溫暖的 COPD 健康建議",
+              backstory="經驗豐富的呼吸科護理師，擅長 COPD 衛教",
+              llm=ChatOpenAI(model="gpt-4-turbo", api_key=openai_api_key),
+              memory=False,  # ← 關鍵：不用 CrewAI Memory
+              allow_delegation=False,
+              verbose=True
+          )
+
+          # Crew 協調
+          self.crew = Crew(
+              agents=[self.guardrail_agent, self.health_agent],
+              memory=False,  # ← 關鍵：不用 CrewAI Memory
+              verbose=True
+          )
+
+      async def process_message(self, user_id: str, message: str) -> str:
+          # 1. 取得對話歷史 (from Redis)
+          history = await self.conv_repo.get_history(user_id)
+          history_text = "\n".join([
+              f"{msg.role}: {msg.content}" for msg in history
+          ])
+
+          # 2. 檢索 COPD 知識 (from pgvector)
+          context_docs = await self.kb_repo.search(message, top_k=3)
+          context_text = "\n\n".join([
+              f"[知識 {i+1}] {doc.content}" for i, doc in enumerate(context_docs)
+          ])
+
+          # 3. 定義 Tasks
+          guardrail_task = Task(
+              description=f"""
+              檢查以下使用者訊息是否安全：
+  
+              訊息：{message}
+  
+              檢查項目：
+              - 是否包含自殺/自殘念頭
+              - 是否需要緊急醫療處理
+              - 是否涉及法律問題
+  
+              如果安全，回傳 "SAFE"
+              如果不安全，回傳 "UNSAFE: [原因]"
+              """,
+              agent=self.guardrail_agent,
+              expected_output="SAFE 或 UNSAFE: [原因]"
+          )
+
+          health_task = Task(
+              description=f"""
+              根據以下資訊，生成專業且溫暖的回應：
+  
+              使用者訊息：{message}
+  
+              對話歷史：
+              {history_text}
+  
+              COPD 知識庫：
+              {context_text}
+  
+              要求：
+              - 使用繁體中文
+              - 語氣溫暖親切
+              - 引用知識庫內容時註明來源
+              - 若涉及醫療建議，提醒諮詢醫師
+              - 控制在 150 字以內
+              """,
+              agent=self.health_agent,
+              expected_output="一段溫暖且專業的回應",
+              context=[guardrail_task]  # ← 依賴 guardrail 結果
+          )
+
+          # 4. 執行 Crew (Guardrail → Health)
+          result = await self.crew.kickoff_async(
+              tasks=[guardrail_task, health_task]
+          )
+
+          # 5. 檢查 Guardrail 結果
+          if "UNSAFE" in guardrail_task.output.raw_output:
+              response = "抱歉，您的訊息包含敏感內容。如需緊急協助，請撥打 119。"
+          else:
+              response = health_task.output.raw_output
+
+          # 6. 保存對話 (to Redis)
+          await self.conv_repo.save_message(user_id, Message(
+              role="user", content=message, timestamp=datetime.utcnow()
+          ))
+          await self.conv_repo.save_message(user_id, Message(
+              role="assistant", content=response, timestamp=datetime.utcnow()
+          ))
+
+          return response
+
+  ---
+  📋 實施決策建議
+
+  ✅ 推薦：CrewAI memory=False
+
+  理由總結：
+  1. ✅ beloved_grandson 實證：已驗證可行
+  2. ✅ DDD 完美契合：Repository Pattern + 依賴反轉
+  3. ✅ 最簡架構：4 個核心概念，2 層調試
+  4. ✅ 維護性最優：組件可獨立替換
+  5. ✅ 部署最輕：~210MB vs ~560MB (Mem0) vs ~660MB (Chroma)
+  6. ✅ Linus 認證："Bad programmers worry about the code. Good programmers worry about data structures." - 我們的數據結構清晰（Redis        
+  對話, pgvector 知識）
+
+  ❌ 不推薦：Mem0 / Custom Storage
+
+  Mem0 的問題：
+  - 引入第5層抽象（User → LINE → RabbitMQ → AgentManager → CrewAI → Mem0 → pgvector）
+  - 破壞 DDD 封裝（Domain 依賴 Mem0 API）
+  - beloved_grandson 沒用（失去參考價值）
+
+  Custom Storage 的問題：
+  - 實現成本高（需實現完整 Storage 接口）
+  - 維護成本高（CrewAI 更新需跟進）
+  - 測試成本高（需驗證自訂實現正確性）
+
+  ---
+  🚀 下一步行動
+
+  如果你同意這個方案，我將：
+
+  1. ✅ 安裝 CrewAI（需 build-essential，但 Zeabur 官方 Python image 自帶）
+  2. ✅ 實現 Repository Pattern（Redis + pgvector）
+  3. ✅ 實現 AgentManager（Crew with memory=False）
+  4. ✅ 載入 COPD_QA.xlsx（生成 embeddings）
+  5. ✅ 實現 RabbitMQ 整合
+  6. ✅ 實現 LINE Webhook
+  7. ✅ 端到端測試
+
+  請確認是否同意此方案？

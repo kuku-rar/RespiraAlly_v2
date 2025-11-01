@@ -1,0 +1,122 @@
+[
+  {
+    "test_name": "Invalid Password",
+    "endpoint": "/auth/therapist/login",
+    "method": "POST",
+    "success": true,
+    "status_code": 401,
+    "response_summary": "{'error': {'type': 'UnauthorizedError', 'message': 'Invalid email or password', 'timestamp': '2025-10-30T08:07:44.078611+00:00'}}",
+    "notes": "Should return 401 UnauthorizedError",
+    "timestamp": "2025-10-30T16:07:44.079687"
+  },
+  {
+    "test_name": "Non-existent Email",
+    "endpoint": "/auth/therapist/login",
+    "method": "POST",
+    "success": true,
+    "status_code": 401,
+    "response_summary": "{'error': {'type': 'UnauthorizedError', 'message': 'Invalid email or password', 'timestamp': '2025-10-30T08:07:44.087152+00:00'}}",
+    "notes": "Should return 401 for non-existent email",
+    "timestamp": "2025-10-30T16:07:44.087930"
+  },
+  {
+    "test_name": "Invalid Email Format",
+    "endpoint": "/auth/therapist/login",
+    "method": "POST",
+    "success": true,
+    "status_code": 422,
+    "response_summary": "{'error': {'type': 'RequestValidationError', 'message': 'Request validation failed', 'timestamp': '2025-10-30T08:07:44.089945+00:00', 'details': {'errors': [{'field': 'body -> email', 'message': 'valu",
+    "notes": "Should return 422 validation error",
+    "timestamp": "2025-10-30T16:07:44.090762"
+  },
+  {
+    "test_name": "Empty Password",
+    "endpoint": "/auth/therapist/login",
+    "method": "POST",
+    "success": true,
+    "status_code": 422,
+    "response_summary": "{'error': {'type': 'RequestValidationError', 'message': 'Request validation failed', 'timestamp': '2025-10-30T08:07:44.092848+00:00', 'details': {'errors': [{'field': 'body -> password', 'message': 'S",
+    "notes": "Should return 422 for empty password (min 8 chars)",
+    "timestamp": "2025-10-30T16:07:44.093341"
+  },
+  {
+    "test_name": "Valid Therapist Login",
+    "endpoint": "/auth/therapist/login",
+    "method": "POST",
+    "success": true,
+    "status_code": 200,
+    "response_summary": "{'access_token': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI3ZDc3NGVmZi0xOTA2LTQwYWItOGFlMC02OWQyOWJkOWFjZDgiLCJyb2xlIjoiVEhFUkFQSVNUIiwiZXhwIjoxNzYxODQwNDY0LCJpYXQiOjE3NjE4MTE2NjQsInR5cGUiOiJhY",
+    "notes": "Returns access_token, refresh_token, and user info",
+    "timestamp": "2025-10-30T16:07:44.317187"
+  },
+  {
+    "test_name": "Protected Endpoint with Valid Token",
+    "endpoint": "/patients/",
+    "method": "GET",
+    "success": true,
+    "status_code": 200,
+    "response_summary": "{'items': [], 'total': 0, 'page': 0, 'page_size': 20, 'has_next': False}",
+    "notes": "Token works, returned 0 patients",
+    "timestamp": "2025-10-30T16:07:44.335285"
+  },
+  {
+    "test_name": "Protected Endpoint Without Token",
+    "endpoint": "/patients/",
+    "method": "GET",
+    "success": true,
+    "status_code": 401,
+    "response_summary": "{'error': {'type': 'UnauthorizedError', 'message': 'Missing Authorization header', 'timestamp': '2025-10-30T08:07:44.336843+00:00'}}",
+    "notes": "Should return 401 when no token provided",
+    "timestamp": "2025-10-30T16:07:44.337493"
+  },
+  {
+    "test_name": "Therapist Registration",
+    "endpoint": "/auth/therapist/register",
+    "method": "POST",
+    "success": true,
+    "status_code": 201,
+    "response_summary": "{'access_token': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2N2QyODlmZS0yY2U4LTQ5ZDAtODRkYy0zMmRlMWU5YzYwOWYiLCJyb2xlIjoiVEhFUkFQSVNUIiwiZXhwIjoxNzYxODQwNDY0LCJpYXQiOjE3NjE4MTE2NjQsInR5cGUiOiJhY",
+    "notes": "Auto-login after registration",
+    "timestamp": "2025-10-30T16:07:44.565592"
+  },
+  {
+    "test_name": "Duplicate Email Registration",
+    "endpoint": "/auth/therapist/register",
+    "method": "POST",
+    "success": true,
+    "status_code": 409,
+    "response_summary": "{'error': {'type': 'ConflictError', 'message': \"User conflict: email 'test@therapist.com' already exists\", 'timestamp': '2025-10-30T08:07:44.571464+00:00', 'details': {'resource_type': 'User', 'confli",
+    "notes": "Should return 409 ConflictError",
+    "timestamp": "2025-10-30T16:07:44.572123"
+  },
+  {
+    "test_name": "Refresh Access Token",
+    "endpoint": "/auth/refresh",
+    "method": "POST",
+    "success": true,
+    "status_code": 200,
+    "response_summary": "{'access_token': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI3ZDc3NGVmZi0xOTA2LTQwYWItOGFlMC02OWQyOWJkOWFjZDgiLCJyb2xlIjoiVEhFUkFQSVNUIiwiZXhwIjoxNzYxODQwNDY0LCJpYXQiOjE3NjE4MTE2NjQsInR5cGUiOiJhY",
+    "notes": "Returns new access_token",
+    "timestamp": "2025-10-30T16:07:44.574484"
+  },
+  {
+    "test_name": "Logout (Revoke Token)",
+    "endpoint": "/auth/logout",
+    "method": "POST",
+    "success": true,
+    "status_code": 204,
+    "response_summary": "No content (204)",
+    "notes": "Token should be blacklisted",
+    "timestamp": "2025-10-30T16:07:44.577412"
+  },
+  {
+    "test_name": "Use Revoked Token",
+    "endpoint": "/patients/",
+    "method": "GET",
+    "success": false,
+    "status_code": 200,
+    "response_summary": "{'items': [], 'total': 0, 'page': 0, 'page_size': 20, 'has_next': False}",
+    "notes": "Should return 401 for blacklisted token",
+    "timestamp": "2025-10-30T16:07:44.584284"
+  }
+]

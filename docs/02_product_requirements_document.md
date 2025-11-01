@@ -3,7 +3,7 @@
 ---
 
 **文件版本 (Document Version):** `v3.0`
-**最後更新 (Last Updated):** `2025-10-20`
+**最後更新 (Last Updated):** `2025-10-27`
 **主要作者 (Lead Author):** `Claude Code AI`
 **狀態 (Status):** `草稿 (Draft)` - 客戶新需求整合完成
 
@@ -79,7 +79,7 @@
 | **US-301** | **As a** 病患,<br>**I want to** 用語音詢問健康問題,<br>**so that** 不需要打字。 | 1. 15 秒內收到文字與語音回覆。<br>2. 支援台語/國語辨識。<br>3. 對於無法辨識的音訊應有提示。 | [bdd/epic_300_ai_interaction.feature](./bdd/epic_300_ai_interaction.feature) |
 | **US-302** | **As an** AI Worker,<br>**I want to** 處理語音任務佇列,<br>**so that** 不阻塞主服務。 | 1. 依序執行 STT, RAG, LLM, TTS。<br>2. 任何步驟失敗應有重試機制。<br>3. 最終結果透過 WebSocket 推送。 | [bdd/epic_300_ai_interaction.feature](./bdd/epic_300_ai_interaction.feature) |
 | **US-303** | **As a** 病患,<br>**I want to** 讓 AI 回覆引用可信來源,<br>**so that** 我能增加信任感。 | 1. 回覆應附上參考資料連結。<br>2. 當 AI 回覆信心度低時，應提示使用者諮詢治療師。 | [bdd/epic_300_ai_interaction.feature](./bdd/epic_300_ai_interaction.feature) |
-
+P
 ---
 
 ## 第 4 部分：範圍與限制 (Scope & Constraints)

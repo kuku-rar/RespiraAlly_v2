@@ -1,0 +1,192 @@
+完美！現在讓我進行完整的架構分析與設計。
+
+  📊 beloved_grandson 架構分析
+
+  依賴關鍵發現：
+
+  - ✅ crewai + crewai-tools 直接列出（未指定版本）
+  - ✅ pymilvus for vector DB（不是 pgvector）
+  - ✅ pika for RabbitMQ
+  - ✅ redis for session
+  - ✅ openai + langchain-openai for LLM
+  - ⚠️ torch + transformers (大型依賴，我們可能不需要)
+
+  ---
+  🌳 樹狀思考：RespiraAlly LLM 架構設計
+
+  讓我按 Linus 三問 + DDD 原則 進行系統性分析：
+
+  Level 1: 問題本質分析
+
+  Linus 第一問："這是真問題還是臆想問題？"
+
+  真問題：
+  1. ✅ COPD 患者需要 LINE Bot 健康諮詢
+  2. ✅ 需要基於 COPD 知識庫的專業回答
+  3. ✅ 需要對話記憶（multi-turn conversation）
+  4. ✅ 需要防衛機制（避免醫療建議風險）
+  5. ✅ 異步處理（LINE webhook timeout 限制）
+
+  臆想問題：
+  - ❌ 一定要用 CrewAI？（可用 LangChain + 簡單 agent pattern）
+  - ❌ 一定要 Milvus？（PostgreSQL full-text search 已足夠 MVP）
+  - ❌ 一定要 Torch？（用 OpenAI API 就好）
+
+  ---
+  Linus 第二問："有更簡單的方法嗎？"
+
+  MVP 簡化策略：
+  階段 1 (本次 Sprint 6):
+    LINE Webhook → RabbitMQ → Worker
+    Worker: Guardrail Check → RAG Search → LLM Response
+    使用: PostgreSQL full-text + OpenAI API + Redis Session
+
+  階段 2 (未來優化):
+    升級為 pgvector semantic search
+    引入 CrewAI multi-agent
+
+  ---
+  Linus 第三問："會破壞什麼嗎？"
+
+  向後兼容檢查：
+  - ✅ 新增 AI module，不影響現有 API
+  - ✅ RabbitMQ 已在 docker-compose，只需啟用
+  - ✅ Redis 已有，擴展 session 管理
+  - ⚠️ 需新增 LINE webhook endpoint
+
+  ---
+  Level 2: DDD 邊界上下文設計
+
+  ┌─────────────────────────────────────────────────────────┐
+  │  Bounded Context: Messaging (LINE Integration)          │
+  │  職責: LINE 訊息接收、發送、webhook 驗證                  │
+  │  Aggregate: LineMessage                                  │
+  │  Events: MessageReceived, MessageSent                    │
+  └─────────────────────────────────────────────────────────┘
+                │ publishes
+                ▼ (RabbitMQ: line.message.received)
+  ┌─────────────────────────────────────────────────────────┐
+  │  Bounded Context: AI Processing                          │
+  │  職責: 對話理解、知識檢索、回應生成                        │
+  │  Aggregates:                                             │
+  │    - Conversation (對話會話)                             │
+  │    - GuardrailCheck (防衛檢查)                           │
+  │    - HealthResponse (健康回應)                           │
+  │  Events: ConversationStarted, ResponseGenerated         │
+  └─────────────────────────────────────────────────────────┘
+                │ uses
+                ▼
+  ┌─────────────────────────────────────────────────────────┐
+  │  Bounded Context: Knowledge Base                         │
+  │  職責: COPD 知識管理、語意搜尋                            │
+  │  Aggregate: KnowledgeEntry                               │
+  │  Events: KnowledgeQueried                                │
+  └─────────────────────────────────────────────────────────┘
+
+  ---
+  Level 3: 事件流程設計
+
+  sequenceDiagram
+      participant User as 👤 LINE User
+      participant LINE as LINE Platform
+      participant Webhook as LINE Webhook<br/>(FastAPI)
+      participant MQ as RabbitMQ
+      participant Worker as AI Worker<br/>(Consumer)
+      participant Redis as Redis<br/>(Session)
+      participant Guard as Guardrail<br/>(LLM Check)
+      participant KB as Knowledge Base<br/>(PostgreSQL)
+      participant LLM as OpenAI GPT-4
+
+      User->>LINE: 傳送訊息
+      LINE->>Webhook: POST /webhooks/line
+      Webhook->>Webhook: 驗證 signature
+      Webhook->>MQ: Publish (line.message.received)
+      Webhook-->>LINE: 200 OK (立即回應)
+
+      MQ->>Worker: Consume message
+      Worker->>Redis: Load conversation history
+      Worker->>Guard: 檢查訊息內容
+
+      alt 觸發防衛機制
+          Guard-->>Worker: BLOCK (醫療風險)
+          Worker->>LINE: 回覆: "請諮詢專業醫師"
+      else 安全通過
+          Worker->>KB: 搜尋相關 COPD 知識
+          KB-->>Worker: 返回 Top-5 相關 Q&A
+          Worker->>LLM: Generate response (with context)
+          LLM-->>Worker: 專業回應
+          Worker->>Redis: Save to history
+          Worker->>LINE: 回覆訊息
+      end
+
+      LINE->>User: 顯示回覆
+
+  ---
+  Level 4: 技術決策矩陣
+
+  | 功能              | beloved_grandson | RespiraAlly MVP      | 理由                 |
+  |-----------------|------------------|----------------------|--------------------|
+  | Vector DB       | Milvus           | PostgreSQL full-text | 簡化部署，已有 PostgreSQL |
+  | Agent Framework | CrewAI           | 手寫 Guardrail + LLM   | 避免 chromadb 編譯問題   |
+  | Message Queue   | RabbitMQ (pika)  | ✅ 同 (aio-pika)       | 已在專案中              |
+  | Session         | Redis            | ✅ 同                  | 已在專案中              |
+  | LLM             | OpenAI           | ✅ 同                  | 已有 API key         |
+  | LINE SDK        | ❌                | line-bot-sdk         | 新增                 |
+
+  ---
+  Level 5: 實作優先順序（基於價值與風險）
+
+  P0 (核心價值鏈):
+    1. ✅ COPD 知識庫表 (已完成)
+    2. 📝 載入 COPD_QA.xlsx 數據
+    3. 🔌 LINE Webhook → RabbitMQ Publisher
+    4. 🤖 RabbitMQ Consumer → AI Worker
+    5. 🛡️ Guardrail 檢查邏輯
+    6. 🔍 Knowledge Base 檢索
+    7. 💬 LLM 回應生成
+    8. 💾 Redis Session 管理
+    
+  P1 (優化項):
+    - Vector semantic search
+    - CrewAI multi-agent
+    - Conversation summarization
+    
+  P2 (未來考量):
+    - Voice input support
+    - Multi-modal responses
+
+  ---
+  🎯 建議行動方案
+
+  選項 A：完全遵循 beloved_grandson（高風險）
+  - 安裝 CrewAI + Milvus + Torch
+  - ⚠️ 風險：編譯失敗、部署複雜、資源消耗大
+
+  選項 B：簡化 MVP 架構（推薦） ⭐
+  - 使用現有技術棧（PostgreSQL + OpenAI + RabbitMQ）
+  - 手寫 Guardrail 邏輯（100行簡單判斷）
+  - ✅ 優勢：快速驗證、易部署、可迭代
+
+  選項 C：混合方案
+  - 先用選項 B 完成 MVP
+  - 驗證成功後，逐步引入 CrewAI
+
+  ---
+  🤔 我的建議
+
+  基於 Linus 實用主義：
+
+  "先讓它工作，再讓它完美"
+
+  建議採用選項 B，實作順序：
+
+  1. 今天完成：載入 COPD 知識庫
+  2. 今天完成：LINE Webhook → RabbitMQ
+  3. 今天完成：簡單 Guardrail（關鍵字過濾）
+  4. 今天完成：RAG 檢索 + OpenAI 回應
+  5. 明天優化：Session 管理、對話記憶
+
+  您的意見？
+  - 是否同意簡化方案？
+  - 還是堅持使用 CrewAI？（我可以研究如何解決編譯問題）
+  - 或者有其他考量？

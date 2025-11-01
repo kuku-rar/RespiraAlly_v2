@@ -1,0 +1,50 @@
+[
+  {
+    "name": "List Patients",
+    "success": true,
+    "code": 200,
+    "notes": "Total: 0"
+  },
+  {
+    "name": "Create Patient",
+    "success": true,
+    "code": 201,
+    "notes": "Created patient: \u6e2c\u8a66\u75c5\u60a3 1761812302"
+  },
+  {
+    "name": "Get Patient Details",
+    "success": true,
+    "code": 200,
+    "notes": "Name: \u6e2c\u8a66\u75c5\u60a3 1761812302"
+  },
+  {
+    "name": "Update Patient",
+    "success": false,
+    "code": 200,
+    "notes": "Updated phone number"
+  },
+  {
+    "name": "List with Search Filter",
+    "success": true,
+    "code": 200,
+    "notes": "Found 1 patients"
+  },
+  {
+    "name": "Pagination",
+    "success": true,
+    "code": 200,
+    "notes": "Total: 1"
+  },
+  {
+    "name": "Unauthorized Access",
+    "success": true,
+    "code": 401,
+    "notes": "No token provided"
+  },
+  {
+    "name": "Non-existent Patient",
+    "success": true,
+    "code": 404,
+    "notes": "Should return 404"
+  }
+]

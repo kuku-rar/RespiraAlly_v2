@@ -1,7 +1,7 @@
 # Changelog - Sprint 5 (2025-10-27)
 
 > **Sprint 5**: Task Management System + Alert UI
-> **日期**: 2025-10-27
+> **日期**: 2025-10-28
 > **版本**: 2.0.0-sprint5
 > **狀態**: ✅ 已完成
 
