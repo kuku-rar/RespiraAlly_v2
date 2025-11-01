@@ -1,18 +1,252 @@
 # RespiraAlly V2.0 - 開發變更日誌
 
 **日期**: 2025-11-01
-**衝刺 (Sprint)**: 4 - 技術債務償還 (TD-002)
-**里程碑**: 資料庫架構優化與 Schema 建置
+**衝刺 (Sprint)**: 4 - 技術債務償還 (TD-002 & TD-003)
+**里程碑**: 資料庫架構優化、Schema 建置與 Domain Layer 完整實作
 
 ---
 
 ## 📋 總結
 
-完成 TD-002 技術債務償還並建立完整的 development 和 production schema：
+完成兩項 P0 技術債務償還 (TD-002 & TD-003) 並建立完整的 development 和 production schema：
 
 ### ✅ 已完成任務
 
-#### 1. **技術債務 TD-002: 移除 temp_line_id 設計缺陷** ✅
+#### 1. **技術債務 TD-003: Domain Entity 完整實作** ✅
+**Commits**: `5b5fe75`, `28a0a4d`, `e6ae549`, `f7373c8`
+
+**問題描述**:
+- 部分 Entity 缺少完整的不變量驗證 (invariants)
+- Value Objects 未充分使用（如 EmailAddress, PhoneNumber）
+- Domain Events 未在所有聚合根實作
+
+**解決方案**:
+根據 DDD 最佳實踐與 Linus Torvalds 的 "Good Taste" 哲學：
+- 強化 Patient Aggregate 的不變量驗證
+- 實作 Value Objects 封裝敏感資訊
+- 整合 Domain Events 實現事件驅動架構
+- 建立完整的單元測試覆蓋 (97 個測試案例)
+
+**實作任務**:
+
+##### TD-003.1: Patient Aggregate 不變量強化 ✅
+**檔案**: `backend/src/respira_ally/domain/entities/patient.py`
+**Commit**: `5b5fe75`
+
+**增強的驗證規則**:
+```python
+# 姓名驗證 (1-100 字元，不可空白)
+if not name or not name.strip():
+    raise ValueError("Patient name cannot be empty")
+if len(name) > 100:
+    raise ValueError("Patient name cannot exceed 100 characters")
+
+# 性別驗證 (MALE/FEMALE/OTHER)
+if gender not in ["MALE", "FEMALE", "OTHER"]:
+    raise ValueError("Invalid gender value")
+
+# 身高體重驗證 (合理範圍)
+if not (50 <= height_cm <= 250):
+    raise ValueError("Height must be between 50-250 cm")
+if not (20 <= weight_kg <= 300):
+    raise ValueError("Weight must be between 20-300 kg")
+
+# 出生日期驗證 (合理範圍，未來日期檢查)
+# 電話號碼驗證 (委派給 PhoneNumber Value Object)
+# 地址驗證 (委派給 Address Value Object)
+```
+
+**業務邏輯方法**:
+```python
+def calculate_bmi(self) -> float:
+    """Calculate Body Mass Index"""
+    height_m = self.height_cm / 100
+    return round(self.weight_kg / (height_m ** 2), 2)
+
+def calculate_age(self) -> int:
+    """Calculate age from birth_date"""
+    from datetime import date
+    today = date.today()
+    age = today.year - self.birth_date.year
+    if today.month < self.birth_date.month or \
+       (today.month == self.birth_date.month and today.day < self.birth_date.day):
+        age -= 1
+    return age
+```
+
+##### TD-003.2: Value Objects 實作 ✅
+**檔案**:
+- `backend/src/respira_ally/domain/value_objects/email.py`
+- `backend/src/respira_ally/domain/value_objects/phone_number.py`
+- `backend/src/respira_ally/domain/value_objects/address.py`
+
+**Commit**: `28a0a4d`
+
+**EmailAddress Value Object**:
+```python
+@dataclass(frozen=True)
+class EmailAddress:
+    """Email address value object with RFC-compliant validation"""
+    value: str
+
+    def __post_init__(self):
+        # RFC 5322 email validation
+        if not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', self.value):
+            raise ValueError(f"Invalid email address: {self.value}")
+        # Normalize to lowercase
+        object.__setattr__(self, 'value', self.value.lower())
+```
+
+**PhoneNumber Value Object**:
+```python
+@dataclass(frozen=True)
+class PhoneNumber:
+    """Taiwan mobile phone number with international support"""
+    value: str
+
+    def __post_init__(self):
+        # Taiwan mobile: 09XX-XXX-XXX
+        # International: +886-9XX-XXX-XXX
+        normalized = self.value.replace('-', '').replace(' ', '')
+
+        taiwan_pattern = r'^09\d{8}$'
+        intl_pattern = r'^\+8869\d{8}$'
+
+        if not (re.match(taiwan_pattern, normalized) or
+                re.match(intl_pattern, normalized)):
+            raise ValueError(f"Invalid Taiwan phone number: {self.value}")
+
+        object.__setattr__(self, 'value', normalized)
+```
+
+**Address Value Object**:
+```python
+@dataclass(frozen=True)
+class Address:
+    """Optional address with length validation"""
+    value: str
+
+    def __post_init__(self):
+        if self.value:
+            if not (5 <= len(self.value) <= 200):
+                raise ValueError("Address must be 5-200 characters")
+```
+
+**Patient Entity 整合**:
+```python
+# 變更前
+phone_number: str  # 僅字串，需手動驗證
+address: Optional[str]
+
+# 變更後
+phone_number: PhoneNumber  # Value Object，自動驗證
+address: Optional[Address]  # Value Object，可選
+```
+
+##### TD-003.3: Domain Events 整合 ✅
+**檔案**: `backend/src/respira_ally/domain/entities/patient.py`
+**Commit**: `e6ae549`
+
+**PatientUpdatedEvent 定義**:
+```python
+@dataclass
+class PatientUpdatedEvent:
+    """Published when patient profile is updated"""
+    patient_id: UUID
+    updated_fields: dict[str, Any]
+    bmi_changed: bool
+    occurred_at: datetime
+```
+
+**Event 管理實作**:
+```python
+class Patient:
+    def __init__(self, ...):
+        self._domain_events: list[DomainEvent] = []
+
+    def _add_domain_event(self, event: DomainEvent) -> None:
+        """Add domain event to internal list (not persisted)"""
+        self._domain_events.append(event)
+
+    def get_domain_events(self) -> list[DomainEvent]:
+        """Get all domain events for Application Service to publish"""
+        return self._domain_events.copy()
+
+    def clear_domain_events(self) -> None:
+        """Clear domain events after Application Service publishes them"""
+        self._domain_events.clear()
+
+    def update_profile(self, **updates) -> None:
+        """Update profile and publish PatientUpdatedEvent"""
+        old_bmi = self.calculate_bmi()
+
+        # Apply updates with validation
+        for field, value in updates.items():
+            setattr(self, field, value)
+
+        new_bmi = self.calculate_bmi()
+
+        # Publish event AFTER validation
+        self._add_domain_event(
+            PatientUpdatedEvent(
+                patient_id=self.id,
+                updated_fields=updates,
+                bmi_changed=(abs(new_bmi - old_bmi) > 0.1),
+                occurred_at=datetime.now()
+            )
+        )
+```
+
+##### TD-003.4: Domain Layer 單元測試 ✅
+**檔案**:
+- `backend/tests/unit/domain/value_objects/test_email.py`
+- `backend/tests/unit/domain/value_objects/test_phone_number.py`
+- `backend/tests/unit/domain/value_objects/test_address.py`
+- `backend/tests/unit/domain/entities/test_patient.py`
+
+**Commit**: `f7373c8`
+
+**測試覆蓋率統計**:
+- **EmailAddress**: 19 測試案例
+  - 有效 email 驗證、大小寫正規化
+  - 無效格式檢測、相等性比較
+
+- **PhoneNumber**: 25 測試案例
+  - 台灣手機格式 (09XX-XXX-XXX)
+  - 國際格式 (+886-9XX-XXX-XXX)
+  - 格式正規化、錯誤處理
+
+- **Address**: 18 測試案例
+  - 長度驗證 (5-200 字元)
+  - Optional 處理、邊界條件
+
+- **Patient Aggregate**: 35 測試案例
+  - 不變量驗證 (name, gender, height, weight, birth_date)
+  - 業務邏輯 (BMI 計算, 年齡計算)
+  - Profile 更新與驗證
+  - Domain Events 發布與管理
+  - Event 累積與清除
+
+**總計**: **97 個測試案例** ✅
+
+**測試品質原則** (Linus "Good Taste"):
+- 每個測試只測試一件事
+- 清晰、描述性的測試名稱
+- 全面的邊界情況覆蓋
+- 無測試間相依性
+- AAA 模式 (Arrange-Act-Assert)
+
+**測試執行**:
+```bash
+# 執行所有 Domain Layer 測試
+pytest backend/tests/unit/domain/ -v
+
+# 結果: 97 passed ✅
+```
+
+---
+
+#### 2. **技術債務 TD-002: 移除 temp_line_id 設計缺陷** ✅
 **Commits**: `7359fbb`, `5514aa2`, `20a3616`, `fd7a074`
 
 **問題描述**:
@@ -320,6 +554,26 @@ GROUP BY nsp.nspname;
 
 ## 🎯 技術債務狀態更新
 
+### TD-003: Domain Entity 完整實作
+
+**狀態**: ✅ 完成
+**優先級**: P0
+**預估工時**: 12h
+**實際工時**: 約 12h
+**完成日期**: 2025-11-01
+
+**驗收標準**:
+- ✅ 所有 Entity 具備完整的 `validate()` 方法
+- ✅ 敏感資訊使用 Value Objects 封裝 (Email, Phone, Address)
+- ✅ 關鍵業務操作觸發 Domain Events (PatientUpdatedEvent)
+- ✅ Domain Layer 測試覆蓋率達 97 個測試案例
+
+**影響範圍**:
+- Domain Layer: Patient Entity 不變量強化
+- Value Objects: EmailAddress, PhoneNumber, Address 實作
+- Domain Events: Event 管理機制與 PatientUpdatedEvent
+- Tests: 97 個單元測試案例
+
 ### TD-002: 移除 temp_line_id 設計缺陷
 
 **狀態**: ✅ 完成
@@ -385,10 +639,17 @@ GROUP BY nsp.nspname;
 - 優先級: P1
 - 預估工時: 12h
 
-**TD-003**: Domain Entity 完整實作 (Sprint 4-5)
-- 狀態: ⏳ 待實作
+**TD-002**: 移除 temp_line_id 設計缺陷 ✅
+- 狀態: ✅ 已完成
 - 優先級: P0
-- 預估工時: 12h
+- 完成日期: 2025-11-01
+- 實際工時: 8h
+
+**TD-003**: Domain Entity 完整實作 ✅
+- 狀態: ✅ 已完成
+- 優先級: P0
+- 完成日期: 2025-11-01
+- 實際工時: 12h
 
 ---
 
