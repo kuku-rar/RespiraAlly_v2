@@ -2,10 +2,11 @@
 import datetime
 from dataclasses import dataclass, field
 from decimal import Decimal
-from typing import Literal
+from typing import Literal, Optional
 from uuid import UUID
 
 from respira_ally.domain.exceptions import BusinessRuleViolationError
+from respira_ally.domain.value_objects import Address, PhoneNumber
 
 
 @dataclass
@@ -24,8 +25,8 @@ class Patient:
     gender: Literal["MALE", "FEMALE", "OTHER"]
     height_cm: Decimal
     weight_kg: Decimal
-    phone_number: str
-    address: str
+    phone_number: PhoneNumber  # Value Object with validation
+    address: Optional[Address] = None  # Optional Value Object
     created_at: datetime.datetime = field(default_factory=datetime.datetime.now)
     updated_at: datetime.datetime = field(default_factory=datetime.datetime.now)
 
@@ -73,8 +74,9 @@ class Patient:
         2. Gender must be valid enum value (MALE/FEMALE/OTHER)
         3. Height and weight must be positive
         4. Birth date cannot be in the future
-        5. Phone number and address must be non-empty (basic check until Value Objects implemented)
-        6. IDs (user_id, therapist_id) must exist
+        5. Phone number must be valid (validated by PhoneNumber Value Object)
+        6. Address is optional but must be valid if provided (validated by Address Value Object)
+        7. IDs (user_id, therapist_id) must exist
 
         Raises:
             BusinessRuleViolationError: If any invariant is violated
@@ -100,14 +102,15 @@ class Patient:
         if self.birth_date > datetime.date.today():
             raise BusinessRuleViolationError("Birth date cannot be in the future.")
 
-        # Invariant 5: Phone number and address basic validation
-        # Note: Full validation will be moved to Value Objects in TD-003.2
-        if not self.phone_number or not self.phone_number.strip():
-            raise BusinessRuleViolationError("Phone number cannot be empty.")
-        if not self.address or not self.address.strip():
-            raise BusinessRuleViolationError("Address cannot be empty.")
+        # Invariant 5: Phone number validation (enforced by PhoneNumber Value Object)
+        if not self.phone_number:
+            raise BusinessRuleViolationError("Phone number is required.")
+        # Note: Format validation is handled by PhoneNumber Value Object automatically
 
-        # Invariant 6: ID validation (basic existence check)
+        # Invariant 6: Address validation (optional, validated by Address Value Object if provided)
+        # No validation needed here - Address Value Object handles it
+
+        # Invariant 7: ID validation (basic existence check)
         if not self.user_id:
             raise BusinessRuleViolationError("User ID is required.")
         if not self.therapist_id:
