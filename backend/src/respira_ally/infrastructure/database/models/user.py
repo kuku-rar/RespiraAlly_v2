@@ -82,18 +82,19 @@ class UserModel(Base):
 
     # Constraints
     __table_args__ = (
-        # At least one login method must be provided
+        # Login method requirement (relaxed for PATIENT - TD-002)
+        # PATIENT can exist without login method (before LINE binding)
+        # Other roles must have at least one login method
         CheckConstraint(
-            "line_user_id IS NOT NULL OR email IS NOT NULL", name="users_login_method_check"
-        ),
-        # PATIENT must have line_user_id
-        CheckConstraint(
-            "role != 'PATIENT' OR line_user_id IS NOT NULL", name="users_patient_line_check"
+            "role = 'PATIENT' OR (line_user_id IS NOT NULL OR email IS NOT NULL)",
+            name="users_login_method_check",
         ),
         # THERAPIST must have email
         CheckConstraint(
             "role != 'THERAPIST' OR email IS NOT NULL", name="users_therapist_email_check"
         ),
+        # Note: users_patient_line_check removed in TD-002
+        # PATIENT can have line_user_id=NULL (before LINE binding)
     )
 
     def __repr__(self) -> str:
