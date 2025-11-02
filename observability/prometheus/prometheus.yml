@@ -1,0 +1,62 @@
+# Prometheus Configuration for RespiraAlly V2.0
+# Observability Phase 1: Metrics Collection
+
+global:
+  scrape_interval: 15s      # Scrape targets every 15 seconds
+  evaluation_interval: 15s  # Evaluate rules every 15 seconds
+  external_labels:
+    project: 'respirally'
+    environment: 'development'
+
+# Alerting configuration (optional for Phase 1, ready for future expansion)
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: []  # Will be configured in Phase 3
+
+# Rule files for alerts (to be added in future phases)
+rule_files:
+  # - "alerts/*.yml"
+
+# Scrape configurations
+scrape_configs:
+  # RespiraAlly Backend API metrics
+  - job_name: 'respirally-api'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['backend:8000']  # Docker service name
+        labels:
+          service: 'backend-api'
+          tier: 'application'
+
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+        labels:
+          service: 'prometheus'
+          tier: 'monitoring'
+
+  # PostgreSQL metrics (optional, requires postgres_exporter)
+  # - job_name: 'postgres'
+  #   static_configs:
+  #     - targets: ['postgres-exporter:9187']
+  #       labels:
+  #         service: 'postgres'
+  #         tier: 'database'
+
+  # Redis metrics (optional, requires redis_exporter)
+  # - job_name: 'redis'
+  #   static_configs:
+  #     - targets: ['redis-exporter:9121']
+  #       labels:
+  #         service: 'redis'
+  #         tier: 'cache'
+
+  # RabbitMQ metrics (optional, requires rabbitmq_exporter)
+  # - job_name: 'rabbitmq'
+  #   static_configs:
+  #     - targets: ['rabbitmq-exporter:9419']
+  #       labels:
+  #         service: 'rabbitmq'
+  #         tier: 'message-queue'

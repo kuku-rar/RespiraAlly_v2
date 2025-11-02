@@ -64,6 +64,7 @@ from respira_ally.domain.exceptions.domain_exceptions import (
     InvalidEntityStateError,
 )
 from respira_ally.infrastructure.database.session import engine
+from respira_ally.infrastructure.observability import PrometheusMetricsMiddleware, metrics_endpoint
 
 
 @asynccontextmanager
@@ -101,6 +102,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Prometheus Metrics Middleware (Observability Phase 1)
+app.add_middleware(PrometheusMetricsMiddleware)
 
 
 # ============================================================================
@@ -144,6 +148,21 @@ async def health_check() -> JSONResponse:
             "environment": settings.ENVIRONMENT,
         }
     )
+
+
+# Prometheus Metrics Endpoint (Observability Phase 1)
+@app.get("/metrics", tags=["Observability"])
+async def get_metrics():
+    """
+    Prometheus metrics endpoint.
+
+    Returns application metrics in Prometheus exposition format:
+    - http_request_duration_seconds: Request latency histogram
+    - http_requests_total: Total request counter
+    - http_errors_total: Error counter (4xx, 5xx)
+    - http_requests_in_progress: Active requests gauge
+    """
+    return await metrics_endpoint()
 
 
 # Include API Routers (7 Bounded Contexts + Sprint 4: Exacerbation + Alert + Sprint 5: Task + Sprint 6: LINE)
