@@ -64,24 +64,36 @@ from respira_ally.domain.exceptions.domain_exceptions import (
     InvalidEntityStateError,
 )
 from respira_ally.infrastructure.database.session import engine
-from respira_ally.infrastructure.observability import PrometheusMetricsMiddleware, metrics_endpoint
+from respira_ally.infrastructure.observability import (
+    CorrelationIDMiddleware,
+    PrometheusMetricsMiddleware,
+    configure_structlog,
+    get_logger,
+    metrics_endpoint,
+)
+
+# Configure structured logging (Observability Phase 2)
+configure_structlog()
+logger = get_logger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Application lifespan events"""
     # Startup
-    print("🚀 Starting RespiraAlly V2.0...")
-    print(f"📋 Environment: {settings.ENVIRONMENT}")
-    print(
-        f"🗄️  Database: {settings.DATABASE_URL.split('@')[1] if '@' in settings.DATABASE_URL else 'N/A'}"
+    logger.info(
+        "application_starting",
+        version="2.0.0",
+        environment=settings.ENVIRONMENT,
+        database=settings.DATABASE_URL.split("@")[1] if "@" in settings.DATABASE_URL else "N/A",
     )
 
     yield
 
     # Shutdown
-    print("🛑 Shutting down RespiraAlly V2.0...")
+    logger.info("application_shutting_down")
     await engine.dispose()
+    logger.info("database_connections_disposed")
 
 
 app = FastAPI(
@@ -103,8 +115,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Prometheus Metrics Middleware (Observability Phase 1)
-app.add_middleware(PrometheusMetricsMiddleware)
+# Observability Middleware (Phase 1 & 2)
+# Note: Order matters! Correlation ID should be outermost to track entire request
+app.add_middleware(CorrelationIDMiddleware)  # Phase 2: Request tracing
+app.add_middleware(PrometheusMetricsMiddleware)  # Phase 1: Metrics collection
 
 
 # ============================================================================
